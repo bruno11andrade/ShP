@@ -187,6 +187,51 @@
         font-size: 1.7rem;
         font-weight: 800;
       }
+      /* Cartão com dois valores (Qtd. Produzida / Qtd. Planeada), cada um
+         com o seu marcador de cor: verde = produzida, azul = planeada. */
+      .opt-kpi-dual {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        width: 100%;
+      }
+      .opt-kpi-dual-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .opt-kpi-dual-label {
+        display: flex;
+        align-items: center;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #cbd5e1;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .opt-kpi-dual-value {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #e2e8f0;
+        white-space: nowrap;
+      }
+      .opt-kpi-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
+        flex: 0 0 auto;
+      }
+      .opt-kpi-dot-prod {
+        background: #34d399;
+        box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
+      }
+      .opt-kpi-dot-plan {
+        background: #38bdf8;
+        box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+      }
       .opt-summary-card-main {
         border: 1px solid var(--cyan-accent) !important;
         box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25), var(--card-shadow) !important;
@@ -1487,37 +1532,32 @@
                 </div>
               </div>
             </div>
+            <!-- Qtd. Produzida (verde) em cima / Qtd. Planeada (azul) em baixo -->
             <div class="col">
               <div
                 class="opt-summary-card clickable"
                 id="hist-kpiCard-cumprimento2"
               >
-                <div class="title">
-                  <i class="fa-solid fa-boxes-stacked me-1"></i>Qtd. Planeada
-                </div>
-                <div
-                  class="value"
-                  id="hist-kpiQtdPlaneada"
-                  style="color: #e2e8f0"
-                >
-                  0
-                </div>
-              </div>
-            </div>
-            <div class="col">
-              <div
-                class="opt-summary-card clickable"
-                id="hist-kpiCard-cumprimento3"
-              >
-                <div class="title">
-                  <i class="fa-solid fa-boxes-packing me-1"></i>Qtd. Produzida
-                </div>
-                <div
-                  class="value"
-                  id="hist-kpiQtdProduzida"
-                  style="color: #e2e8f0"
-                >
-                  0
+                <div class="opt-kpi-dual">
+                  <div class="opt-kpi-dual-row">
+                    <span class="opt-kpi-dual-label">
+                      <span class="opt-kpi-dot opt-kpi-dot-prod"></span>
+                      <i class="fa-solid fa-boxes-packing me-1"></i>Qtd.
+                      Produzida
+                    </span>
+                    <span class="opt-kpi-dual-value" id="hist-kpiQtdProduzida">
+                      0
+                    </span>
+                  </div>
+                  <div class="opt-kpi-dual-row">
+                    <span class="opt-kpi-dual-label">
+                      <span class="opt-kpi-dot opt-kpi-dot-plan"></span>
+                      <i class="fa-solid fa-boxes-stacked me-1"></i>Qtd. Planeada
+                    </span>
+                    <span class="opt-kpi-dual-value" id="hist-kpiQtdPlaneada">
+                      0
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1542,6 +1582,24 @@
             <div class="col">
               <div
                 class="opt-summary-card clickable"
+                title="Média da diferença (em dias) entre a Data de Produção e a Data Planeada dos registos já produzidos"
+                id="hist-kpiCard-atraso"
+              >
+                <div class="title">
+                  <i class="fa-solid fa-clock me-1"></i>Média Dias Atraso
+                </div>
+                <div
+                  class="value"
+                  id="hist-kpiMediaAtraso"
+                  style="color: #94a3b8"
+                >
+                  0
+                </div>
+              </div>
+            </div>
+            <div class="col">
+              <div
+                class="opt-summary-card clickable"
                 title="Registos com Status = Produzido e Qtd. Produzida = 0 ou vazio (exceto Data Produção = hoje)"
                 id="hist-kpiCard-semqtd"
               >
@@ -1552,7 +1610,7 @@
                 <div
                   class="value"
                   id="hist-kpiProduzidoSemQtd"
-                  style="color: #fb923c"
+                  style="color: #34d399"
                 >
                   0
                 </div>
@@ -1996,9 +2054,7 @@
             });
 
           // Cartões de KPI do Histórico -> mesmo modal de detalhes
-          $(
-            '#hist-kpiCard-cumprimento1, #hist-kpiCard-cumprimento2, #hist-kpiCard-cumprimento3'
-          )
+          $('#hist-kpiCard-cumprimento1, #hist-kpiCard-cumprimento2')
             .off('click')
             .on('click', function () {
               showHistKpiDetails('cumprimento');
@@ -2007,6 +2063,11 @@
             .off('click')
             .on('click', function () {
               showHistKpiDetails('prazo');
+            });
+          $('#hist-kpiCard-atraso')
+            .off('click')
+            .on('click', function () {
+              showHistKpiDetails('atraso');
             });
           $('#hist-kpiCard-semqtd')
             .off('click')
@@ -2986,6 +3047,34 @@
           return '#34d399'; // Verde
         }
 
+        /* Quantidades (planeada/produzida) são sempre apresentadas como
+           números inteiros, com separador de milhares pt-PT. */
+        function formatQtd(n) {
+          return Math.round(Number(n) || 0).toLocaleString('pt-PT', {
+            maximumFractionDigits: 0,
+          });
+        }
+
+        /* Média de dias de atraso: 1 casa decimal, com sinal para o caso de
+           estar adiantado (negativo). */
+        function formatDias(n) {
+          const v = Number(n) || 0;
+          const txt = Math.abs(v).toLocaleString('pt-PT', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          });
+          if (Math.abs(v) < 0.05) return '0,0 d';
+          return `${v > 0 ? '+' : '-'}${txt} d`;
+        }
+
+        /* Verde se no prazo/adiantado, amarelo até 1 dia, vermelho acima. */
+        function getAtrasoColor(dias) {
+          const v = Number(dias) || 0;
+          if (v <= 0) return '#34d399'; // Verde
+          if (v <= 1) return '#fb923c'; // Amarelo
+          return '#f87171'; // Vermelho
+        }
+
         /* ATUALIZAÇÃO DOS KPIS DADOS OS CCS EXPANDIDOS/ATIVOS COM CORES DINÂMICAS */
         function renderSummaryKPIs() {
           const selectedArea = $('#opt-selArea').val() || '';
@@ -3416,8 +3505,8 @@
             <td class="fw-bold">${escapeHtml(item.CC)}</td>
             <td>${escapeHtml(item.KA)}</td>
             <td>${item.DataFormatted}</td>
-            <td>${plan}</td>
-            <td>${prod}</td>
+            <td>${formatQtd(plan)}</td>
+            <td>${formatQtd(prod)}</td>
             <td><span class="badge ${badgeClass}">${pct}%</span></td>
           </tr>`;
               });
@@ -3569,8 +3658,8 @@
             <td class="fw-bold">${escapeHtml(item.CC)}</td>
             <td>${escapeHtml(item.KA)}</td>
             <td>${item.DataFormatted || '—'}</td>
-            <td>${plan.toLocaleString('pt-PT')}</td>
-            <td>${prod.toLocaleString('pt-PT')}</td>
+            <td>${formatQtd(plan)}</td>
+            <td>${formatQtd(prod)}</td>
             <td><span class="badge ${badgeClass}">${pct}%</span></td>
           </tr>`;
               });
@@ -3613,6 +3702,46 @@
               });
             }
             html += `</tbody></table></div>`;
+          } else if (type === 'atraso') {
+            title =
+              '<i class="fa-solid fa-clock me-2"></i>Detalhes: Média de Dias de Atraso';
+            const comData = items.filter((i) => i.RawDataProducaoObj);
+            html = `
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-opt w-100">
+          <thead>
+            <tr>
+              <th>CC</th>
+              <th>KA / Material</th>
+              <th>Data Planeada</th>
+              <th>Data Produção</th>
+              <th>Dias de Desvio</th>
+            </tr>
+          </thead>
+          <tbody>`;
+            if (comData.length === 0) {
+              html += `<tr><td colspan="5" class="text-muted">Sem registos com Data Produção para os filtros selecionados.</td></tr>`;
+            } else {
+              comData.forEach((item) => {
+                const dias = Math.round(
+                  (item.RawDataProducaoObj - item.RawDateObj) /
+                    (1000 * 60 * 60 * 24)
+                );
+                const badgeClass =
+                  dias <= 0 ? 'bg-success' : dias <= 1 ? 'bg-warning text-dark' : 'bg-danger';
+                html += `
+          <tr>
+            <td class="fw-bold">${escapeHtml(item.CC)}</td>
+            <td>${escapeHtml(item.KA)}</td>
+            <td>${item.DataFormatted || '—'}</td>
+            <td>${item.DataProducaoFormatted || '—'}</td>
+            <td><span class="badge ${badgeClass}">${
+                  dias > 0 ? '+' : ''
+                }${dias}</span></td>
+          </tr>`;
+              });
+            }
+            html += `</tbody></table></div>`;
           } else if (type === 'semqtd') {
             title =
               '<i class="fa-solid fa-triangle-exclamation me-2"></i>Detalhes: Caixa de Erros';
@@ -3645,7 +3774,7 @@
             <td>${escapeHtml(item.KA)}</td>
             <td>${item.DataFormatted || '—'}</td>
             <td>${escapeHtml(item.Status || '—')}</td>
-            <td>${item.QtdProduzida || 0}</td>
+            <td>${formatQtd(item.QtdProduzida)}</td>
           </tr>`;
               });
             }
@@ -4970,6 +5099,18 @@
           const pctFRT =
             items.length > 0 ? Math.round((okFRT / items.length) * 100) : 0;
 
+          // Média de dias de atraso: diferença média (Data Produção - Data
+          // Planeada) dos registos que já têm data de produção. Valores
+          // negativos = produzido antes do planeado (adiantado).
+          const desvios = comDataProducao.map(
+            (i) =>
+              (i.RawDataProducaoObj - i.RawDateObj) / (1000 * 60 * 60 * 24)
+          );
+          const mediaAtraso =
+            desvios.length > 0
+              ? desvios.reduce((a, d) => a + d, 0) / desvios.length
+              : 0;
+
           const produzidoSemQtd = items.filter(
             (i) =>
               i.Status === 'Produzido' &&
@@ -4977,11 +5118,14 @@
               !isToday(i.RawDataProducaoObj)
           ).length;
 
-          $('#hist-kpiProduzidoSemQtd').text(produzidoSemQtd);
-          $('#hist-kpiQtdPlaneada').text(totalPlaneada.toLocaleString('pt-PT'));
-          $('#hist-kpiQtdProduzida').text(
-            totalProduzida.toLocaleString('pt-PT')
-          );
+          $('#hist-kpiProduzidoSemQtd')
+            .text(produzidoSemQtd)
+            .css('color', produzidoSemQtd === 0 ? '#34d399' : '#fb923c');
+          $('#hist-kpiQtdPlaneada').text(formatQtd(totalPlaneada));
+          $('#hist-kpiQtdProduzida').text(formatQtd(totalProduzida));
+          $('#hist-kpiMediaAtraso')
+            .text(formatDias(mediaAtraso))
+            .css('color', getAtrasoColor(mediaAtraso));
           $('#hist-kpiCumprimento')
             .text(`${pctCumprimento}%`)
             .css('color', getKpiColor(pctCumprimento));
@@ -5141,8 +5285,9 @@
           const labels = Object.keys(map).sort(
             (a, b) => map[a].sortKey - map[b].sortKey
           );
-          const planeadaData = labels.map((l) => map[l].planeada);
-          const produzidaData = labels.map((l) => map[l].produzida);
+          // Quantidades sempre em números inteiros
+          const planeadaData = labels.map((l) => Math.round(map[l].planeada));
+          const produzidaData = labels.map((l) => Math.round(map[l].produzida));
           const hasData = labels.length > 0;
 
           if (histChartEvolucao) histChartEvolucao.destroy();
