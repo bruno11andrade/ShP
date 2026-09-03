@@ -252,13 +252,15 @@
         min-height: 200px !important;
       }
       /* A faixa do eixo fixo do gráfico "Nº Entradas de KA" é propositadamente
-         pequena (30px) — não usa "position: relative" inline para nunca ser
-         apanhada pela regra genérica acima (que forçaria min-height:200px). */
+         pequena (36px) — não usa "position: relative" inline para nunca ser
+         apanhada pela regra genérica acima (que forçaria min-height:200px).
+         36px (em vez de 30px) dá espaço suficiente para os números dos
+         ticks não ficarem cortados pelo overflow:hidden. */
       .opt-chart-card .opt-chart-axis-wrap {
         position: relative;
-        min-height: 30px !important;
-        height: 30px !important;
-        max-height: 30px !important;
+        min-height: 36px !important;
+        height: 36px !important;
+        max-height: 36px !important;
         overflow: hidden;
       }
       .opt-chart-card .opt-topka-scrollwrap {
@@ -1704,7 +1706,7 @@
               <!-- Eixo dos X fixo (não faz scroll), sempre alinhado com as barras acima -->
               <div
                 class="opt-chart-axis-wrap"
-                style="height: 30px; padding-right: 10px"
+                style="height: 36px; padding-right: 10px"
               >
                 <canvas id="hist-chartTopKAAxis"></canvas>
               </div>
@@ -5602,7 +5604,7 @@
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: { padding: { right: 8 } },
+                layout: { padding: { top: 0, right: 8, bottom: 0 } },
                 animation: false,
                 plugins: {
                   legend: { display: false },
@@ -5613,7 +5615,12 @@
                   x: {
                     beginAtZero: true,
                     max: hasData ? axisMax : undefined,
-                    ticks: { color: '#94a3b8', precision: 0 },
+                    ticks: {
+                      color: '#94a3b8',
+                      precision: 0,
+                      padding: 2,
+                      font: { size: 10 },
+                    },
                     grid: { color: 'rgba(148,163,184,0.1)' },
                   },
                   y: {
