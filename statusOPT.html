@@ -296,16 +296,17 @@
       .opt-chart-card > div[style*='position: relative'] {
         min-height: 200px !important;
       }
-      /* A faixa do eixo fixo do gráfico "Nº Entradas de KA" é propositadamente
-         pequena (36px) — não usa "position: relative" inline para nunca ser
-         apanhada pela regra genérica acima (que forçaria min-height:200px).
-         36px (em vez de 30px) dá espaço suficiente para os números dos
-         ticks não ficarem cortados pelo overflow:hidden. */
+      /* A faixa do eixo fixo dos gráficos por KA é propositadamente pequena
+         — não usa "position: relative" inline para nunca ser apanhada pela
+         regra genérica acima (que forçaria min-height:200px). A altura tem
+         de chegar para a linha do eixo MAIS a altura total dos números
+         (incluindo o que desce abaixo da linha de base), senão o
+         overflow:hidden corta-lhes a parte de baixo. */
       .opt-chart-card .opt-chart-axis-wrap {
         position: relative;
-        min-height: 36px !important;
-        height: 36px !important;
-        max-height: 36px !important;
+        min-height: 46px !important;
+        height: 46px !important;
+        max-height: 46px !important;
         overflow: hidden;
       }
       .opt-chart-card .opt-topka-scrollwrap {
@@ -512,6 +513,32 @@
         background: rgba(34, 211, 238, 0.12);
       }
       .opt-area-btn.active {
+        background: var(--cyan-accent);
+        color: #0f172a;
+      }
+      /* Seletor C.C./KA do gráfico "% de Interrupções" — mesma linguagem
+         visual dos botões de Área, em versão pequena para caber na linha
+         do título do cartão. */
+      .opt-chart-toggle {
+        display: flex;
+        gap: 4px;
+        flex: 0 0 auto;
+      }
+      .opt-chart-toggle button {
+        border: 1px solid var(--cyan-accent);
+        background: transparent;
+        color: var(--cyan-accent);
+        font-weight: 700;
+        font-size: 0.72rem;
+        border-radius: 5px;
+        padding: 1px 9px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .opt-chart-toggle button:hover {
+        background: rgba(34, 211, 238, 0.12);
+      }
+      .opt-chart-toggle button.active {
         background: var(--cyan-accent);
         color: #0f172a;
       }
@@ -1701,25 +1728,38 @@
         </div>
 
         <div class="opt-hist-section-title">
-          <i class="fa-solid fa-circle-pause"></i>Interrupções, Desvios e
-          Pontualidade
+          <i class="fa-solid fa-calendar-check"></i>Pontualidade, Interrupções e
+          Desvios
         </div>
         <div class="row g-3 mb-3">
+          <div class="col-lg-4">
+            <div class="opt-chart-card">
+              <div class="chart-title">
+                Cumprimento do Prazo (Data Produção vs Data Planeada)
+              </div>
+              <div style="position: relative; height: 260px">
+                <canvas id="hist-chartPrazo"></canvas>
+              </div>
+            </div>
+          </div>
           <div class="col-lg-4">
             <div class="opt-chart-card">
               <div
                 class="chart-title d-flex align-items-center justify-content-between"
               >
+                <span>% de Interrupções</span>
                 <span
-                  ><i class="fa-solid fa-circle-pause me-1"></i>Interrupções por
-                  C.C.</span
-                >
-                <span
-                  class="text-muted"
+                  class="text-muted fw-normal text-end flex-grow-1 px-2"
                   style="font-size: 0.72rem"
                   id="hist-lblTotalInterrupcoes"
-                  >Total: 0</span
+                  >0 interrup. / 0 produções</span
                 >
+                <div class="opt-chart-toggle" id="hist-grpInterrupcoes">
+                  <button type="button" class="active" data-modo="cc">
+                    C.C.
+                  </button>
+                  <button type="button" data-modo="ka">KA</button>
+                </div>
               </div>
               <div style="position: relative; height: 260px">
                 <canvas id="hist-chartInterrupcoes"></canvas>
@@ -1734,68 +1774,78 @@
               </div>
             </div>
           </div>
-          <div class="col-lg-4">
-            <div class="opt-chart-card">
-              <div class="chart-title">
-                Cumprimento do Prazo (Data Produção vs Data Planeada)
-              </div>
-              <div style="position: relative; height: 260px">
-                <canvas id="hist-chartPrazo"></canvas>
-              </div>
-            </div>
-          </div>
         </div>
 
         <div class="opt-hist-section-title">
           <i class="fa-solid fa-layer-group"></i>Bobines Abastecidas /
-          <i class="fa-solid fa-ranking-star"></i>Nº Entradas de KA
+          <i class="fa-solid fa-ranking-star"></i>Nº Produções
         </div>
         <div class="row g-3 mb-3 align-items-start">
           <div class="col-lg-6">
             <div class="opt-chart-card">
-              <div class="chart-title">Qtd. Bobines Abastecidas por KA</div>
+              <div
+                class="chart-title d-flex align-items-center justify-content-between"
+              >
+                <span>Qtd. Bobines Abastecidas</span>
+                <div class="opt-chart-toggle" id="hist-grpBobines">
+                  <button type="button" data-modo="cc">C.C.</button>
+                  <button type="button" class="active" data-modo="ka">
+                    KA
+                  </button>
+                </div>
+              </div>
               <div
                 class="opt-topka-scrollwrap"
                 style="padding-right: 10px"
-                id="opt-bobinesKAScrollWrap"
+                id="opt-bobinesScrollWrap"
               >
                 <div
-                  id="opt-bobinesKAInner"
+                  id="opt-bobinesInner"
                   style="position: relative; width: 100%; height: 300px"
                 >
-                  <canvas id="hist-chartBobinesKA"></canvas>
+                  <canvas id="hist-chartBobines"></canvas>
                 </div>
               </div>
               <!-- Eixo dos X fixo (não faz scroll), sempre alinhado com as barras acima -->
               <div
                 class="opt-chart-axis-wrap"
-                style="height: 36px; padding-right: 10px"
+                style="height: 46px; padding-right: 10px"
               >
-                <canvas id="hist-chartBobinesKAAxis"></canvas>
+                <canvas id="hist-chartBobinesAxis"></canvas>
               </div>
             </div>
           </div>
           <div class="col-lg-6">
             <div class="opt-chart-card">
-              <div class="chart-title">Nº Entradas de KA</div>
+              <div
+                class="chart-title d-flex align-items-center justify-content-between"
+              >
+                <span>Nº Produções</span>
+                <div class="opt-chart-toggle" id="hist-grpProducoes">
+                  <button type="button" data-modo="cc">C.C.</button>
+                  <button type="button" class="active" data-modo="ka">
+                    KA
+                  </button>
+                </div>
+              </div>
               <div
                 class="opt-topka-scrollwrap"
                 style="padding-right: 10px"
-                id="opt-topKAScrollWrap"
+                id="opt-producoesScrollWrap"
               >
                 <div
-                  id="opt-topKAInner"
+                  id="opt-producoesInner"
                   style="position: relative; width: 100%; height: 300px"
                 >
-                  <canvas id="hist-chartTopKA"></canvas>
+                  <canvas id="hist-chartProducoes"></canvas>
                 </div>
               </div>
               <!-- Eixo dos X fixo (não faz scroll), sempre alinhado com as barras acima -->
               <div
                 class="opt-chart-axis-wrap"
-                style="height: 36px; padding-right: 10px"
+                style="height: 46px; padding-right: 10px"
               >
-                <canvas id="hist-chartTopKAAxis"></canvas>
+                <canvas id="hist-chartProducoesAxis"></canvas>
               </div>
             </div>
           </div>
@@ -1848,11 +1898,15 @@
         let histChartCC = null;
         let histChartArea = null;
         let histChartInterrupcoes = null;
+        // Dimensão de cada gráfico com seletor: 'cc' (Centro de Custo) ou 'ka'
+        let histInterrupcoesModo = 'cc';
+        let histBobinesModo = 'ka';
+        let histProducoesModo = 'ka';
         let histChartPrazo = null;
-        let histChartTopKA = null;
-        let histChartTopKAAxis = null;
-        let histChartBobinesKA = null;
-        let histChartBobinesKAAxis = null;
+        let histChartProducoes = null;
+        let histChartProducoesAxis = null;
+        let histChartBobines = null;
+        let histChartBobinesAxis = null;
         let histChartCausaRaiz = null;
 
         // --- Estado do módulo "Material em risco de falha" ---
@@ -2109,6 +2163,20 @@
             .on('click', function () {
               showHistKpiDetails('disp');
             });
+
+          // Seletores C.C./KA dos gráficos que suportam as duas dimensões
+          bindChartToggle('#hist-grpInterrupcoes', function (modo) {
+            histInterrupcoesModo = modo;
+            renderHistChartInterrupcoes(histBaseItems || []);
+          });
+          bindChartToggle('#hist-grpBobines', function (modo) {
+            histBobinesModo = modo;
+            renderHistChartBobines(histBaseItems || []);
+          });
+          bindChartToggle('#hist-grpProducoes', function (modo) {
+            histProducoesModo = modo;
+            renderHistChartProducoes(histBaseItems || []);
+          });
 
           $('#opt-ccAccordionContainer')
             .off('shown.bs.collapse hidden.bs.collapse')
@@ -5297,10 +5365,10 @@
               renderHistChartPrazo(items);
             },
             function () {
-              renderHistChartTopKA(items);
+              renderHistChartProducoes(items);
             },
             function () {
-              renderHistChartBobinesKA(items);
+              renderHistChartBobines(items);
             },
             function () {
               renderHistChartCausaRaiz(items);
@@ -5324,10 +5392,10 @@
               histChartArea,
               histChartInterrupcoes,
               histChartPrazo,
-              histChartTopKA,
-              histChartTopKAAxis,
-              histChartBobinesKA,
-              histChartBobinesKAAxis,
+              histChartProducoes,
+              histChartProducoesAxis,
+              histChartBobines,
+              histChartBobinesAxis,
               histChartCausaRaiz,
             ].forEach(function (c) {
               if (c) c.resize();
@@ -5576,31 +5644,72 @@
           });
         }
 
-        /* Nº de interrupções (paragens não programadas) somadas por Centro de
-           Custo. Mostra apenas os C.C. com interrupções registadas, do maior
-           para o menor, para se ver de imediato onde as paragens se
-           concentram. O total do período aparece no título do cartão. */
+        /* Liga o seletor C.C./KA do título de um cartão: marca o botão
+           escolhido como ativo e volta a desenhar o gráfico sobre os itens
+           já filtrados (histBaseItems), sem ir buscar dados outra vez. */
+        function bindChartToggle(seletor, onChange) {
+          const $botoes = $(seletor + ' button');
+          $botoes.off('click').on('click', function () {
+            const $btn = $(this);
+            if ($btn.hasClass('active')) return;
+            $botoes.removeClass('active');
+            $btn.addClass('active');
+            onChange(String($btn.data('modo')));
+          });
+        }
+
+        /* Percentagens pequenas ganham uma casa decimal, para não colapsarem
+           todas em "0%" ou "6%" quando o que distingue os valores está nas
+           décimas (ex.: 5,8% vs 6,3%). */
+        function formatPct(valor) {
+          const v = Number(valor) || 0;
+          if (v >= 10) return `${Math.round(v)}%`;
+          return `${v.toLocaleString('pt-PT', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })}%`;
+        }
+
+        /* % de Interrupções = nº de interrupções (paragens não programadas)
+           a dividir pelo nº de produções, por Centro de Custo ou por KA
+           conforme o seletor do cartão. Quanto maior, pior: um C.C. com 10
+           produções e 7 interrupções está nos 70%. Pode passar os 100% se
+           houver várias paragens na mesma produção. Só entram os grupos com
+           interrupções registadas — os restantes seriam barras a zero. */
         function renderHistChartInterrupcoes(items) {
+          const porKA = histInterrupcoesModo === 'ka';
           const map = {};
           let totalInterrupcoes = 0;
           items.forEach((i) => {
+            const chave = (porKA ? i.KA : i.CC) || 'N/D';
+            if (!map[chave]) map[chave] = { producoes: 0, interrupcoes: 0 };
+            map[chave].producoes++;
             const qtd = i.QtdInterrompido || 0;
-            if (qtd <= 0) return;
-            const cc = i.CC || 'N/A';
-            map[cc] = (map[cc] || 0) + qtd;
+            map[chave].interrupcoes += qtd;
             totalInterrupcoes += qtd;
           });
 
           const TOP_N = 8;
           const all = Object.keys(map)
-            .map((k) => ({ cc: k, count: map[k] }))
-            .sort((a, b) => b.count - a.count);
+            .map((k) => ({
+              chave: k,
+              producoes: map[k].producoes,
+              interrupcoes: map[k].interrupcoes,
+              pct:
+                map[k].producoes > 0
+                  ? (map[k].interrupcoes / map[k].producoes) * 100
+                  : 0,
+            }))
+            .filter((e) => e.interrupcoes > 0)
+            .sort((a, b) => b.pct - a.pct);
           const top = all.slice(0, TOP_N);
           const hasData = top.length > 0;
 
           $('#hist-lblTotalInterrupcoes').text(
-            `Total: ${formatQtd(totalInterrupcoes)}` +
-              (all.length > TOP_N ? ` (top ${TOP_N} C.C.)` : '')
+            `${formatQtd(totalInterrupcoes)} interrup. / ${formatQtd(
+              items.length
+            )} produções` +
+              (all.length > TOP_N ? ` · top ${TOP_N}` : '')
           );
 
           if (histChartInterrupcoes) histChartInterrupcoes.destroy();
@@ -5609,11 +5718,11 @@
             {
               type: 'bar',
               data: {
-                labels: hasData ? top.map((t) => t.cc) : ['Sem dados'],
+                labels: hasData ? top.map((t) => t.chave) : ['Sem dados'],
                 datasets: [
                   {
-                    label: 'Nº de interrupções',
-                    data: hasData ? top.map((t) => t.count) : [0],
+                    label: '% de interrupções',
+                    data: hasData ? top.map((t) => t.pct) : [0],
                     backgroundColor: '#fb923c',
                   },
                 ],
@@ -5625,12 +5734,23 @@
                 layout: { padding: { right: 12 } },
                 plugins: {
                   legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: (ctx) => {
+                        const e = top[ctx.dataIndex];
+                        if (!e) return '';
+                        return `${formatPct(e.pct)} — ${formatQtd(
+                          e.interrupcoes
+                        )} interrupções em ${formatQtd(e.producoes)} produções`;
+                      },
+                    },
+                  },
                   datalabels: {
                     anchor: 'end',
                     align: 'end',
                     color: '#e2e8f0',
                     font: { weight: 'bold', size: 11 },
-                    formatter: (v) => (v > 0 ? formatQtd(v) : ''),
+                    formatter: (v) => (v > 0 ? formatPct(v) : ''),
                   },
                   title: hasData
                     ? { display: false }
@@ -5648,7 +5768,10 @@
                     // Folga à direita para o valor da maior barra não ficar
                     // colado ao limite do gráfico.
                     grace: '12%',
-                    ticks: { color: '#94a3b8', precision: 0 },
+                    ticks: {
+                      color: '#94a3b8',
+                      callback: (v) => `${v}%`,
+                    },
                     grid: { color: 'rgba(148,163,184,0.1)' },
                   },
                   y: {
@@ -5752,10 +5875,10 @@
         }
 
         /* Gráfico de barras horizontais por KA, com scroll vertical e eixo
-           dos X fixo por baixo (partilhado pelo "Nº Entradas de KA" e pelo
+           dos X fixo por baixo (partilhado pelo "Nº Produções por KA" e pelo
            "Qtd. Bobines Abastecidas por KA"). Devolve as duas instâncias
            criadas: a das barras e a do eixo fixo. */
-        function renderHistChartKABars(cfg) {
+        function renderHistChartBarrasScroll(cfg) {
           const all = Object.keys(cfg.map)
             .map((k) => ({ ka: k, valor: cfg.map[k] }))
             .sort((a, b) => b.valor - a.valor);
@@ -5794,6 +5917,10 @@
                   label: cfg.label,
                   data: hasData ? all.map((t) => t.valor) : [0],
                   backgroundColor: cfg.color,
+                  // A altura do contentor é calculada para ~28px por barra;
+                  // limitar a espessura evita barras enormes quando o grupo
+                  // escolhido tem poucas linhas (ex.: por Centro de Custo).
+                  maxBarThickness: 26,
                 },
               ],
             },
@@ -5855,7 +5982,10 @@
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: { padding: { top: 0, right: 8, bottom: 0 } },
+                // O padding inferior garante folga por baixo dos números do
+                // eixo: sem ele o Chart.js encosta-os ao fundo do canvas e o
+                // overflow:hidden da faixa corta-lhes a base.
+                layout: { padding: { top: 0, right: 8, bottom: 6 } },
                 animation: false,
                 plugins: {
                   legend: { display: false },
@@ -5890,53 +6020,57 @@
           return { chart: chart, axisChart: axisChart };
         }
 
-        function renderHistChartTopKA(items) {
+        /* Nº de produções (linhas do plano) agrupadas por KA ou por Centro de
+           Custo, conforme o seletor do cartão. */
+        function renderHistChartProducoes(items) {
+          const porKA = histProducoesModo === 'ka';
           const map = {};
           items.forEach((i) => {
-            const ka = i.KA || 'N/D';
-            map[ka] = (map[ka] || 0) + 1;
+            const chave = (porKA ? i.KA : i.CC) || 'N/D';
+            map[chave] = (map[chave] || 0) + 1;
           });
 
-          const charts = renderHistChartKABars({
+          const charts = renderHistChartBarrasScroll({
             map: map,
-            innerId: 'opt-topKAInner',
-            canvasId: 'hist-chartTopKA',
-            axisCanvasId: 'hist-chartTopKAAxis',
-            label: 'Nº de entradas',
+            innerId: 'opt-producoesInner',
+            canvasId: 'hist-chartProducoes',
+            axisCanvasId: 'hist-chartProducoesAxis',
+            label: 'Nº de produções',
             color: '#a78bfa',
             emptyText: 'Sem dados disponíveis para os filtros selecionados',
-            prevChart: histChartTopKA,
-            prevAxisChart: histChartTopKAAxis,
+            prevChart: histChartProducoes,
+            prevAxisChart: histChartProducoesAxis,
           });
-          histChartTopKA = charts.chart;
-          histChartTopKAAxis = charts.axisChart;
+          histChartProducoes = charts.chart;
+          histChartProducoesAxis = charts.axisChart;
         }
 
-        /* Quantidade de bobines abastecidas somada por KA. Só entram os KA
-           com bobines registadas (> 0) — os restantes só acrescentariam
-           barras vazias à lista. */
-        function renderHistChartBobinesKA(items) {
+        /* Quantidade de bobines abastecidas, somada por KA ou por Centro de
+           Custo conforme o seletor do cartão. Só entram os grupos com bobines
+           registadas (> 0) — os restantes só acrescentariam barras vazias. */
+        function renderHistChartBobines(items) {
+          const porKA = histBobinesModo === 'ka';
           const map = {};
           items.forEach((i) => {
             const qtd = i.QtdBobines || 0;
             if (qtd <= 0) return;
-            const ka = i.KA || 'N/D';
-            map[ka] = (map[ka] || 0) + qtd;
+            const chave = (porKA ? i.KA : i.CC) || 'N/D';
+            map[chave] = (map[chave] || 0) + qtd;
           });
 
-          const charts = renderHistChartKABars({
+          const charts = renderHistChartBarrasScroll({
             map: map,
-            innerId: 'opt-bobinesKAInner',
-            canvasId: 'hist-chartBobinesKA',
-            axisCanvasId: 'hist-chartBobinesKAAxis',
+            innerId: 'opt-bobinesInner',
+            canvasId: 'hist-chartBobines',
+            axisCanvasId: 'hist-chartBobinesAxis',
             label: 'Qtd. de bobines',
             color: '#22d3ee',
             emptyText: 'Sem bobines abastecidas para os filtros selecionados',
-            prevChart: histChartBobinesKA,
-            prevAxisChart: histChartBobinesKAAxis,
+            prevChart: histChartBobines,
+            prevAxisChart: histChartBobinesAxis,
           });
-          histChartBobinesKA = charts.chart;
-          histChartBobinesKAAxis = charts.axisChart;
+          histChartBobines = charts.chart;
+          histChartBobinesAxis = charts.axisChart;
         }
 
         function renderHistChartCausaRaiz(items) {
