@@ -1649,7 +1649,7 @@
                 id="hist-kpiCard-disp"
               >
                 <div class="title">
-                  <i class="fa-solid fa-boxes-stacked me-1"></i>Disp. MP / FRT
+                  <i class="fa-solid fa-boxes-stacked me-1"></i>Disponibilidade. MP / FRT
                 </div>
                 <div
                   class="value"
@@ -5406,9 +5406,15 @@
         function renderHistChartEvolucao(items) {
           const selPeriodo = $('#hist-selPeriodo').val() || 'data';
           const map = {}; // { label: { planeada, produzida, sortKey } }
-          items.forEach((i) => {
-            if (!i.RawDateObj) return;
-            const group = getEvolucaoGroup(i.RawDateObj, selPeriodo);
+
+          /* Cada quantidade é lançada na SUA data: a Qtd. Planeada na Data
+             (planeada) e a Qtd. Produzida na Data de Produção. Lançar as
+             duas na data planeada escondia o desvio sempre que a produção
+             não acontecia no dia previsto (ex.: planeado a 11-09 e produzido
+             a 14-09 aparecia todo no 11-09). */
+          function acumular(dataObj, campo, valor) {
+            if (!dataObj) return;
+            const group = getEvolucaoGroup(dataObj, selPeriodo);
             if (!group) return;
             if (!map[group.label]) {
               map[group.label] = {
@@ -5417,8 +5423,12 @@
                 sortKey: group.sortKey,
               };
             }
-            map[group.label].planeada += i.QtdPlaneada || 0;
-            map[group.label].produzida += i.QtdProduzida || 0;
+            map[group.label][campo] += valor || 0;
+          }
+
+          items.forEach((i) => {
+            acumular(i.RawDateObj, 'planeada', i.QtdPlaneada);
+            acumular(i.RawDataProducaoObj, 'produzida', i.QtdProduzida);
           });
 
           const labels = Object.keys(map).sort(
