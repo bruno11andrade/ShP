@@ -296,16 +296,17 @@
       .opt-chart-card > div[style*='position: relative'] {
         min-height: 200px !important;
       }
-      /* A faixa do eixo fixo do gráfico "Nº Entradas de KA" é propositadamente
-         pequena (36px) — não usa "position: relative" inline para nunca ser
-         apanhada pela regra genérica acima (que forçaria min-height:200px).
-         36px (em vez de 30px) dá espaço suficiente para os números dos
-         ticks não ficarem cortados pelo overflow:hidden. */
+      /* A faixa do eixo fixo dos gráficos por KA é propositadamente pequena
+         — não usa "position: relative" inline para nunca ser apanhada pela
+         regra genérica acima (que forçaria min-height:200px). A altura tem
+         de chegar para a linha do eixo MAIS a altura total dos números
+         (incluindo o que desce abaixo da linha de base), senão o
+         overflow:hidden corta-lhes a parte de baixo. */
       .opt-chart-card .opt-chart-axis-wrap {
         position: relative;
-        min-height: 36px !important;
-        height: 36px !important;
-        max-height: 36px !important;
+        min-height: 46px !important;
+        height: 46px !important;
+        max-height: 46px !important;
         overflow: hidden;
       }
       .opt-chart-card .opt-topka-scrollwrap {
@@ -1701,19 +1702,26 @@
         </div>
 
         <div class="opt-hist-section-title">
-          <i class="fa-solid fa-circle-pause"></i>Interrupções, Desvios e
-          Pontualidade
+          <i class="fa-solid fa-calendar-check"></i>Pontualidade, Interrupções e
+          Desvios
         </div>
         <div class="row g-3 mb-3">
+          <div class="col-lg-4">
+            <div class="opt-chart-card">
+              <div class="chart-title">
+                Cumprimento do Prazo (Data Produção vs Data Planeada)
+              </div>
+              <div style="position: relative; height: 260px">
+                <canvas id="hist-chartPrazo"></canvas>
+              </div>
+            </div>
+          </div>
           <div class="col-lg-4">
             <div class="opt-chart-card">
               <div
                 class="chart-title d-flex align-items-center justify-content-between"
               >
-                <span
-                  ><i class="fa-solid fa-circle-pause me-1"></i>Interrupções por
-                  C.C.</span
-                >
+                <span>Interrupções por C.C.</span>
                 <span
                   class="text-muted"
                   style="font-size: 0.72rem"
@@ -1731,16 +1739,6 @@
               <div class="chart-title">Causa Raiz dos Desvios</div>
               <div style="position: relative; height: 260px">
                 <canvas id="hist-chartCausaRaiz"></canvas>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-4">
-            <div class="opt-chart-card">
-              <div class="chart-title">
-                Cumprimento do Prazo (Data Produção vs Data Planeada)
-              </div>
-              <div style="position: relative; height: 260px">
-                <canvas id="hist-chartPrazo"></canvas>
               </div>
             </div>
           </div>
@@ -1769,7 +1767,7 @@
               <!-- Eixo dos X fixo (não faz scroll), sempre alinhado com as barras acima -->
               <div
                 class="opt-chart-axis-wrap"
-                style="height: 36px; padding-right: 10px"
+                style="height: 46px; padding-right: 10px"
               >
                 <canvas id="hist-chartBobinesKAAxis"></canvas>
               </div>
@@ -1793,7 +1791,7 @@
               <!-- Eixo dos X fixo (não faz scroll), sempre alinhado com as barras acima -->
               <div
                 class="opt-chart-axis-wrap"
-                style="height: 36px; padding-right: 10px"
+                style="height: 46px; padding-right: 10px"
               >
                 <canvas id="hist-chartTopKAAxis"></canvas>
               </div>
@@ -5855,7 +5853,10 @@
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: { padding: { top: 0, right: 8, bottom: 0 } },
+                // O padding inferior garante folga por baixo dos números do
+                // eixo: sem ele o Chart.js encosta-os ao fundo do canvas e o
+                // overflow:hidden da faixa corta-lhes a base.
+                layout: { padding: { top: 0, right: 8, bottom: 6 } },
                 animation: false,
                 plugins: {
                   legend: { display: false },
