@@ -516,6 +516,32 @@
         background: var(--cyan-accent);
         color: #0f172a;
       }
+      /* Seletor C.C./KA do gráfico "% de Interrupções" — mesma linguagem
+         visual dos botões de Área, em versão pequena para caber na linha
+         do título do cartão. */
+      .opt-chart-toggle {
+        display: flex;
+        gap: 4px;
+        flex: 0 0 auto;
+      }
+      .opt-chart-toggle button {
+        border: 1px solid var(--cyan-accent);
+        background: transparent;
+        color: var(--cyan-accent);
+        font-weight: 700;
+        font-size: 0.72rem;
+        border-radius: 5px;
+        padding: 1px 9px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .opt-chart-toggle button:hover {
+        background: rgba(34, 211, 238, 0.12);
+      }
+      .opt-chart-toggle button.active {
+        background: var(--cyan-accent);
+        color: #0f172a;
+      }
       .opt-th-filter-cell {
         white-space: nowrap;
       }
@@ -1721,13 +1747,19 @@
               <div
                 class="chart-title d-flex align-items-center justify-content-between"
               >
-                <span>Interrupções por C.C.</span>
+                <span>% de Interrupções</span>
                 <span
-                  class="text-muted"
+                  class="text-muted fw-normal text-end flex-grow-1 px-2"
                   style="font-size: 0.72rem"
                   id="hist-lblTotalInterrupcoes"
-                  >Total: 0</span
+                  >0 interrup. / 0 produções</span
                 >
+                <div class="opt-chart-toggle" id="hist-grpInterrupcoes">
+                  <button type="button" class="active" data-modo="cc">
+                    C.C.
+                  </button>
+                  <button type="button" data-modo="ka">KA</button>
+                </div>
               </div>
               <div style="position: relative; height: 260px">
                 <canvas id="hist-chartInterrupcoes"></canvas>
@@ -1746,7 +1778,7 @@
 
         <div class="opt-hist-section-title">
           <i class="fa-solid fa-layer-group"></i>Bobines Abastecidas /
-          <i class="fa-solid fa-ranking-star"></i>Nº Entradas de KA
+          <i class="fa-solid fa-ranking-star"></i>Nº Produções por KA
         </div>
         <div class="row g-3 mb-3 align-items-start">
           <div class="col-lg-6">
@@ -1775,7 +1807,7 @@
           </div>
           <div class="col-lg-6">
             <div class="opt-chart-card">
-              <div class="chart-title">Nº Entradas de KA</div>
+              <div class="chart-title">Nº Produções por KA</div>
               <div
                 class="opt-topka-scrollwrap"
                 style="padding-right: 10px"
@@ -1846,6 +1878,8 @@
         let histChartCC = null;
         let histChartArea = null;
         let histChartInterrupcoes = null;
+        // Dimensão do gráfico "% de Interrupções": 'cc' ou 'ka'
+        let histInterrupcoesModo = 'cc';
         let histChartPrazo = null;
         let histChartTopKA = null;
         let histChartTopKAAxis = null;
@@ -2106,6 +2140,18 @@
             .off('click')
             .on('click', function () {
               showHistKpiDetails('disp');
+            });
+
+          // Seletor C.C./KA do gráfico "% de Interrupções"
+          $('#hist-grpInterrupcoes button')
+            .off('click')
+            .on('click', function () {
+              const modo = $(this).data('modo');
+              if (modo === histInterrupcoesModo) return;
+              histInterrupcoesModo = modo;
+              $('#hist-grpInterrupcoes button').removeClass('active');
+              $(this).addClass('active');
+              renderHistChartInterrupcoes(histBaseItems || []);
             });
 
           $('#opt-ccAccordionContainer')
@@ -5574,31 +5620,58 @@
           });
         }
 
-        /* Nº de interrupções (paragens não programadas) somadas por Centro de
-           Custo. Mostra apenas os C.C. com interrupções registadas, do maior
-           para o menor, para se ver de imediato onde as paragens se
-           concentram. O total do período aparece no título do cartão. */
+        /* Percentagens pequenas ganham uma casa decimal, para não colapsarem
+           todas em "0%" ou "6%" quando o que distingue os valores está nas
+           décimas (ex.: 5,8% vs 6,3%). */
+        function formatPct(valor) {
+          const v = Number(valor) || 0;
+          if (v >= 10) return `${Math.round(v)}%`;
+          return `${v.toLocaleString('pt-PT', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })}%`;
+        }
+
+        /* % de Interrupções = nº de interrupções (paragens não programadas)
+           a dividir pelo nº de produções, por Centro de Custo ou por KA
+           conforme o seletor do cartão. Quanto maior, pior: um C.C. com 10
+           produções e 7 interrupções está nos 70%. Pode passar os 100% se
+           houver várias paragens na mesma produção. Só entram os grupos com
+           interrupções registadas — os restantes seriam barras a zero. */
         function renderHistChartInterrupcoes(items) {
+          const porKA = histInterrupcoesModo === 'ka';
           const map = {};
           let totalInterrupcoes = 0;
           items.forEach((i) => {
+            const chave = (porKA ? i.KA : i.CC) || 'N/D';
+            if (!map[chave]) map[chave] = { producoes: 0, interrupcoes: 0 };
+            map[chave].producoes++;
             const qtd = i.QtdInterrompido || 0;
-            if (qtd <= 0) return;
-            const cc = i.CC || 'N/A';
-            map[cc] = (map[cc] || 0) + qtd;
+            map[chave].interrupcoes += qtd;
             totalInterrupcoes += qtd;
           });
 
           const TOP_N = 8;
           const all = Object.keys(map)
-            .map((k) => ({ cc: k, count: map[k] }))
-            .sort((a, b) => b.count - a.count);
+            .map((k) => ({
+              chave: k,
+              producoes: map[k].producoes,
+              interrupcoes: map[k].interrupcoes,
+              pct:
+                map[k].producoes > 0
+                  ? (map[k].interrupcoes / map[k].producoes) * 100
+                  : 0,
+            }))
+            .filter((e) => e.interrupcoes > 0)
+            .sort((a, b) => b.pct - a.pct);
           const top = all.slice(0, TOP_N);
           const hasData = top.length > 0;
 
           $('#hist-lblTotalInterrupcoes').text(
-            `Total: ${formatQtd(totalInterrupcoes)}` +
-              (all.length > TOP_N ? ` (top ${TOP_N} C.C.)` : '')
+            `${formatQtd(totalInterrupcoes)} interrup. / ${formatQtd(
+              items.length
+            )} produções` +
+              (all.length > TOP_N ? ` · top ${TOP_N}` : '')
           );
 
           if (histChartInterrupcoes) histChartInterrupcoes.destroy();
@@ -5607,11 +5680,11 @@
             {
               type: 'bar',
               data: {
-                labels: hasData ? top.map((t) => t.cc) : ['Sem dados'],
+                labels: hasData ? top.map((t) => t.chave) : ['Sem dados'],
                 datasets: [
                   {
-                    label: 'Nº de interrupções',
-                    data: hasData ? top.map((t) => t.count) : [0],
+                    label: '% de interrupções',
+                    data: hasData ? top.map((t) => t.pct) : [0],
                     backgroundColor: '#fb923c',
                   },
                 ],
@@ -5623,12 +5696,23 @@
                 layout: { padding: { right: 12 } },
                 plugins: {
                   legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: (ctx) => {
+                        const e = top[ctx.dataIndex];
+                        if (!e) return '';
+                        return `${formatPct(e.pct)} — ${formatQtd(
+                          e.interrupcoes
+                        )} interrupções em ${formatQtd(e.producoes)} produções`;
+                      },
+                    },
+                  },
                   datalabels: {
                     anchor: 'end',
                     align: 'end',
                     color: '#e2e8f0',
                     font: { weight: 'bold', size: 11 },
-                    formatter: (v) => (v > 0 ? formatQtd(v) : ''),
+                    formatter: (v) => (v > 0 ? formatPct(v) : ''),
                   },
                   title: hasData
                     ? { display: false }
@@ -5646,7 +5730,10 @@
                     // Folga à direita para o valor da maior barra não ficar
                     // colado ao limite do gráfico.
                     grace: '12%',
-                    ticks: { color: '#94a3b8', precision: 0 },
+                    ticks: {
+                      color: '#94a3b8',
+                      callback: (v) => `${v}%`,
+                    },
                     grid: { color: 'rgba(148,163,184,0.1)' },
                   },
                   y: {
@@ -5750,7 +5837,7 @@
         }
 
         /* Gráfico de barras horizontais por KA, com scroll vertical e eixo
-           dos X fixo por baixo (partilhado pelo "Nº Entradas de KA" e pelo
+           dos X fixo por baixo (partilhado pelo "Nº Produções por KA" e pelo
            "Qtd. Bobines Abastecidas por KA"). Devolve as duas instâncias
            criadas: a das barras e a do eixo fixo. */
         function renderHistChartKABars(cfg) {
@@ -5903,7 +5990,7 @@
             innerId: 'opt-topKAInner',
             canvasId: 'hist-chartTopKA',
             axisCanvasId: 'hist-chartTopKAAxis',
-            label: 'Nº de entradas',
+            label: 'Nº de produções',
             color: '#a78bfa',
             emptyText: 'Sem dados disponíveis para os filtros selecionados',
             prevChart: histChartTopKA,
