@@ -5537,8 +5537,12 @@
             options: {
               responsive: true,
               maintainAspectRatio: false,
+              // Folga no topo para o rótulo da barra mais alta não ficar
+              // cortado pelo limite da área do gráfico.
+              layout: { padding: { top: 14 } },
               plugins: {
                 legend: { display: false },
+                tooltip: tooltipPlaneadoVsProduzido(labels, map),
                 datalabels: {
                   display: hasData,
                   anchor: 'end',
@@ -5576,6 +5580,27 @@
               : '<i class="fa-solid fa-chart-column me-1"></i>% Planeado vs Produzido por C.C.'
           );
           $('#opt-btnClearAreaFilter').toggle(!!areaFilter);
+        }
+
+        /* Tooltip dos gráficos "% Planeado vs Produzido": além da própria
+           percentagem, mostra as quantidades que lhe deram origem, para se
+           perceber o peso por trás da percentagem sem abrir os detalhes. */
+        function tooltipPlaneadoVsProduzido(labels, map) {
+          return {
+            callbacks: {
+              label: (ctx) => {
+                const d = map[labels[ctx.dataIndex]] || {
+                  planeada: 0,
+                  produzida: 0,
+                };
+                return [
+                  `% Planeado vs Produzido: ${ctx.parsed.y}%`,
+                  `Quantidade Planeada: ${formatQtd(d.planeada)}`,
+                  `Quantidade Produzida: ${formatQtd(d.produzida)}`,
+                ];
+              },
+            },
+          };
         }
 
         /* % Planeado vs Produzido por Área. Clicar numa barra aplica esse
@@ -5622,8 +5647,12 @@
                 evt.native.target.style.cursor =
                   hasData && elements.length ? 'pointer' : 'default';
               },
+              // Folga no topo para o rótulo da barra mais alta não ficar
+              // cortado pelo limite da área do gráfico.
+              layout: { padding: { top: 14 } },
               plugins: {
                 legend: { display: false },
+                tooltip: tooltipPlaneadoVsProduzido(labels, map),
                 datalabels: {
                   display: hasData,
                   anchor: 'end',
