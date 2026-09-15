@@ -542,6 +542,24 @@
         background: var(--cyan-accent);
         color: #0f172a;
       }
+      /* Etiqueta das linhas vindas da Checklist Ensaio Ferramentas — usa o
+         mesmo azul dos ensaios no calendário do Plano de Produção, para se
+         reconhecerem de imediato entre as linhas do plano. */
+      .opt-badge-ensaio {
+        display: inline-block;
+        background: rgba(139, 179, 242, 0.18);
+        color: #8bb3f2;
+        border: 1px solid rgba(139, 179, 242, 0.45);
+        border-radius: 4px;
+        padding: 0 6px;
+        margin-left: 6px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+        vertical-align: middle;
+      }
       .opt-th-filter-cell {
         white-space: nowrap;
       }
@@ -2464,6 +2482,7 @@
                 RawDate: rawDate,
                 Planeado: 0,
                 Produzido: 0,
+                Ensaios: 0,
               };
             }
             return dateGroups[key];
@@ -2481,6 +2500,7 @@
             const g = grupo(ensaio.DataFormatted, ensaio.RawDateObj);
             g.Planeado += ENSAIO_HORAS_TOTAIS;
             g.Produzido += getHorasEnsaioProduzidas(ensaio.RawDateObj);
+            g.Ensaios++;
           });
 
           return dateGroups;
@@ -2534,6 +2554,16 @@
             window.location.host +
             '/departments/logistica'
           );
+        }
+
+        /* Valor de uma coluna de disponibilidade (OK / NOK / PENDENTE). As
+           colunas Infowise Color Choice podem trazer marcação HTML à volta do
+           valor, por isso limpa-se antes de comparar. */
+        function extractDispValue(val) {
+          return extractValue(val)
+            .replace(/<[^>]*>/g, '')
+            .trim()
+            .toUpperCase();
         }
 
         function extractValue(val) {
@@ -2727,14 +2757,12 @@
                 0,
               QtdPlaneada: parseFloat(item.Qtd_x0020_Planeada) || 0,
               QtdProduzida: parseFloat(item.Qtd_x0020_Produzida) || 0,
-              DispMP: (
-                extractValue(item.Disponibilidade) ||
-                extractValue(item.Disponibilidade_x0020_MP)
-              ).toUpperCase(),
-              DispFRT: (
-                extractValue(item.Disponibilidade_x0020_Ferramenta) ||
-                extractValue(item.DisponibilidadeFerramenta)
-              ).toUpperCase(),
+              DispMP:
+                extractDispValue(item.Disponibilidade) ||
+                extractDispValue(item.Disponibilidade_x0020_MP),
+              DispFRT:
+                extractDispValue(item.Disponibilidade_x0020_Ferramenta) ||
+                extractDispValue(item.DisponibilidadeFerramenta),
               CausaRaizDesvio: extractValue(item.Causa_x0020_Raiz_x0020_Desvio),
               // Quantidade de bobines abastecidas no item/KA
               QtdBobines:
@@ -2785,10 +2813,13 @@
                 DataFormatted: dateObj ? formatDateShort(dateObj) : 'N/D',
                 RawDateObj: dateObj,
                 HorasPlaneadas: ENSAIO_HORAS_TOTAIS,
-                DispFerramenta: extractValue(
+                // Equivalentes aos do plano: "Matéria-prima e BIPS" conta
+                // como Disponibilidade MP e "Disponibilidade da Ferramenta"
+                // como Disponibilidade FRT.
+                DispMP: extractDispValue(item.MP_x0020_e_x0020_BIPS),
+                DispFRT: extractDispValue(
                   item.Disponibilidade_x0020_da_x0020_F
                 ),
-                MPeBIPS: extractValue(item.MP_x0020_e_x0020_BIPS),
                 Cancelado:
                   isMarcaCancelamento(item.Cancelar) ||
                   isMarcaCancelamento(item.Cancelado_x003f_),
@@ -3160,13 +3191,21 @@
               const futureBadge = isFuture
                 ? ' <span class="badge bg-dark text-secondary border border-secondary ms-1 fw-normal" style="font-size:0.65rem;" title="Data futura">Futuro</span>'
                 : '';
+              // Assinala as datas cujas horas incluem ensaios de ferramenta
+              const ensaioBadge = r.Ensaios
+                ? ` <i class="fa-solid fa-flask ms-1" style="color:#8bb3f2;font-size:0.7rem;" title="Inclui ${
+                    r.Ensaios
+                  } ensaio${r.Ensaios === 1 ? '' : 's'} de ferramenta (${
+                    r.Ensaios * ENSAIO_HORAS_TOTAIS
+                  }h)"></i>`
+                : '';
               tableRowsHtml += `
                     <tr class="${rowClass}" data-date="${
                 r.Data
               }" data-is-future="${
                 isFuture ? 'true' : 'false'
               }" data-planeado="${r.Planeado}" data-produzido="${r.Produzido}">
-                        <td>${r.Data}${futureBadge}</td>
+                        <td>${r.Data}${ensaioBadge}${futureBadge}</td>
                         <td>${formatHoursToHHMM(r.Planeado)}</td>
                         <td>${formatHoursToHHMM(r.Produzido)}</td>
                     </tr>
@@ -3458,6 +3497,35 @@
           return '#f87171'; // Vermelho
         }
 
+        /* Ensaios do período restringidos à área selecionada e aos CCs
+           ativos — o mesmo recorte que é feito às linhas do plano. */
+        function filtrarEnsaiosPorAreaECC(selectedArea, activeCCs) {
+          return currentFilteredEnsaios.filter(
+            (i) =>
+              (!selectedArea || i.Area === selectedArea) &&
+              activeCCs.some((acc) => areCCsEqual(acc, i.CC))
+          );
+        }
+
+        /* Ordenação usada nas tabelas de detalhes: Data mais antiga primeiro
+           e, dentro da mesma data, por Centro de Custo. */
+        function ordenarPorDataCC(a, b) {
+          const timeA = a.RawDateObj ? a.RawDateObj.getTime() : 0;
+          const timeB = b.RawDateObj ? b.RawDateObj.getTime() : 0;
+          if (timeA !== timeB) return timeA - timeB;
+          return (a.CC || '').localeCompare(b.CC || '', undefined, {
+            numeric: true,
+          });
+        }
+
+        /* Etiqueta que distingue visualmente as linhas vindas da Checklist
+           Ensaio Ferramentas das linhas do plano de produção. */
+        function badgeEnsaio(item) {
+          return item && item.IsEnsaio
+            ? ' <span class="opt-badge-ensaio" title="Ensaio de ferramenta"><i class="fa-solid fa-flask me-1"></i>Ensaio</span>'
+            : '';
+        }
+
         /* ATUALIZAÇÃO DOS KPIS DADOS OS CCS EXPANDIDOS/ATIVOS COM CORES DINÂMICAS */
         function renderSummaryKPIs() {
           const selectedArea = $('#opt-selArea').val() || '';
@@ -3469,8 +3537,19 @@
               (!selectedArea || i.Area === selectedArea) &&
               activeCCs.some((acc) => areCCsEqual(acc, i.CC))
           );
+          // Os ensaios entram nos cartões de disponibilidade tal como as
+          // linhas do plano: "Matéria-prima e BIPS" conta como Disp. MP e
+          // "Disponibilidade da Ferramenta" como Disp. FRT.
+          const areaFilteredEnsaios = filtrarEnsaiosPorAreaECC(
+            selectedArea,
+            activeCCs
+          );
+          const itensDisponibilidade = [
+            ...areaFilteredItems,
+            ...areaFilteredEnsaios,
+          ];
 
-          if (areaFilteredItems.length === 0) {
+          if (itensDisponibilidade.length === 0) {
             $('#opt-kpiCcAtraso8h').text('0%');
             $('#opt-kpiQtdRatio').text('0%').css('color', '#94a3b8');
             $('#opt-kpiDispMP').text('0%').css('color', getKpiColor(0));
@@ -3541,18 +3620,18 @@
           }
 
           // CÁLCULO DA DISPONIBILIDADE MP E FRT (Apenas 'OK' conta)
-          const okMPCount = areaFilteredItems.filter(
+          const okMPCount = itensDisponibilidade.filter(
             (i) => i.DispMP === 'OK'
           ).length;
           const pctDispMP = Math.round(
-            (okMPCount / areaFilteredItems.length) * 100
+            (okMPCount / itensDisponibilidade.length) * 100
           );
 
-          const okFRTCount = areaFilteredItems.filter(
+          const okFRTCount = itensDisponibilidade.filter(
             (i) => i.DispFRT === 'OK'
           ).length;
           const pctDispFRT = Math.round(
-            (okFRTCount / areaFilteredItems.length) * 100
+            (okFRTCount / itensDisponibilidade.length) * 100
           );
 
           // Aplicação dos valores e cores dinâmicas
@@ -3784,17 +3863,14 @@
           );
 
           // ORDENAÇÃO SEMPRE POR: DATA > CC
-          areaFilteredItems.sort((a, b) => {
-            const timeA = a.RawDateObj ? a.RawDateObj.getTime() : 0;
-            const timeB = b.RawDateObj ? b.RawDateObj.getTime() : 0;
-            if (timeA !== timeB) {
-              return timeA - timeB; // Data mais antiga primeiro
-            }
-            // Se a data for igual, ordena por CC numérico/alfabético
-            return (a.CC || '').localeCompare(b.CC || '', undefined, {
-              numeric: true,
-            });
-          });
+          areaFilteredItems.sort(ordenarPorDataCC);
+
+          // Nos detalhes de disponibilidade, os ensaios aparecem lado a lado
+          // com as linhas do plano, identificados por uma etiqueta.
+          const itensDisponibilidade = [
+            ...areaFilteredItems,
+            ...filtrarEnsaiosPorAreaECC(selectedArea, activeCCs),
+          ].sort(ordenarPorDataCC);
 
           let title = '';
           let html = '';
@@ -3906,10 +3982,10 @@
             </tr>
           </thead>
           <tbody>`;
-            if (areaFilteredItems.length === 0) {
+            if (itensDisponibilidade.length === 0) {
               html += `<tr><td colspan="4" class="text-muted">Sem registos no período selecionado.</td></tr>`;
             } else {
-              areaFilteredItems.forEach((item) => {
+              itensDisponibilidade.forEach((item) => {
                 // Apenas 'OK' fica a verde; 'NOK' e 'PENDENTE' ficam a vermelho/warning
                 const isOk = item.DispMP === 'OK';
                 const isPending = item.DispMP === 'PENDENTE';
@@ -3922,7 +3998,7 @@
                 html += `
           <tr>
             <td class="fw-bold">${escapeHtml(item.CC)}</td>
-            <td>${escapeHtml(item.KA)}</td>
+            <td>${escapeHtml(item.KA)}${badgeEnsaio(item)}</td>
             <td>${item.DataFormatted}</td>
             <td><span class="badge ${badgeClass}">${escapeHtml(
                   item.DispMP || 'N/D'
@@ -3946,10 +4022,10 @@
             </tr>
           </thead>
           <tbody>`;
-            if (areaFilteredItems.length === 0) {
+            if (itensDisponibilidade.length === 0) {
               html += `<tr><td colspan="4" class="text-muted">Sem registos no período selecionado.</td></tr>`;
             } else {
-              areaFilteredItems.forEach((item) => {
+              itensDisponibilidade.forEach((item) => {
                 // Apenas 'OK' fica a verde; 'NOK' e 'PENDENTE' ficam a vermelho/warning
                 const isOk = item.DispFRT === 'OK';
                 const isPending = item.DispFRT === 'PENDENTE';
@@ -3962,7 +4038,7 @@
                 html += `
           <tr>
             <td class="fw-bold">${escapeHtml(item.CC)}</td>
-            <td>${escapeHtml(item.KA)}</td>
+            <td>${escapeHtml(item.KA)}${badgeEnsaio(item)}</td>
             <td>${item.DataFormatted}</td>
             <td><span class="badge ${badgeClass}">${escapeHtml(
                   item.DispFRT || 'N/D'
