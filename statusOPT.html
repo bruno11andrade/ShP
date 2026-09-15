@@ -1006,6 +1006,16 @@
             <i class="fa-regular fa-clock me-1"></i>Atualizado a
             <span id="opt-lblTimestamp">--/--/---- --:--:--</span>
           </div>
+          <!-- Estado da ligação à Checklist Ensaio Ferramentas: diz de
+               imediato se os ensaios estão a ser lidos e quantos entraram -->
+          <div
+            class="opt-header-status"
+            id="opt-lblEnsaios"
+            title="Ensaios de ferramenta incluídos nos cartões de C.C."
+          >
+            <i class="fa-solid fa-screwdriver-wrench me-1"></i>Ensaios:
+            <span id="opt-lblEnsaiosValor">--</span>
+          </div>
           <button
             id="opt-btnRefresh"
             class="btn btn-outline-primary btn-sm fw-bold"
@@ -1865,6 +1875,11 @@
         const LIST_ABERTURA_GUID = '{9AF896EE-B16A-42E4-AC6D-7DA935B5A26A}';
         // Checklist Ensaio Ferramentas — ensaios planeados que ocupam o CC
         const LIST_ENSAIOS_GUID = '{A89875EF-B351-4844-AEE2-0C44A059374A}';
+        const ENSAIOS_SELECT_BASE =
+          'ID,C_x002e__x0020_Custo,Data,KA_x0020_BIP,' +
+          'Disponibilidade_x0020_da_x0020_F,MP_x0020_e_x0020_BIPS,' +
+          'OData__x00c1_rea';
+        const ENSAIOS_SELECT_CANCEL = 'Cancelar,Cancelado_x003f_';
 
         const COKA_SHAREPOINT_URL =
           'https://pt.sps.automotive.local/departments/logistica/Documentos%20Planeamento/ZZ_Arquivo/KA%20CO.xlsx';
@@ -1883,6 +1898,8 @@
         let rawModItems = [];
         let rawAberturaItems = [];
         let rawEnsaioItems = [];
+        // Diagnóstico da leitura dos ensaios, mostrado no cabeçalho
+        let ensaiosDiag = { recebidos: 0, aceites: 0, noPeriodo: 0, erro: null };
         let currentFilteredItems = [];
         let currentFilteredEnsaios = [];
         let availableCCs = [];
@@ -2360,6 +2377,33 @@
             (ENSAIO_HORA_FIM - ENSAIO_PAUSA_FIM)) /
           60;
 
+        /* Indicador no cabeçalho com o estado da leitura dos ensaios: diz
+           quantos entraram no período e, na dica, o caminho todo desde o que
+           veio da lista — é por aqui que se percebe de imediato se o problema
+           é de acesso à lista, de filtros ou de datas. */
+        function updateEnsaiosStatusUI() {
+          const $caixa = $('#opt-lblEnsaios');
+          const $valor = $('#opt-lblEnsaiosValor');
+          if (!$caixa.length) return;
+
+          if (ensaiosDiag.erro) {
+            $valor.text('sem dados').css('color', '#fb923c');
+            $caixa.attr('title', ensaiosDiag.erro);
+            return;
+          }
+
+          $valor.text(formatQtd(ensaiosDiag.noPeriodo)).css('color', '#e2e8f0');
+          $caixa.attr(
+            'title',
+            `${formatQtd(ensaiosDiag.recebidos)} na lista · ` +
+              `${formatQtd(ensaiosDiag.aceites)} em OPA/OPT e não cancelados · ` +
+              `${formatQtd(ensaiosDiag.noPeriodo)} no período selecionado` +
+              (ensaiosDiag.semCancelamento
+                ? ' · atenção: colunas de cancelamento não lidas'
+                : '')
+          );
+        }
+
         /* Marca de cancelamento das colunas "Cancelar" e "Cancelado?": o
            registo é feito com um X. */
         function isMarcaCancelamento(valor) {
@@ -2544,10 +2588,6 @@
             /[{}]/g,
             ''
           )}')/items?$top=5000`;
-          const endpointEnsaios = `${getWebUrl()}/_api/web/lists(guid'${LIST_ENSAIOS_GUID.replace(
-            /[{}]/g,
-            ''
-          )}')/items?$top=5000`;
 
           const reqOpt = $.ajax({
             url: endpointOpt,
@@ -2564,25 +2604,61 @@
             type: 'GET',
             headers: { Accept: 'application/json; odata=verbose' },
           });
-          // Os ensaios são um complemento ao plano: se esta lista falhar (sem
-          // permissões, indisponível), o dashboard tem de continuar a
-          // funcionar sem eles em vez de ficar vazio — por isso o pedido
-          // resolve sempre, com uma lista vazia em caso de erro.
+          // A Checklist Ensaio Ferramentas tem colunas Infowise do tipo
+          // ConnectedField que o SharePoint não consegue serializar: pedir a
+          // lista sem $select devolve HTTP 500 ("O valor para o campo ... do
+          // tipo ConnectedField não pode ser serializado"). Por isso pedem-se
+          // explicitamente só os campos usados aqui.
+          function pedirEnsaios(select) {
+            return $.ajax({
+              url: `${getWebUrl()}/_api/web/lists(guid'${LIST_ENSAIOS_GUID.replace(
+                /[{}]/g,
+                ''
+              )}')/items?$select=${select}&$top=5000`,
+              type: 'GET',
+              headers: { Accept: 'application/json; odata=verbose' },
+            });
+          }
+
+          // Os ensaios são um complemento ao plano: se esta lista falhar, o
+          // dashboard tem de continuar a funcionar sem eles em vez de ficar
+          // vazio — por isso o pedido resolve sempre, com uma lista vazia em
+          // caso de erro.
           const reqEnsaios = $.Deferred();
-          $.ajax({
-            url: endpointEnsaios,
-            type: 'GET',
-            headers: { Accept: 'application/json; odata=verbose' },
-          })
+          ensaiosDiag = {
+            recebidos: 0,
+            aceites: 0,
+            noPeriodo: 0,
+            semCancelamento: false,
+            erro: null,
+          };
+          pedirEnsaios(`${ENSAIOS_SELECT_BASE},${ENSAIOS_SELECT_CANCEL}`)
             .done(function (res) {
               reqEnsaios.resolve(res);
             })
             .fail(function (err) {
-              console.error(
-                'Erro ao carregar a Checklist Ensaio Ferramentas:',
+              // Basta um nome de campo errado no $select para o pedido
+              // inteiro falhar: repete-se sem as colunas de cancelamento,
+              // para não se perderem os ensaios todos por causa delas.
+              console.warn(
+                'Ensaios: pedido com as colunas de cancelamento falhou, a repetir sem elas.',
                 err
               );
-              reqEnsaios.resolve({ d: { results: [] } });
+              ensaiosDiag.semCancelamento = true;
+              pedirEnsaios(ENSAIOS_SELECT_BASE)
+                .done(function (res) {
+                  reqEnsaios.resolve(res);
+                })
+                .fail(function (err2) {
+                  console.error(
+                    'Erro ao carregar a Checklist Ensaio Ferramentas:',
+                    err2
+                  );
+                  ensaiosDiag.erro =
+                    (err2 && err2.status ? `HTTP ${err2.status}` : 'erro') +
+                    ' ao ler a lista de ensaios';
+                  reqEnsaios.resolve({ d: { results: [] } });
+                });
             });
 
           $.when(reqOpt, reqMod, reqAbertura, reqEnsaios)
@@ -2692,8 +2768,9 @@
             .map((item) => {
               const dateObj = parseItemDate(item.Data || item.OData_Data);
               const rawArea =
-                item._x00c1_rea ||
                 item.OData__x00c1_rea ||
+                item._x00c1_rea ||
+                item._x00C1_rea ||
                 item.Area ||
                 item.OData_Area;
               const rawCC =
@@ -2724,6 +2801,9 @@
                 !e.Cancelado &&
                 AREAS_ENSAIO.includes(String(e.Area || '').trim().toUpperCase())
             );
+
+          ensaiosDiag.recebidos = (ensaioItems || []).length;
+          ensaiosDiag.aceites = rawEnsaioItems.length;
 
           rawAberturaItems = aberturaItems.map((item) => {
             const rawCC =
@@ -2767,6 +2847,8 @@
             if (!item.RawDateObj) return false;
             return item.RawDateObj >= startDate && item.RawDateObj <= endDate;
           });
+          ensaiosDiag.noPeriodo = currentFilteredEnsaios.length;
+          updateEnsaiosStatusUI();
 
           const optCCs = currentFilteredItems.map((i) => i.CC);
           const modCCs = rawModItems.map((i) => i.CC);
