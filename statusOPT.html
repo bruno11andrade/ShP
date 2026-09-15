@@ -6109,14 +6109,16 @@
 
         /* Média de bobines abastecidas por produção: total de bobines do
            grupo (KA ou Centro de Custo, conforme o seletor do cartão) a
-           dividir pelo nº de produções desse mesmo grupo. As linhas sem
-           bobines registadas (0 ou vazio) ficam de fora da conta — não
-           entram no total nem no nº de produções — para a média refletir
-           só as produções que foram efetivamente abastecidas. */
+           dividir pelo nº de produções desse mesmo grupo. Só contam as
+           linhas com Status = Produzido e com bobines registadas (0 ou
+           vazio fica de fora, sem entrar no total nem no nº de produções),
+           para a média refletir só as produções que já aconteceram e foram
+           efetivamente abastecidas. */
         function renderHistChartBobines(items) {
           const porKA = histBobinesModo === 'ka';
           const totais = {};
           items.forEach((i) => {
+            if (i.Status !== 'Produzido') return;
             const qtd = i.QtdBobines || 0;
             if (qtd <= 0) return;
             const chave = (porKA ? i.KA : i.CC) || 'N/D';
