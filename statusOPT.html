@@ -1786,7 +1786,7 @@
               <div
                 class="chart-title d-flex align-items-center justify-content-between"
               >
-                <span>Qtd. Bobines Abastecidas</span>
+                <span>Média Bobines Abastecidas por Produção</span>
                 <div class="opt-chart-toggle" id="hist-grpBobines">
                   <button type="button" data-modo="cc">C.C.</button>
                   <button type="button" class="active" data-modo="ka">
@@ -5895,6 +5895,16 @@
           );
         }
 
+        /* Médias apresentam-se com uma casa decimal: arredondá-las a
+           inteiros esconderia precisamente a diferença entre grupos (ex.:
+           1,2 e 1,8 bobines por produção cairiam ambos em "1" ou "2"). */
+        function formatMedia(valor) {
+          return (Number(valor) || 0).toLocaleString('pt-PT', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          });
+        }
+
         /* O eixo dos X nunca termina exatamente no valor máximo: dá-se
            sempre folga para a barra mais alta não tapar o seu próprio rótulo
            nem a última marcação do eixo. Em valores pequenos basta um degrau
@@ -5904,6 +5914,9 @@
         function getAxisMaxComFolga(maxValor) {
           const max = Number(maxValor) || 0;
           if (max <= 0) return 1;
+          // Valores fracionários (médias) precisam de uma escala mais fina
+          // do que o degrau de 1 usado nas contagens.
+          if (max < 10 && max % 1 !== 0) return Math.ceil(max * 1.15 * 2) / 2;
           if (max <= 10) return Math.ceil(max) + 1;
           const alvo = max * 1.1;
           const magnitude = Math.pow(10, Math.floor(Math.log10(alvo / 6)));
@@ -5913,11 +5926,15 @@
           return Math.ceil(alvo / passo) * passo;
         }
 
-        /* Gráfico de barras horizontais por KA, com scroll vertical e eixo
-           dos X fixo por baixo (partilhado pelo "Nº Produções por KA" e pelo
-           "Qtd. Bobines Abastecidas por KA"). Devolve as duas instâncias
-           criadas: a das barras e a do eixo fixo. */
+        /* Gráfico de barras horizontais por KA ou Centro de Custo, com
+           scroll vertical e eixo dos X fixo por baixo (partilhado pelo
+           "Nº Produções" e pela "Média Bobines Abastecidas por Produção").
+           cfg.formatValor define como os valores são escritos (por defeito
+           inteiros). Devolve as duas instâncias criadas: a das barras e a
+           do eixo fixo. */
         function renderHistChartBarrasScroll(cfg) {
+          const formatValor = cfg.formatValor || formatQtd;
+          const valoresInteiros = !cfg.formatValor;
           const all = Object.keys(cfg.map)
             .map((k) => ({ ka: k, valor: cfg.map[k] }))
             .sort((a, b) => b.valor - a.valor);
@@ -5970,12 +5987,17 @@
               layout: { padding: { right: 8 } },
               plugins: {
                 legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) => `${cfg.label}: ${formatValor(ctx.parsed.x)}`,
+                  },
+                },
                 datalabels: {
                   anchor: 'end',
                   align: 'end',
                   color: '#e2e8f0',
                   font: { weight: 'bold', size: 11 },
-                  formatter: (v) => (v > 0 ? formatQtd(v) : ''),
+                  formatter: (v) => (v > 0 ? formatValor(v) : ''),
                 },
                 title: hasData
                   ? { display: false }
@@ -6037,9 +6059,10 @@
                     max: hasData ? axisMax : undefined,
                     ticks: {
                       color: '#94a3b8',
-                      precision: 0,
+                      precision: valoresInteiros ? 0 : 1,
                       padding: 2,
                       font: { size: 10 },
+                      callback: (v) => formatValor(v),
                     },
                     grid: { color: 'rgba(148,163,184,0.1)' },
                   },
@@ -6084,17 +6107,27 @@
           histChartProducoesAxis = charts.axisChart;
         }
 
-        /* Quantidade de bobines abastecidas, somada por KA ou por Centro de
-           Custo conforme o seletor do cartão. Só entram os grupos com bobines
-           registadas (> 0) — os restantes só acrescentariam barras vazias. */
+        /* Média de bobines abastecidas por produção: total de bobines do
+           grupo (KA ou Centro de Custo, conforme o seletor do cartão) a
+           dividir pelo nº de produções desse mesmo grupo. O denominador é o
+           total de linhas do grupo — a mesma base do gráfico "Nº Produções"
+           — e não só as linhas com bobines registadas. Só entram os grupos
+           com bobines (> 0), que os restantes seriam barras a zero. */
         function renderHistChartBobines(items) {
           const porKA = histBobinesModo === 'ka';
-          const map = {};
+          const totais = {};
           items.forEach((i) => {
-            const qtd = i.QtdBobines || 0;
-            if (qtd <= 0) return;
             const chave = (porKA ? i.KA : i.CC) || 'N/D';
-            map[chave] = (map[chave] || 0) + qtd;
+            if (!totais[chave]) totais[chave] = { bobines: 0, producoes: 0 };
+            totais[chave].producoes++;
+            totais[chave].bobines += i.QtdBobines || 0;
+          });
+
+          const map = {};
+          Object.keys(totais).forEach((chave) => {
+            const t = totais[chave];
+            if (t.bobines <= 0 || t.producoes <= 0) return;
+            map[chave] = t.bobines / t.producoes;
           });
 
           const charts = renderHistChartBarrasScroll({
@@ -6102,8 +6135,9 @@
             innerId: 'opt-bobinesInner',
             canvasId: 'hist-chartBobines',
             axisCanvasId: 'hist-chartBobinesAxis',
-            label: 'Qtd. de bobines',
+            label: 'Média de bobines por produção',
             color: '#22d3ee',
+            formatValor: formatMedia,
             emptyText: 'Sem bobines abastecidas para os filtros selecionados',
             prevChart: histChartBobines,
             prevAxisChart: histChartBobinesAxis,
