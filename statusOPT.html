@@ -542,6 +542,16 @@
         background: var(--cyan-accent);
         color: #0f172a;
       }
+      /* Caixa do cabeçalho que abre um popup de detalhes ao ser clicada */
+      .opt-clickable-status {
+        cursor: pointer;
+        transition: border-color 0.15s ease, color 0.15s ease;
+      }
+      .opt-clickable-status:hover {
+        border-color: var(--cyan-accent);
+        color: var(--cyan-accent);
+      }
+
       /* Etiqueta das linhas vindas da Checklist Ensaio Ferramentas — usa o
          mesmo azul dos ensaios no calendário do Plano de Produção, para se
          reconhecerem de imediato entre as linhas do plano. */
@@ -1027,7 +1037,7 @@
           <!-- Estado da ligação à Checklist Ensaio Ferramentas: diz de
                imediato se os ensaios estão a ser lidos e quantos entraram -->
           <div
-            class="opt-header-status"
+            class="opt-header-status opt-clickable-status"
             id="opt-lblEnsaios"
             title="Ensaios de ferramenta incluídos nos cartões de C.C."
           >
@@ -2175,6 +2185,11 @@
             .on('click', function () {
               showKpiDetails('frt');
             });
+          $('#opt-lblEnsaios')
+            .off('click')
+            .on('click', function () {
+              showKpiDetails('ensaios');
+            });
 
           // Cartões de KPI do Histórico -> mesmo modal de detalhes
           $('#hist-kpiCard-cumprimento1, #hist-kpiCard-cumprimento2')
@@ -2399,26 +2414,32 @@
            quantos entraram no período e, na dica, o caminho todo desde o que
            veio da lista — é por aqui que se percebe de imediato se o problema
            é de acesso à lista, de filtros ou de datas. */
-        function updateEnsaiosStatusUI() {
+        function updateEnsaiosStatusUI(visiveis) {
           const $caixa = $('#opt-lblEnsaios');
           const $valor = $('#opt-lblEnsaiosValor');
           if (!$caixa.length) return;
 
           if (ensaiosDiag.erro) {
             $valor.text('sem dados').css('color', '#fb923c');
-            $caixa.attr('title', ensaiosDiag.erro);
+            $caixa.attr('title', `${ensaiosDiag.erro} (clique para detalhes)`);
             return;
           }
 
-          $valor.text(formatQtd(ensaiosDiag.noPeriodo)).css('color', '#e2e8f0');
+          ensaiosDiag.visiveis =
+            visiveis !== undefined ? visiveis : ensaiosDiag.noPeriodo;
+          $valor.text(formatQtd(ensaiosDiag.visiveis)).css('color', '#e2e8f0');
           $caixa.attr(
             'title',
             `${formatQtd(ensaiosDiag.recebidos)} na lista · ` +
               `${formatQtd(ensaiosDiag.aceites)} em OPA/OPT e não cancelados · ` +
-              `${formatQtd(ensaiosDiag.noPeriodo)} no período selecionado` +
+              `${formatQtd(ensaiosDiag.noPeriodo)} no período · ` +
+              `${formatQtd(
+                ensaiosDiag.visiveis
+              )} na área e C.C. selecionados` +
               (ensaiosDiag.semCancelamento
                 ? ' · atenção: colunas de cancelamento não lidas'
-                : '')
+                : '') +
+              ' — clique para ver os detalhes'
           );
         }
 
@@ -2879,7 +2900,6 @@
             return item.RawDateObj >= startDate && item.RawDateObj <= endDate;
           });
           ensaiosDiag.noPeriodo = currentFilteredEnsaios.length;
-          updateEnsaiosStatusUI();
 
           const optCCs = currentFilteredItems.map((i) => i.CC);
           const modCCs = rawModItems.map((i) => i.CC);
@@ -3518,6 +3538,14 @@
           });
         }
 
+        /* Cor do badge de uma disponibilidade: só 'OK' fica a verde;
+           'PENDENTE' fica a amarelo e tudo o resto a vermelho. */
+        function getDispBadgeClass(valor) {
+          if (valor === 'OK') return 'bg-success';
+          if (valor === 'PENDENTE') return 'bg-warning text-dark';
+          return 'bg-danger';
+        }
+
         /* Etiqueta que distingue visualmente as linhas vindas da Checklist
            Ensaio Ferramentas das linhas do plano de produção. */
         function badgeEnsaio(item) {
@@ -3548,6 +3576,7 @@
             ...areaFilteredItems,
             ...areaFilteredEnsaios,
           ];
+          updateEnsaiosStatusUI(areaFilteredEnsaios.length);
 
           if (itensDisponibilidade.length === 0) {
             $('#opt-kpiCcAtraso8h').text('0%');
@@ -3967,6 +3996,69 @@
               });
             }
             html += `</tbody></table></div>`;
+          } else if (type === 'ensaios') {
+            title =
+              '<i class="fa-solid fa-flask me-2"></i>Detalhes: Ensaios de Ferramenta';
+            const ensaios = filtrarEnsaiosPorAreaECC(
+              selectedArea,
+              activeCCs
+            ).sort(ordenarPorDataCC);
+            html = `
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-opt w-100">
+          <thead>
+            <tr>
+              <th>C.C.</th>
+              <th>KA BIP</th>
+              <th>Data</th>
+              <th>Área</th>
+              <th>Disp. FRT</th>
+              <th>MP e BIPS</th>
+              <th>Planeado</th>
+              <th>Produzido</th>
+            </tr>
+          </thead>
+          <tbody>`;
+            if (ensaiosDiag.erro) {
+              html += `<tr><td colspan="8" class="text-warning">${escapeHtml(
+                ensaiosDiag.erro
+              )}. Os ensaios não estão a ser contabilizados.</td></tr>`;
+            } else if (ensaios.length === 0) {
+              html += `<tr><td colspan="8" class="text-muted">Sem ensaios para o período, área e C.C. selecionados.</td></tr>`;
+            } else {
+              ensaios.forEach((item) => {
+                const produzido = getHorasEnsaioProduzidas(item.RawDateObj);
+                // A hora do ensaio só aparece quando está preenchida na lista
+                const hora = item.RawDateObj
+                  ? item.RawDateObj.toLocaleTimeString('pt-PT', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : '';
+                const horaHtml =
+                  hora && hora !== '00:00'
+                    ? ` <span class="text-muted" style="font-size:0.78rem;">${escapeHtml(
+                        hora
+                      )}</span>`
+                    : '';
+                html += `
+          <tr>
+            <td class="fw-bold">${escapeHtml(item.CC)}</td>
+            <td>${escapeHtml(item.KA)}${badgeEnsaio(item)}</td>
+            <td>${item.DataFormatted}${horaHtml}</td>
+            <td>${escapeHtml(item.Area)}</td>
+            <td><span class="badge ${getDispBadgeClass(
+              item.DispFRT
+            )}">${escapeHtml(item.DispFRT || 'N/D')}</span></td>
+            <td><span class="badge ${getDispBadgeClass(
+              item.DispMP
+            )}">${escapeHtml(item.DispMP || 'N/D')}</span></td>
+            <td>${formatHoursToHHMM(ENSAIO_HORAS_TOTAIS)}</td>
+            <td>${formatHoursToHHMM(produzido)}</td>
+          </tr>`;
+              });
+            }
+            html += `</tbody></table></div>`;
           } else if (type === 'mp') {
             title =
               '<i class="fa-solid fa-boxes-stacked me-2"></i>Detalhes: Disponibilidade MP';
@@ -3986,14 +4078,7 @@
               html += `<tr><td colspan="4" class="text-muted">Sem registos no período selecionado.</td></tr>`;
             } else {
               itensDisponibilidade.forEach((item) => {
-                // Apenas 'OK' fica a verde; 'NOK' e 'PENDENTE' ficam a vermelho/warning
-                const isOk = item.DispMP === 'OK';
-                const isPending = item.DispMP === 'PENDENTE';
-                const badgeClass = isOk
-                  ? 'bg-success'
-                  : isPending
-                  ? 'bg-warning text-dark'
-                  : 'bg-danger';
+                const badgeClass = getDispBadgeClass(item.DispMP);
 
                 html += `
           <tr>
@@ -4026,14 +4111,7 @@
               html += `<tr><td colspan="4" class="text-muted">Sem registos no período selecionado.</td></tr>`;
             } else {
               itensDisponibilidade.forEach((item) => {
-                // Apenas 'OK' fica a verde; 'NOK' e 'PENDENTE' ficam a vermelho/warning
-                const isOk = item.DispFRT === 'OK';
-                const isPending = item.DispFRT === 'PENDENTE';
-                const badgeClass = isOk
-                  ? 'bg-success'
-                  : isPending
-                  ? 'bg-warning text-dark'
-                  : 'bg-danger';
+                const badgeClass = getDispBadgeClass(item.DispFRT);
 
                 html += `
           <tr>
