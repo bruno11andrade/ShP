@@ -6109,18 +6109,20 @@
 
         /* Média de bobines abastecidas por produção: total de bobines do
            grupo (KA ou Centro de Custo, conforme o seletor do cartão) a
-           dividir pelo nº de produções desse mesmo grupo. O denominador é o
-           total de linhas do grupo — a mesma base do gráfico "Nº Produções"
-           — e não só as linhas com bobines registadas. Só entram os grupos
-           com bobines (> 0), que os restantes seriam barras a zero. */
+           dividir pelo nº de produções desse mesmo grupo. As linhas sem
+           bobines registadas (0 ou vazio) ficam de fora da conta — não
+           entram no total nem no nº de produções — para a média refletir
+           só as produções que foram efetivamente abastecidas. */
         function renderHistChartBobines(items) {
           const porKA = histBobinesModo === 'ka';
           const totais = {};
           items.forEach((i) => {
+            const qtd = i.QtdBobines || 0;
+            if (qtd <= 0) return;
             const chave = (porKA ? i.KA : i.CC) || 'N/D';
             if (!totais[chave]) totais[chave] = { bobines: 0, producoes: 0 };
             totais[chave].producoes++;
-            totais[chave].bobines += i.QtdBobines || 0;
+            totais[chave].bobines += qtd;
           });
 
           const map = {};
