@@ -661,6 +661,22 @@
         border-radius: 8px;
         padding: 10px;
       }
+      /* Modo "Editar ordem" da tabela de material em risco */
+      .opt-risk-grip {
+        color: var(--cyan-accent);
+        cursor: grab;
+        font-size: 0.8rem;
+      }
+      .opt-risk-editando tbody tr {
+        cursor: grab;
+      }
+      .opt-risk-editando tbody tr:hover {
+        outline: 1px dashed rgba(34, 211, 238, 0.6);
+        outline-offset: -1px;
+      }
+      .opt-risk-editando tbody tr.opt-risk-dragging {
+        opacity: 0.45;
+      }
       .opt-manual-risk-row {
         background: rgba(34, 211, 238, 0.05);
       }
@@ -1271,13 +1287,39 @@
                   ></i
                   >Material em risco de falha</span
                 >
-                <button
-                  type="button"
-                  id="opt-btnShowManualRiskForm"
-                  class="btn btn-outline-info btn-sm fw-bold"
-                >
-                  <i class="fa-solid fa-plus me-1"></i>Adicionar linha manual
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                  <span
+                    id="opt-riskOrderBadge"
+                    class="badge bg-info text-dark"
+                    style="display: none; font-size: 0.7rem"
+                    title="A tabela está numa ordem definida por si"
+                    >Ordem personalizada</span
+                  >
+                  <button
+                    type="button"
+                    id="opt-btnRiskResetOrder"
+                    class="btn btn-outline-secondary btn-sm fw-bold"
+                    style="display: none"
+                    title="Voltar à ordenação automática"
+                  >
+                    <i class="fa-solid fa-rotate-left me-1"></i>Repor ordem
+                  </button>
+                  <button
+                    type="button"
+                    id="opt-btnRiskEdit"
+                    class="btn btn-outline-warning btn-sm fw-bold"
+                    title="Reordenar as linhas arrastando-as"
+                  >
+                    <i class="fa-solid fa-pen me-1"></i>Editar ordem
+                  </button>
+                  <button
+                    type="button"
+                    id="opt-btnShowManualRiskForm"
+                    class="btn btn-outline-info btn-sm fw-bold"
+                  >
+                    <i class="fa-solid fa-plus me-1"></i>Adicionar linha manual
+                  </button>
+                </div>
               </div>
 
               <!-- Formulário Adicionar linha manual -->
@@ -1968,6 +2010,10 @@
         let riskMaterials = [];
         let manualRiskRows = [];
         let riskSort = { field: 'Cobertura', dir: 'asc' };
+        // Ordem definida à mão pelo utilizador (lista de chaves de linha)
+        const RISK_ORDER_STORAGE_KEY = 'opt_risk_custom_order_v1';
+        let riskCustomOrder = [];
+        let riskEditMode = false;
 
         // --- UNIFICAÇÃO DE CENTROS DE CUSTO (CC) ---
         // Extrai sempre o número do Centro de Custo, ignorando texto/prefixos/sufixos
@@ -2110,6 +2156,22 @@
               } else {
                 riskSort = { field: field, dir: 'asc' };
               }
+              // Ordenar por uma coluna volta à ordenação automática, senão o
+              // clique não teria efeito enquanto houvesse ordem personalizada.
+              limparOrdemRisco();
+              renderRiskTable();
+            });
+
+          $('#opt-btnRiskEdit')
+            .off('click')
+            .on('click', function () {
+              setRiskEditMode(!riskEditMode);
+            });
+
+          $('#opt-btnRiskResetOrder')
+            .off('click')
+            .on('click', function () {
+              limparOrdemRisco();
               renderRiskTable();
             });
 
@@ -4367,6 +4429,11 @@
             if (savedManual) {
               manualRiskRows = JSON.parse(savedManual);
             }
+            const savedOrder = localStorage.getItem(RISK_ORDER_STORAGE_KEY);
+            if (savedOrder) {
+              riskCustomOrder = JSON.parse(savedOrder) || [];
+            }
+            updateRiskOrderUI();
             // Tenta sempre buscar a versão partilhada mais recente do MD07 no
             // SharePoint primeiro; só usa a cópia local (localStorage) se a
             // ligação falhar (ver fetchMd07FromSharePoint).
@@ -4670,15 +4737,53 @@
           updateMd07StaleAlert();
         }
 
-        /* O ficheiro MD07 é considerado desatualizado quando não foi
-           modificado/carregado no dia de hoje (basta ser um dia diferente,
-           independentemente das horas), ou quando ainda não existe nenhum
-           ficheiro carregado. Quando está desatualizado, a tabela
-           "Material em risco de falha" mostra um aviso em vez dos dados
-           (ver renderRiskTable). */
+        /* O ficheiro MD07 é considerado desatualizado quando o último
+           carregamento não é do "dia de operação atual". O dia de operação
+           não muda à meia-noite: o ficheiro carregado num dia D continua
+           válido até às 8:59 do dia seguinte (D+1), para o turno da noite
+           (que trabalha depois da meia-noite) não perder a visibilidade da
+           tabela logo às 00:00. A partir das 8:59 do dia seguinte já conta
+           como desatualizado e o aviso aparece. Dois ou mais dias depois do
+           carregamento, está sempre desatualizado, a qualquer hora. */
         function isMd07Stale() {
           if (!md07Data || !md07Data.uploadedAtTs) return true;
-          return !isToday(new Date(md07Data.uploadedAtTs));
+
+          const uploaded = new Date(md07Data.uploadedAtTs);
+          const now = new Date();
+
+          const uploadedDay = new Date(
+            uploaded.getFullYear(),
+            uploaded.getMonth(),
+            uploaded.getDate()
+          );
+          const today = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+          );
+          const diffDays = Math.round(
+            (today - uploadedDay) / (24 * 60 * 60 * 1000)
+          );
+
+          if (diffDays <= 0) {
+            // Carregado hoje (ou timestamp futuro/relógio dessincronizado)
+            return false;
+          }
+          if (diffDays === 1) {
+            // Carregado ontem: ainda válido até às 8:59 de hoje
+            const cutoff = new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate(),
+              8,
+              59,
+              0,
+              0
+            );
+            return now >= cutoff;
+          }
+          // Carregado há 2 ou mais dias: sempre desatualizado
+          return true;
         }
 
         function updateMd07StaleAlert() {
@@ -4898,6 +5003,7 @@
                       CC: ccJoined || 'N/D',
                       KA: coKey,
                       Cobertura: coInfo.Cobertura,
+                      CoKaDe: matKey,
                       Comentario: buildRiskComment(
                         coKey,
                         coInfo.Cobertura,
@@ -4910,7 +5016,20 @@
             }
           });
 
-          riskMaterials = results;
+          // Quando um material e o seu CO KA estão os dois em risco, a linha
+          // do CO KA já refere os dois no comentário ("(CO KA de X)"); a linha
+          // isolada de X seria informação repetida e sai. A linha que refere o
+          // par nunca é removida, para um par mútuo não desaparecer todo.
+          const referidosPorCoKa = new Set(
+            results
+              .filter((r) => r.CoKaDe)
+              .map((r) => `${r.CC}|${r.CoKaDe.toUpperCase()}`)
+          );
+          riskMaterials = results.filter(
+            (r) =>
+              r.CoKaDe || !referidosPorCoKa.has(`${r.CC}|${r.KA.toUpperCase()}`)
+          );
+
           renderRiskTable();
         }
 
@@ -5008,6 +5127,13 @@
           const filtered = [...riskMaterials, ...manualRiskRowsForArea];
 
           filtered.sort((a, b) => {
+            // As falhas de envio vêm sempre à frente: uma falha de envio
+            // trava a expedição ao cliente, por isso é a primeira coisa a
+            // ver, independentemente da cobertura.
+            const envioA = isFalhaEnvio(a) ? 0 : 1;
+            const envioB = isFalhaEnvio(b) ? 0 : 1;
+            if (envioA !== envioB) return envioA - envioB;
+
             let av = a[riskSort.field],
               bv = b[riskSort.field];
             if (riskSort.field === 'Cobertura') {
@@ -5021,6 +5147,20 @@
             if (av > bv) return riskSort.dir === 'asc' ? 1 : -1;
             return 0;
           });
+
+          // A ordem definida à mão, quando existe, passa à frente da
+          // ordenação automática. As linhas que ainda não existiam quando foi
+          // guardada ficam no fim, na ordem automática.
+          if (riskCustomOrder.length > 0) {
+            filtered.sort((a, b) => {
+              const ia = riskCustomOrder.indexOf(riskRowKey(a));
+              const ib = riskCustomOrder.indexOf(riskRowKey(b));
+              if (ia === -1 && ib === -1) return 0;
+              if (ia === -1) return 1;
+              if (ib === -1) return -1;
+              return ia - ib;
+            });
+          }
 
           $tbody.empty();
           $('#opt-riskCount').text(
@@ -5049,9 +5189,20 @@
             const deleteBtn = item.isManual
               ? `<button type="button" class="btn btn-sm btn-outline-danger opt-manual-risk-delete ms-2" data-id="${item.id}" title="Remover linha manual"><i class="fa-solid fa-trash"></i></button>`
               : '';
+            const classes = [
+              item.isManual ? 'opt-manual-risk-row' : '',
+              riskEditMode ? 'opt-risk-row-editavel' : '',
+            ]
+              .filter(Boolean)
+              .join(' ');
+            const pega = riskEditMode
+              ? '<i class="fa-solid fa-grip-vertical opt-risk-grip me-2" title="Arrastar para reordenar"></i>'
+              : '';
             $tbody.append(`
-                <tr${item.isManual ? ' class="opt-manual-risk-row"' : ''}>
-                    <td>${escapeHtml(item.CC)}</td>
+                <tr${classes ? ` class="${classes}"` : ''} data-risk-key="${escapeHtml(
+              riskRowKey(item)
+            )}"${riskEditMode ? ' draggable="true"' : ''}>
+                    <td>${pega}${escapeHtml(item.CC)}</td>
                     <td>${escapeHtml(item.KA)}</td>
                     <td>${item.Cobertura.toFixed(1)}</td>
                     <td class="comentario-cell ${badgeClass}">${escapeHtml(
@@ -5059,6 +5210,119 @@
             )}${manualTag}${deleteBtn}</td>
                 </tr>
             `);
+          });
+
+          if (riskEditMode) bindRiskDragAndDrop();
+        }
+
+        /* Identifica uma linha da tabela de risco para efeitos de ordem
+           personalizada: as manuais pelo seu id, as restantes pelo par
+           CC + material. */
+        function riskRowKey(item) {
+          return item.isManual
+            ? `M|${item.id}`
+            : `${item.CC}|${(item.KA || '').toUpperCase()}`;
+        }
+
+        /* Uma linha é falha de envio quando o comentário o diz — vale tanto
+           para as linhas calculadas como para as adicionadas à mão. */
+        function isFalhaEnvio(item) {
+          return (
+            (item.Comentario || '')
+              .toString()
+              .toLowerCase()
+              .indexOf('falha envio') !== -1
+          );
+        }
+
+        /* Modo de edição: as linhas passam a poder ser arrastadas para
+           definir a ordem, que fica guardada neste browser. */
+        function setRiskEditMode(ativo) {
+          riskEditMode = ativo;
+          $('#opt-btnRiskEdit')
+            .toggleClass('btn-outline-warning', !ativo)
+            .toggleClass('btn-warning', ativo)
+            .html(
+              ativo
+                ? '<i class="fa-solid fa-check me-1"></i>Concluir'
+                : '<i class="fa-solid fa-pen me-1"></i>Editar ordem'
+            );
+          $('#opt-tableRisk').toggleClass('opt-risk-editando', ativo);
+          renderRiskTable();
+          updateRiskOrderUI();
+        }
+
+        function updateRiskOrderUI() {
+          const temOrdem = riskCustomOrder.length > 0;
+          $('#opt-riskOrderBadge').toggle(temOrdem);
+          $('#opt-btnRiskResetOrder').toggle(temOrdem || riskEditMode);
+        }
+
+        function guardarOrdemRisco() {
+          const tbody = document.getElementById('opt-tbodyRisk');
+          if (!tbody) return;
+          riskCustomOrder = Array.from(
+            tbody.querySelectorAll('tr[data-risk-key]')
+          ).map((tr) => tr.getAttribute('data-risk-key'));
+          try {
+            localStorage.setItem(
+              RISK_ORDER_STORAGE_KEY,
+              JSON.stringify(riskCustomOrder)
+            );
+          } catch (e) {
+            console.error('Não foi possível guardar a ordem da tabela:', e);
+          }
+          updateRiskOrderUI();
+        }
+
+        function limparOrdemRisco() {
+          riskCustomOrder = [];
+          try {
+            localStorage.removeItem(RISK_ORDER_STORAGE_KEY);
+          } catch (e) {
+            console.error('Não foi possível limpar a ordem da tabela:', e);
+          }
+          updateRiskOrderUI();
+        }
+
+        /* Arrastar e largar as linhas dentro da tabela (sem bibliotecas):
+           a linha arrastada vai sendo inserida antes ou depois daquela sobre
+           a qual passa, conforme o lado por onde entra. */
+        function bindRiskDragAndDrop() {
+          const tbody = document.getElementById('opt-tbodyRisk');
+          if (!tbody) return;
+          let arrastada = null;
+
+          tbody.querySelectorAll('tr[data-risk-key]').forEach((tr) => {
+            tr.addEventListener('dragstart', function (e) {
+              arrastada = tr;
+              tr.classList.add('opt-risk-dragging');
+              e.dataTransfer.effectAllowed = 'move';
+              // Necessário para o arrasto arrancar no Firefox
+              e.dataTransfer.setData(
+                'text/plain',
+                tr.getAttribute('data-risk-key')
+              );
+            });
+
+            tr.addEventListener('dragend', function () {
+              tr.classList.remove('opt-risk-dragging');
+              arrastada = null;
+              guardarOrdemRisco();
+            });
+
+            tr.addEventListener('dragover', function (e) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              if (!arrastada || arrastada === tr) return;
+              const rect = tr.getBoundingClientRect();
+              const depois = e.clientY > rect.top + rect.height / 2;
+              tbody.insertBefore(arrastada, depois ? tr.nextSibling : tr);
+            });
+
+            tr.addEventListener('drop', function (e) {
+              e.preventDefault();
+            });
           });
         }
 
