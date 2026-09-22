@@ -710,6 +710,16 @@
         border-radius: 8px;
         padding: 10px;
       }
+      /* Etiqueta da ordem da tabela de risco: alterna entre a ordem
+         personalizada e a automática ao ser clicada */
+      .opt-badge-clicavel {
+        cursor: pointer;
+        user-select: none;
+      }
+      .opt-badge-clicavel:hover {
+        filter: brightness(1.12);
+      }
+
       /* Modo "Editar ordem" da tabela de material em risco */
       .opt-risk-grip {
         color: var(--cyan-accent);
@@ -1347,7 +1357,7 @@
                 <div class="d-flex align-items-center gap-2">
                   <span
                     id="opt-riskOrderBadge"
-                    class="badge bg-info text-dark"
+                    class="badge bg-info text-dark opt-badge-clicavel"
                     style="display: none; font-size: 0.7rem"
                     title="A tabela está numa ordem definida por si"
                     >Ordem personalizada</span
@@ -2137,6 +2147,10 @@
         // true = guardada no SharePoint (para todos), false = só neste
         // browser, null = por saber / sem ordem definida
         let riskOrderPartilhada = null;
+        // A ordem personalizada pode estar guardada mas desligada, para se
+        // ver a ordenação automática sem a perder (escolha de cada um).
+        const RISK_ORDER_APLICADA_KEY = 'opt_risk_order_aplicada_v1';
+        let riskOrderAplicada = true;
 
         // --- UNIFICAÇÃO DE CENTROS DE CUSTO (CC) ---
         // Extrai sempre o número do Centro de Custo, ignorando texto/prefixos/sufixos
@@ -2296,6 +2310,12 @@
             .off('click')
             .on('click', function () {
               setRiskEditMode(!riskEditMode);
+            });
+
+          $('#opt-riskOrderBadge')
+            .off('click')
+            .on('click', function () {
+              alternarOrdemRisco();
             });
 
           $('#opt-btnRiskResetOrder')
@@ -4563,6 +4583,8 @@
             if (savedOrder) {
               riskCustomOrder = JSON.parse(savedOrder) || [];
             }
+            riskOrderAplicada =
+              localStorage.getItem(RISK_ORDER_APLICADA_KEY) !== '0';
             updateRiskOrderUI();
             // A ordem partilhada manda sobre a cópia local
             fetchOrdemRiscoPartilhada();
@@ -5292,7 +5314,7 @@
           // automática lhes deu. Assim, reordenar dentro de um filtro não
           // empurra essas linhas para o topo quando o filtro é retirado — as
           // que estavam de fora mantêm os seus lugares.
-          if (riskCustomOrder.length > 0) {
+          if (riskOrderAplicada && riskCustomOrder.length > 0) {
             const lugares = [];
             const abrangidas = [];
             filtered.forEach((item, idx) => {
@@ -5404,26 +5426,54 @@
         function updateRiskOrderUI() {
           const temOrdem = riskCustomOrder.length > 0;
           const $badge = $('#opt-riskOrderBadge');
-          $badge.toggle(temOrdem);
+          $badge.toggle(temOrdem).removeClass('bg-info bg-warning bg-secondary');
           if (temOrdem) {
-            if (riskOrderPartilhada === false) {
+            if (!riskOrderAplicada) {
+              $badge
+                .text('Ordem original')
+                .attr(
+                  'title',
+                  'A mostrar a ordenação automática — clique para voltar à ordem personalizada'
+                )
+                .addClass('bg-secondary');
+            } else if (riskOrderPartilhada === false) {
               $badge
                 .text('Ordem personalizada (só neste browser)')
                 .attr(
                   'title',
-                  'Não foi possível guardar a ordem no SharePoint — os outros utilizadores continuam a ver a ordenação automática'
+                  'Não foi possível guardar a ordem no SharePoint — os outros utilizadores continuam a ver a ordenação automática. Clique para ver a ordem original'
                 )
-                .removeClass('bg-info')
                 .addClass('bg-warning');
             } else {
               $badge
                 .text('Ordem personalizada')
-                .attr('title', 'Ordem definida para todos os utilizadores')
-                .removeClass('bg-warning')
+                .attr(
+                  'title',
+                  'Ordem definida para todos os utilizadores — clique para ver a ordem original'
+                )
                 .addClass('bg-info');
             }
           }
-          $('#opt-btnRiskResetOrder').toggle(temOrdem || riskEditMode);
+          // O "Repor ordem" só faz sentido enquanto se está a editar
+          $('#opt-btnRiskResetOrder').toggle(riskEditMode);
+        }
+
+        /* Liga/desliga a ordem personalizada sem a apagar: serve para
+           espreitar a ordenação automática e voltar atrás. A escolha é de
+           cada utilizador (fica só neste browser). */
+        function alternarOrdemRisco() {
+          if (riskCustomOrder.length === 0) return;
+          riskOrderAplicada = !riskOrderAplicada;
+          try {
+            localStorage.setItem(
+              RISK_ORDER_APLICADA_KEY,
+              riskOrderAplicada ? '1' : '0'
+            );
+          } catch (e) {
+            console.error('Não foi possível guardar a preferência:', e);
+          }
+          updateRiskOrderUI();
+          renderRiskTable();
         }
 
         function guardarOrdemRisco() {
@@ -5449,6 +5499,13 @@
           while (i < visiveis.length) resultado.push(visiveis[i++]);
 
           riskCustomOrder = resultado;
+          // Arrastar é definir uma ordem: se estava desligada, volta a ligar
+          riskOrderAplicada = true;
+          try {
+            localStorage.setItem(RISK_ORDER_APLICADA_KEY, '1');
+          } catch (e) {
+            /* preferência é acessória */
+          }
           gravarOrdemRisco();
         }
 
