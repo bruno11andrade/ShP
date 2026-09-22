@@ -1389,6 +1389,12 @@
                 </div>
               </div>
 
+              <div
+                id="opt-riskOrderAviso"
+                style="display: none; font-size: 0.75rem"
+                class="mb-1"
+              ></div>
+
               <!-- Formulário Adicionar linha manual -->
               <div class="mb-2">
                 <div
@@ -2030,7 +2036,9 @@
           MD07_SHAREPOINT_FOLDER_URL + '/' + MD07_SHAREPOINT_FILE_NAME;
         // Ordem personalizada da tabela de risco: fica na mesma pasta
         // partilhada do MD07, para ser a mesma para todos os utilizadores.
-        const RISK_ORDER_FILE_NAME = 'ordem_risco.json';
+        // .txt (e não .json): há farms de SharePoint que bloqueiam o envio
+        // de .json para bibliotecas de documentos. O conteúdo é JSON à mesma.
+        const RISK_ORDER_FILE_NAME = 'ordem_risco.txt';
         const MD07_FOLDER_SERVER_RELATIVE =
           '/departments/logistica/Documentos Planeamento/ZZ_Arquivo/MD07';
 
@@ -5458,6 +5466,26 @@
           $('#opt-btnRiskResetOrder').toggle(riskEditMode);
         }
 
+        /* Mostra o resultado da gravação da ordem junto à tabela, para não
+           ser preciso abrir a consola para saber se ficou guardada para
+           todos. As mensagens de sucesso desaparecem sozinhas. */
+        let avisoOrdemTimer = null;
+        function mostrarAvisoOrdem(html, classe, desaparecerApos) {
+          const $aviso = $('#opt-riskOrderAviso');
+          if (!$aviso.length) return;
+          if (avisoOrdemTimer) clearTimeout(avisoOrdemTimer);
+          $aviso
+            .removeClass('text-muted text-success text-warning')
+            .addClass(classe || 'text-muted')
+            .html(html)
+            .show();
+          if (desaparecerApos) {
+            avisoOrdemTimer = setTimeout(function () {
+              $aviso.fadeOut(300);
+            }, desaparecerApos);
+          }
+        }
+
         /* Liga/desliga a ordem personalizada sem a apagar: serve para
            espreitar a ordenação automática e voltar atrás. A escolha é de
            cada utilizador (fica só neste browser). */
@@ -5529,6 +5557,11 @@
           riskOrderPartilhada = null; // enquanto não se souber o resultado
           updateRiskOrderUI();
 
+          mostrarAvisoOrdem(
+            '<i class="fa-solid fa-spinner fa-spin me-1"></i>A guardar a ordem...',
+            'text-muted'
+          );
+
           uploadFicheiroPartilhado(
             RISK_ORDER_FILE_NAME,
             JSON.stringify({
@@ -5539,20 +5572,54 @@
             .done(function () {
               riskOrderPartilhada = true;
               updateRiskOrderUI();
+              mostrarAvisoOrdem(
+                '<i class="fa-solid fa-circle-check me-1"></i>Ordem guardada no SharePoint, para todos os utilizadores.',
+                'text-success',
+                6000
+              );
             })
             .fail(function (xhr, status, error) {
               riskOrderPartilhada = false;
+              const codigo = xhr && xhr.status ? ' (HTTP ' + xhr.status + ')' : '';
               console.error(
                 'Não foi possível guardar a ordem no SharePoint:',
                 status,
-                error
+                error,
+                xhr && xhr.responseText
               );
               updateRiskOrderUI();
+              mostrarAvisoOrdem(
+                '<i class="fa-solid fa-triangle-exclamation me-1"></i>Não foi possível guardar no SharePoint' +
+                  codigo +
+                  ' — a ordem fica só neste browser.',
+                'text-warning'
+              );
             });
+        }
+
+        /* Interpreta o conteúdo do ficheiro da ordem partilhada. Quando o
+           ficheiro ainda não existe, o SharePoint responde com a sua própria
+           página de erro (HTML) em vez de um 404 — isso não é uma avaria,
+           é apenas "ainda ninguém gravou". */
+        function parseOrdemRisco(texto) {
+          const conteudo = (texto || '').toString().trim();
+          if (!conteudo || conteudo.charAt(0) === '<') return null;
+          try {
+            const guardado = JSON.parse(conteudo);
+            const ordem = Array.isArray(guardado) ? guardado : guardado.ordem;
+            return Array.isArray(ordem) ? ordem : null;
+          } catch (e) {
+            return null;
+          }
         }
 
         /* Lê a ordem partilhada. Se não existir ou falhar, usa a cópia local. */
         function fetchOrdemRiscoPartilhada() {
+          function semOrdemPartilhada() {
+            riskOrderPartilhada = riskCustomOrder.length === 0 ? null : false;
+            updateRiskOrderUI();
+          }
+
           return $.ajax({
             url: MD07_SHAREPOINT_FOLDER_URL + '/' + RISK_ORDER_FILE_NAME,
             type: 'GET',
@@ -5560,29 +5627,25 @@
             cache: false,
           })
             .done(function (texto) {
+              const ordem = parseOrdemRisco(texto);
+              if (!ordem) {
+                semOrdemPartilhada();
+                return;
+              }
+              riskCustomOrder = ordem;
+              riskOrderPartilhada = true;
               try {
-                const guardado = JSON.parse(texto);
-                riskCustomOrder = Array.isArray(guardado)
-                  ? guardado
-                  : guardado.ordem || [];
-                riskOrderPartilhada = true;
                 localStorage.setItem(
                   RISK_ORDER_STORAGE_KEY,
                   JSON.stringify(riskCustomOrder)
                 );
               } catch (e) {
-                console.error('Ordem partilhada ilegível:', e);
-                riskOrderPartilhada = false;
+                /* a cópia local é acessória */
               }
               updateRiskOrderUI();
               renderRiskTable();
             })
-            .fail(function () {
-              // Ainda não existe ordem partilhada (ou sem acesso): fica a
-              // valer a cópia local, se houver.
-              riskOrderPartilhada = riskCustomOrder.length === 0 ? null : false;
-              updateRiskOrderUI();
-            });
+            .fail(semOrdemPartilhada);
         }
 
         /* Arrastar e largar as linhas dentro da tabela (sem bibliotecas):
