@@ -15,17 +15,63 @@
       rel="stylesheet"
     />
     <style>
+      /* Tema escuro (por defeito). Todas as cores que mudam entre temas
+         estão aqui: o tema claro mais abaixo redefine só estes valores, e
+         tudo o resto no ficheiro usa as variáveis. */
       :root {
         --sp-primary: #06b6d4;
         --sp-bg: #0f172a;
         --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         --bg-card: #1e293b;
         --bg-subtle: #090d16;
+        /* Superfícies "encaixadas" dentro dos cartões (campos, cabeçalhos
+           de tabela, contentores interiores) */
+        --bg-inset: #0f172a;
+        /* Painéis que flutuam por cima (dropdowns, filtros de coluna) */
+        --bg-elevated: #1e293b;
+        --bg-future-row: rgba(15, 23, 42, 0.8);
         --border-color: #334155;
         --teal-accent: #14b8a6;
         --cyan-accent: #22d3ee;
         --text-main: #f8fafc;
         --text-muted: #94a3b8;
+        /* Rótulos (títulos de cartão, cabeçalhos) e valores destacados */
+        --text-label: #cbd5e1;
+        --text-strong: #e2e8f0;
+        /* Cor do texto escrito POR CIMA da cor de acento */
+        --on-accent: #0f172a;
+        /* Gráficos (lidos pelo JS no momento em que desenha) */
+        --chart-text: #94a3b8;
+        --chart-text-strong: #e2e8f0;
+        --chart-empty: #64748b;
+        --chart-grid: rgba(148, 163, 184, 0.1);
+        /* Controla o aspeto nativo de inputs de data e barras de scroll */
+        --scheme: dark;
+      }
+
+      :root[data-theme='light'] {
+        --sp-bg: #eef2f7;
+        --card-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+        --bg-card: #ffffff;
+        --bg-subtle: #e2e8f0;
+        --bg-inset: #f1f5f9;
+        --bg-elevated: #ffffff;
+        --bg-future-row: rgba(226, 232, 240, 0.75);
+        --border-color: #cbd5e1;
+        --teal-accent: #0f766e;
+        /* Acento mais escuro: o ciano do tema escuro não tem contraste
+           suficiente sobre branco */
+        --cyan-accent: #0e7490;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --text-label: #334155;
+        --text-strong: #0f172a;
+        --on-accent: #ffffff;
+        --chart-text: #475569;
+        --chart-text-strong: #0f172a;
+        --chart-empty: #64748b;
+        --chart-grid: rgba(15, 23, 42, 0.08);
+        --scheme: light;
       }
 
       /* OCULTAR NAVEGAÇÃO LATERAL, RIBBON, TÍTULOS E PESQUISA DO SHAREPOINT */
@@ -132,7 +178,7 @@
       .opt-header-status {
         font-size: 0.85rem;
         color: var(--text-muted);
-        background: #0f172a;
+        background: var(--bg-inset);
         padding: 6px 14px;
         border-radius: 6px;
         border: 1px solid var(--border-color);
@@ -155,10 +201,10 @@
         padding: 2px 4px;
         cursor: pointer;
         outline: none;
-        color-scheme: dark;
+        color-scheme: var(--scheme);
       }
       .opt-date-input:focus {
-        background-color: #0f172a;
+        background-color: var(--bg-inset);
         border-radius: 4px;
         box-shadow: 0 0 0 2px var(--cyan-accent);
       }
@@ -179,7 +225,7 @@
       .opt-summary-card .title {
         font-size: 0.82rem;
         font-weight: 700;
-        color: #cbd5e1;
+        color: var(--text-label);
         margin-bottom: 6px;
         text-transform: uppercase;
       }
@@ -206,14 +252,14 @@
         align-items: center;
         font-size: 0.78rem;
         font-weight: 700;
-        color: #cbd5e1;
+        color: var(--text-label);
         text-transform: uppercase;
         white-space: nowrap;
       }
       .opt-kpi-dual-value {
         font-size: 1.35rem;
         font-weight: 800;
-        color: #e2e8f0;
+        color: var(--text-strong);
         white-space: nowrap;
       }
       .opt-kpi-dot {
@@ -258,7 +304,7 @@
         box-shadow: var(--card-shadow);
       }
       .opt-cc-container {
-        background: #0f172a;
+        background: var(--bg-inset);
         border-radius: 8px;
         padding: 12px;
         border: 1px solid var(--border-color);
@@ -318,7 +364,7 @@
       .opt-chart-card .chart-title {
         font-size: 0.9rem;
         font-weight: 700;
-        color: #e2e8f0;
+        color: var(--text-strong);
         margin-bottom: 10px;
       }
       .opt-hist-filter-bar {
@@ -346,13 +392,13 @@
       }
       .opt-hist-filter-bar select,
       .opt-hist-filter-bar input[type='date'] {
-        background: #0f172a;
+        background: var(--bg-inset);
         border: 1px solid var(--border-color);
         color: var(--text-main);
         border-radius: 6px;
         padding: 5px 8px;
         font-size: 0.85rem;
-        color-scheme: dark;
+        color-scheme: var(--scheme);
       }
 
       /* Multi-select dropdown */
@@ -365,7 +411,7 @@
         text-align: left;
         position: relative;
         cursor: pointer;
-        background: #0f172a;
+        background: var(--bg-inset);
         border: 1px solid var(--border-color);
         color: var(--text-main);
         border-radius: 6px;
@@ -396,7 +442,7 @@
         min-width: 200px;
         max-width: 320px;
         z-index: 9999;
-        background: #1e293b;
+        background: var(--bg-elevated);
         border: 1px solid var(--border-color);
         border-radius: 6px;
         margin-top: 3px;
@@ -415,7 +461,7 @@
         font-size: 0.72rem;
         position: sticky;
         top: 0;
-        background: #1e293b;
+        background: var(--bg-elevated);
         z-index: 1;
       }
       .opt-ms-actions a {
@@ -470,14 +516,14 @@
 
       /* ACCORDION DE CENTROS DE CUSTO */
       .accordion-item-cc {
-        background-color: #0f172a !important;
+        background-color: var(--bg-inset) !important;
         border: 1px solid var(--border-color) !important;
         border-radius: 8px !important;
         margin-bottom: 10px;
         overflow: hidden;
       }
       .accordion-btn-cc {
-        background-color: #0f172a !important;
+        background-color: var(--bg-inset) !important;
         color: var(--cyan-accent) !important;
         font-weight: 700;
         font-size: 1rem;
@@ -485,7 +531,7 @@
         box-shadow: none !important;
       }
       .accordion-btn-cc:not(.collapsed) {
-        background-color: #1e293b !important;
+        background-color: var(--bg-card) !important;
         color: var(--cyan-accent) !important;
       }
       .accordion-btn-cc::after {
@@ -514,7 +560,7 @@
       }
       .opt-area-btn.active {
         background: var(--cyan-accent);
-        color: #0f172a;
+        color: var(--on-accent);
       }
       /* Seletor C.C./KA do gráfico "% de Interrupções" — mesma linguagem
          visual dos botões de Área, em versão pequena para caber na linha
@@ -540,7 +586,7 @@
       }
       .opt-chart-toggle button.active {
         background: var(--cyan-accent);
-        color: #0f172a;
+        color: var(--on-accent);
       }
       /* Caixa do cabeçalho que abre um popup de detalhes ao ser clicada */
       .opt-clickable-status {
@@ -605,21 +651,21 @@
         color: var(--cyan-accent);
       }
       .opt-col-filter-panel {
-        background: #1e293b;
-        border: 1px solid #334155;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-color);
         border-radius: 8px;
         padding: 8px;
         min-width: 230px;
         max-width: 280px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
         z-index: 3050;
-        color: #e2e8f0;
+        color: var(--text-strong);
       }
       .opt-col-filter-panel input[type='text'] {
         margin-bottom: 6px;
       }
       .opt-col-filter-selectall {
-        border-bottom: 1px solid #334155;
+        border-bottom: 1px solid var(--border-color);
         padding-bottom: 4px;
         margin-bottom: 4px;
       }
@@ -751,8 +797,8 @@
       }
 
       .table-opt th {
-        background-color: #0f172a !important;
-        color: #cbd5e1 !important;
+        background-color: var(--bg-inset) !important;
+        color: var(--text-label) !important;
         border-color: var(--border-color) !important;
         font-weight: 700;
         border-bottom: 2px solid var(--border-color) !important;
@@ -777,8 +823,8 @@
 
       .opt-future-row,
       .opt-future-row td {
-        background-color: rgba(15, 23, 42, 0.8) !important;
-        color: #64748b !important;
+        background-color: var(--bg-future-row) !important;
+        color: var(--text-muted) !important;
         font-style: italic;
       }
 
@@ -836,7 +882,7 @@
       .mod-filter-badge {
         font-size: 0.75rem;
         padding: 2px 8px;
-        background-color: #0f172a;
+        background-color: var(--bg-inset);
         border: 1px solid var(--cyan-accent);
         border-radius: 4px;
         color: var(--cyan-accent);
@@ -888,7 +934,7 @@
         margin-bottom: 8px;
       }
       .opt-risk-upload {
-        background: #0f172a;
+        background: var(--bg-inset);
         border: 1px solid var(--border-color);
         border-radius: 6px;
         padding: 8px 10px;
@@ -942,21 +988,21 @@
 
       /* FORMULÁRIOS E OVERRIDES BOOTSTRAP */
       .form-select {
-        background-color: #0f172a !important;
+        background-color: var(--bg-inset) !important;
         color: var(--cyan-accent) !important;
         border-color: var(--cyan-accent) !important;
       }
       .form-select option {
-        background-color: #0f172a;
+        background-color: var(--bg-inset);
         color: var(--text-main);
       }
       .dropdown-menu {
-        background-color: #1e293b !important;
+        background-color: var(--bg-elevated) !important;
         border: 1px solid var(--border-color) !important;
       }
       .dropdown-item,
       .form-check-label {
-        color: #cbd5e1 !important;
+        color: var(--text-label) !important;
       }
       .dropdown-divider {
         border-color: var(--border-color) !important;
@@ -967,7 +1013,7 @@
       }
       .btn-outline-primary:hover {
         background-color: var(--cyan-accent) !important;
-        color: #0f172a !important;
+        color: var(--on-accent) !important;
       }
       .btn-outline-danger {
         color: #f87171 !important;
@@ -978,7 +1024,7 @@
         color: #ffffff !important;
       }
       .btn-light {
-        background-color: #0f172a !important;
+        background-color: var(--bg-inset) !important;
         color: var(--cyan-accent) !important;
         border-color: var(--border-color) !important;
       }
@@ -1060,6 +1106,14 @@
             <i class="fa-solid fa-flask me-1"></i>Ensaios:
             <span id="opt-lblEnsaiosValor">--</span>
           </div>
+          <button
+            type="button"
+            id="opt-btnTema"
+            class="btn btn-outline-primary btn-sm fw-bold"
+            title="Alternar entre tema escuro e claro"
+          >
+            <i class="fa-solid fa-sun me-1"></i>Tema claro
+          </button>
           <button
             id="opt-btnRefresh"
             class="btn btn-outline-primary btn-sm fw-bold"
@@ -1150,7 +1204,7 @@
                     style="font-size: 0.7rem"
                   ></i>
                 </div>
-                <div class="value" id="opt-kpiQtdRatio" style="color: #94a3b8">
+                <div class="value" id="opt-kpiQtdRatio" style="color: var(--text-muted)">
                   0%
                 </div>
               </div>
@@ -1633,7 +1687,7 @@
                 <div
                   class="value"
                   id="hist-kpiCumprimento"
-                  style="color: #94a3b8"
+                  style="color: var(--text-muted)"
                 >
                   0%
                 </div>
@@ -1680,7 +1734,7 @@
                 <div
                   class="value"
                   id="hist-kpiPontualidade"
-                  style="color: #94a3b8"
+                  style="color: var(--text-muted)"
                 >
                   0%
                 </div>
@@ -1698,7 +1752,7 @@
                 <div
                   class="value"
                   id="hist-kpiMediaAtraso"
-                  style="color: #94a3b8"
+                  style="color: var(--text-muted)"
                 >
                   0
                 </div>
@@ -1734,7 +1788,7 @@
                 <div
                   class="value"
                   id="hist-kpiDispMPFRT"
-                  style="font-size: 1.15rem; color: #e2e8f0"
+                  style="font-size: 1.15rem; color: var(--text-strong)"
                 >
                   0% / 0%
                 </div>
@@ -1964,6 +2018,66 @@
         const MD07_FOLDER_SERVER_RELATIVE =
           '/departments/logistica/Documentos Planeamento/ZZ_Arquivo/MD07';
 
+        // --- Tema (escuro por defeito / claro) ---
+        const THEME_STORAGE_KEY = 'opt_tema_v1';
+
+        /* Lê uma cor do tema em uso. Os gráficos são desenhados com as cores
+           do momento, por isso basta voltar a desenhá-los quando o tema muda. */
+        function corTema(variavel) {
+          const valor = getComputedStyle(
+            document.documentElement
+          ).getPropertyValue(variavel);
+          return (valor || '').trim() || '#94a3b8';
+        }
+
+        function getTemaAtual() {
+          return document.documentElement.getAttribute('data-theme') === 'light'
+            ? 'light'
+            : 'dark';
+        }
+
+        function aplicarTema(tema, redesenhar) {
+          if (tema === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          } else {
+            document.documentElement.removeAttribute('data-theme');
+          }
+          try {
+            localStorage.setItem(THEME_STORAGE_KEY, tema);
+          } catch (e) {
+            console.error('Não foi possível guardar a preferência de tema:', e);
+          }
+          $('#opt-btnTema').html(
+            tema === 'light'
+              ? '<i class="fa-solid fa-moon me-1"></i>Tema escuro'
+              : '<i class="fa-solid fa-sun me-1"></i>Tema claro'
+          );
+          // Parte das cores é aplicada por JS no momento em que se desenha
+          // (valores dos KPIs, gráficos): sem voltar a desenhar, essas
+          // ficariam com as cores do tema anterior.
+          updateEnsaiosStatusUI();
+          if (redesenhar) {
+            try {
+              if ($('#opt-dashboardContent').is(':visible')) renderDashboard();
+              if (histInitialized && typeof Chart !== 'undefined') {
+                renderHistCharts(histBaseItems || []);
+              }
+            } catch (e) {
+              console.error('Erro ao aplicar o tema aos gráficos:', e);
+            }
+          }
+        }
+
+        function initTema() {
+          let guardado = null;
+          try {
+            guardado = localStorage.getItem(THEME_STORAGE_KEY);
+          } catch (e) {
+            guardado = null;
+          }
+          aplicarTema(guardado === 'light' ? 'light' : 'dark', false);
+        }
+
         let rawListItems = [];
         let rawModItems = [];
         let rawAberturaItems = [];
@@ -2062,6 +2176,7 @@
         }
 
         $(document).ready(function () {
+          initTema();
           setDefaultDateRange();
           bindEvents();
           loadData();
@@ -2109,6 +2224,12 @@
               loadData();
               fetchMd07FromSharePoint(false);
               fetchCoKaFromSharePoint(false);
+            });
+
+          $('#opt-btnTema')
+            .off('click')
+            .on('click', function () {
+              aplicarTema(getTemaAtual() === 'light' ? 'dark' : 'light', true);
             });
 
           $('#opt-btnHistorico')
@@ -2489,7 +2610,7 @@
 
           ensaiosDiag.visiveis =
             visiveis !== undefined ? visiveis : ensaiosDiag.noPeriodo;
-          $valor.text(formatQtd(ensaiosDiag.visiveis)).css('color', '#e2e8f0');
+          $valor.text(formatQtd(ensaiosDiag.visiveis)).css('color', corTema('--text-strong'));
           $caixa.attr(
             'title',
             `${formatQtd(ensaiosDiag.recebidos)} na lista · ` +
@@ -3343,7 +3464,7 @@
                   <div id="collapse_${cc}" class="accordion-collapse collapse ${
               isExpanded ? 'show' : ''
             }" aria-labelledby="heading_${cc}" data-cc="${cc}">
-                    <div class="accordion-body p-2" style="background-color: #0f172a;">
+                    <div class="accordion-body p-2" style="background-color: var(--bg-inset);">
                       <div class="opt-cc-container border-0 p-0">
                         <div class="opt-delay-card">
                             <span class="opt-delay-title" id="delay_title_${cc}">Avanço</span>
@@ -3642,7 +3763,7 @@
 
           if (itensDisponibilidade.length === 0) {
             $('#opt-kpiCcAtraso8h').text('0%');
-            $('#opt-kpiQtdRatio').text('0%').css('color', '#94a3b8');
+            $('#opt-kpiQtdRatio').text('0%').css('color', corTema('--text-muted'));
             $('#opt-kpiDispMP').text('0%').css('color', getKpiColor(0));
             $('#opt-kpiDispFRT').text('0%').css('color', getKpiColor(0));
             return;
@@ -3703,7 +3824,7 @@
             ratioQtdPct = 100;
           }
 
-          let ratioColor = '#94a3b8'; // Cinza: sem dados
+          let ratioColor = corTema('--text-muted'); // Cinza: sem dados
           if (totalQtdPlaneada > 0) {
             ratioColor = getCumprimentoColor(ratioQtdPct);
           } else if (totalQtdProduzida > 0) {
@@ -6135,27 +6256,27 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                  legend: { labels: { color: '#e2e8f0' } },
+                  legend: { labels: { color: corTema('--chart-text-strong') } },
                   datalabels: { display: false },
                   title: hasData
                     ? { display: false }
                     : {
                         display: true,
                         text: 'Sem dados disponíveis para os filtros selecionados',
-                        color: '#64748b',
+                        color: corTema('--chart-empty'),
                         font: { size: 14, weight: 'normal' },
                         padding: { top: 80 },
                       },
                 },
                 scales: {
                   x: {
-                    ticks: { color: '#94a3b8' },
-                    grid: { color: 'rgba(148,163,184,0.1)' },
+                    ticks: { color: corTema('--chart-text') },
+                    grid: { color: corTema('--chart-grid') },
                   },
                   y: {
                     beginAtZero: true,
-                    ticks: { color: '#94a3b8' },
-                    grid: { color: 'rgba(148,163,184,0.1)' },
+                    ticks: { color: corTema('--chart-text') },
+                    grid: { color: corTema('--chart-grid') },
                   },
                 },
               },
@@ -6213,7 +6334,7 @@
                   display: hasData,
                   anchor: 'end',
                   align: 'end',
-                  color: '#e2e8f0',
+                  color: corTema('--chart-text-strong'),
                   font: { weight: 'bold', size: 11 },
                   formatter: (v) => `${v}%`,
                 },
@@ -6222,17 +6343,17 @@
                   : {
                       display: true,
                       text: 'Sem dados disponíveis para os filtros selecionados',
-                      color: '#64748b',
+                      color: corTema('--chart-empty'),
                       font: { size: 14, weight: 'normal' },
                       padding: { top: 80 },
                     },
               },
               scales: {
-                x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                x: { ticks: { color: corTema('--chart-text') }, grid: { display: false } },
                 y: {
                   beginAtZero: true,
-                  ticks: { color: '#94a3b8', callback: (v) => `${v}%` },
-                  grid: { color: 'rgba(148,163,184,0.1)' },
+                  ticks: { color: corTema('--chart-text'), callback: (v) => `${v}%` },
+                  grid: { color: corTema('--chart-grid') },
                 },
               },
             },
@@ -6323,7 +6444,7 @@
                   display: hasData,
                   anchor: 'end',
                   align: 'end',
-                  color: '#e2e8f0',
+                  color: corTema('--chart-text-strong'),
                   font: { weight: 'bold', size: 11 },
                   formatter: (v) => `${v}%`,
                 },
@@ -6332,17 +6453,17 @@
                   : {
                       display: true,
                       text: 'Sem dados disponíveis para os filtros selecionados',
-                      color: '#64748b',
+                      color: corTema('--chart-empty'),
                       font: { size: 14, weight: 'normal' },
                       padding: { top: 80 },
                     },
               },
               scales: {
-                x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                x: { ticks: { color: corTema('--chart-text') }, grid: { display: false } },
                 y: {
                   beginAtZero: true,
-                  ticks: { color: '#94a3b8', callback: (v) => `${v}%` },
-                  grid: { color: 'rgba(148,163,184,0.1)' },
+                  ticks: { color: corTema('--chart-text'), callback: (v) => `${v}%` },
+                  grid: { color: corTema('--chart-grid') },
                 },
               },
             },
@@ -6453,7 +6574,7 @@
                   datalabels: {
                     anchor: 'end',
                     align: 'end',
-                    color: '#e2e8f0',
+                    color: corTema('--chart-text-strong'),
                     font: { weight: 'bold', size: 11 },
                     formatter: (v) => (v > 0 ? formatPct(v) : ''),
                   },
@@ -6462,7 +6583,7 @@
                     : {
                         display: true,
                         text: 'Sem interrupções registadas no período',
-                        color: '#64748b',
+                        color: corTema('--chart-empty'),
                         font: { size: 13, weight: 'normal' },
                         padding: { top: 80 },
                       },
@@ -6474,13 +6595,13 @@
                     // colado ao limite do gráfico.
                     grace: '12%',
                     ticks: {
-                      color: '#94a3b8',
+                      color: corTema('--chart-text'),
                       callback: (v) => `${v}%`,
                     },
-                    grid: { color: 'rgba(148,163,184,0.1)' },
+                    grid: { color: corTema('--chart-grid') },
                   },
                   y: {
-                    ticks: { color: '#94a3b8', font: { size: 10 } },
+                    ticks: { color: corTema('--chart-text'), font: { size: 10 } },
                     grid: { display: false },
                   },
                 },
@@ -6532,7 +6653,7 @@
                   {
                     data: data.length ? data : [1],
                     backgroundColor: data.length ? colors : ['#334155'],
-                    borderColor: '#1e293b',
+                    borderColor: corTema('--bg-card'),
                     borderWidth: 2,
                   },
                 ],
@@ -6541,7 +6662,7 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                  legend: { position: 'bottom', labels: { color: '#e2e8f0' } },
+                  legend: { position: 'bottom', labels: { color: corTema('--chart-text-strong') } },
                   datalabels: {
                     color: '#0f172a',
                     font: { weight: 'bold', size: 11 },
@@ -6661,7 +6782,7 @@
                 datalabels: {
                   anchor: 'end',
                   align: 'end',
-                  color: '#e2e8f0',
+                  color: corTema('--chart-text-strong'),
                   font: { weight: 'bold', size: 11 },
                   formatter: (v) => (v > 0 ? formatValor(v) : ''),
                 },
@@ -6670,7 +6791,7 @@
                   : {
                       display: true,
                       text: cfg.emptyText,
-                      color: '#64748b',
+                      color: corTema('--chart-empty'),
                       font: { size: 14, weight: 'normal' },
                       padding: { top: 80 },
                     },
@@ -6683,7 +6804,7 @@
                   grid: { display: false },
                 },
                 y: {
-                  ticks: { color: '#94a3b8' },
+                  ticks: { color: corTema('--chart-text') },
                   grid: { display: false },
                   afterFit: (scale) => {
                     scale.width = Y_AXIS_WIDTH;
@@ -6724,13 +6845,13 @@
                     beginAtZero: true,
                     max: hasData ? axisMax : undefined,
                     ticks: {
-                      color: '#94a3b8',
+                      color: corTema('--chart-text'),
                       precision: valoresInteiros ? 0 : 1,
                       padding: 2,
                       font: { size: 10 },
                       callback: (v) => formatValor(v),
                     },
-                    grid: { color: 'rgba(148,163,184,0.1)' },
+                    grid: { color: corTema('--chart-grid') },
                   },
                   y: {
                     display: true,
@@ -6856,7 +6977,7 @@
                     backgroundColor: hasData
                       ? entries.map((e, idx) => palette[idx % palette.length])
                       : ['#334155'],
-                    borderColor: '#1e293b',
+                    borderColor: corTema('--bg-card'),
                     borderWidth: 2,
                   },
                 ],
@@ -6870,7 +6991,7 @@
                   legend: {
                     position: 'bottom',
                     labels: {
-                      color: '#e2e8f0',
+                      color: corTema('--chart-text-strong'),
                       boxWidth: 10,
                       font: { size: 10 },
                       padding: 8,
@@ -6881,7 +7002,7 @@
                     : {
                         display: true,
                         text: 'Sem dados de Causa Raiz Desvio disponíveis',
-                        color: '#64748b',
+                        color: corTema('--chart-empty'),
                         font: { size: 14, weight: 'normal' },
                       },
                   datalabels: {
