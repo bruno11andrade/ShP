@@ -30,6 +30,8 @@
         /* Painéis que flutuam por cima (dropdowns, filtros de coluna) */
         --bg-elevated: #1e293b;
         --bg-future-row: rgba(15, 23, 42, 0.8);
+        /* Risca das linhas alternadas (table-striped) */
+        --bg-stripe: #162032;
         --border-color: #334155;
         --teal-accent: #14b8a6;
         --cyan-accent: #22d3ee;
@@ -57,6 +59,7 @@
         --bg-inset: #f1f5f9;
         --bg-elevated: #ffffff;
         --bg-future-row: rgba(226, 232, 240, 0.75);
+        --bg-stripe: #f1f5f9;
         --border-color: #cbd5e1;
         --teal-accent: #0f766e;
         /* Acento mais escuro: o ciano do tema escuro não tem contraste
@@ -507,7 +510,7 @@
       .opt-delay-title {
         font-weight: 700;
         font-size: 0.9rem;
-        color: #f1f5f9;
+        color: var(--text-strong);
       }
       .opt-delay-value {
         font-size: 1.25rem;
@@ -810,7 +813,7 @@
       .table-striped > tbody > tr:nth-of-type(odd) > td,
       .table-striped > tbody > tr:nth-of-type(odd) > th,
       .table-striped > tbody > tr:nth-of-type(odd) {
-        background-color: #162032 !important;
+        background-color: var(--bg-stripe) !important;
         color: var(--text-main) !important;
       }
 
@@ -1075,6 +1078,24 @@
           <i class="fa-solid fa-industry me-2"></i>Status - Plano Produção
         </div>
         <div class="d-flex align-items-center gap-3">
+          <button
+            type="button"
+            id="opt-btnTema"
+            class="btn btn-outline-primary btn-sm fw-bold"
+            title="Alternar entre tema escuro e claro"
+          >
+            <i class="fa-solid fa-sun me-1"></i>Tema claro
+          </button>
+          <!-- Estado da ligação à Checklist Ensaio Ferramentas: diz de
+               imediato se os ensaios estão a ser lidos e quantos entraram -->
+          <div
+            class="opt-header-status opt-clickable-status"
+            id="opt-lblEnsaios"
+            title="Ensaios de ferramenta incluídos nos cartões de C.C."
+          >
+            <i class="fa-solid fa-flask me-1"></i>Ensaios:
+            <span id="opt-lblEnsaiosValor">--</span>
+          </div>
           <div class="opt-week-badge d-flex align-items-center gap-1">
             <i class="fa-regular fa-calendar-days me-1"></i>
             <span>Período:</span>
@@ -1096,24 +1117,6 @@
             <i class="fa-regular fa-clock me-1"></i>Atualizado a
             <span id="opt-lblTimestamp">--/--/---- --:--:--</span>
           </div>
-          <!-- Estado da ligação à Checklist Ensaio Ferramentas: diz de
-               imediato se os ensaios estão a ser lidos e quantos entraram -->
-          <div
-            class="opt-header-status opt-clickable-status"
-            id="opt-lblEnsaios"
-            title="Ensaios de ferramenta incluídos nos cartões de C.C."
-          >
-            <i class="fa-solid fa-flask me-1"></i>Ensaios:
-            <span id="opt-lblEnsaiosValor">--</span>
-          </div>
-          <button
-            type="button"
-            id="opt-btnTema"
-            class="btn btn-outline-primary btn-sm fw-bold"
-            title="Alternar entre tema escuro e claro"
-          >
-            <i class="fa-solid fa-sun me-1"></i>Tema claro
-          </button>
           <button
             id="opt-btnRefresh"
             class="btn btn-outline-primary btn-sm fw-bold"
@@ -2015,6 +2018,9 @@
         const MD07_SHAREPOINT_FILE_NAME = 'MD07.xlsx';
         const MD07_SHAREPOINT_FILE_URL =
           MD07_SHAREPOINT_FOLDER_URL + '/' + MD07_SHAREPOINT_FILE_NAME;
+        // Ordem personalizada da tabela de risco: fica na mesma pasta
+        // partilhada do MD07, para ser a mesma para todos os utilizadores.
+        const RISK_ORDER_FILE_NAME = 'ordem_risco.json';
         const MD07_FOLDER_SERVER_RELATIVE =
           '/departments/logistica/Documentos Planeamento/ZZ_Arquivo/MD07';
 
@@ -2128,6 +2134,9 @@
         const RISK_ORDER_STORAGE_KEY = 'opt_risk_custom_order_v1';
         let riskCustomOrder = [];
         let riskEditMode = false;
+        // true = guardada no SharePoint (para todos), false = só neste
+        // browser, null = por saber / sem ordem definida
+        let riskOrderPartilhada = null;
 
         // --- UNIFICAÇÃO DE CENTROS DE CUSTO (CC) ---
         // Extrai sempre o número do Centro de Custo, ignorando texto/prefixos/sufixos
@@ -4555,6 +4564,8 @@
               riskCustomOrder = JSON.parse(savedOrder) || [];
             }
             updateRiskOrderUI();
+            // A ordem partilhada manda sobre a cópia local
+            fetchOrdemRiscoPartilhada();
             // Tenta sempre buscar a versão partilhada mais recente do MD07 no
             // SharePoint primeiro; só usa a cópia local (localStorage) se a
             // ligação falhar (ver fetchMd07FromSharePoint).
@@ -4605,10 +4616,10 @@
           });
         }
 
-        /* Envia o ficheiro MD07 para a pasta partilhada no SharePoint,
+        /* Escreve um ficheiro na pasta partilhada do SharePoint,
            substituindo sempre o que lá estiver (overwrite=true), para que
            fique visível para todos os utilizadores que consultem a página. */
-        function uploadMd07ToSharePoint(arrayBuffer) {
+        function uploadFicheiroPartilhado(nomeFicheiro, conteudo) {
           return getRequestDigest().then(function (digest) {
             const safeFolderPath = MD07_FOLDER_SERVER_RELATIVE.split('/')
               .map(function (part) {
@@ -4620,12 +4631,12 @@
               "/_api/web/GetFolderByServerRelativeUrl('" +
               safeFolderPath +
               "')/Files/add(url='" +
-              encodeURIComponent(MD07_SHAREPOINT_FILE_NAME) +
+              encodeURIComponent(nomeFicheiro) +
               "',overwrite=true)";
             return $.ajax({
               url: uploadUrl,
               type: 'POST',
-              data: arrayBuffer,
+              data: conteudo,
               processData: false,
               contentType: false,
               headers: {
@@ -4634,6 +4645,13 @@
               },
             });
           });
+        }
+
+        function uploadMd07ToSharePoint(arrayBuffer) {
+          return uploadFicheiroPartilhado(
+            MD07_SHAREPOINT_FILE_NAME,
+            arrayBuffer
+          );
         }
 
         /* Lê o ficheiro MD07 partilhado no SharePoint (o mesmo para todos os
@@ -5269,17 +5287,27 @@
             return 0;
           });
 
-          // A ordem definida à mão, quando existe, passa à frente da
-          // ordenação automática. As linhas que ainda não existiam quando foi
-          // guardada ficam no fim, na ordem automática.
+          // A ordem definida à mão só mexe nas linhas que abrange: essas
+          // trocam de lugar entre si, ficando nas posições que a ordenação
+          // automática lhes deu. Assim, reordenar dentro de um filtro não
+          // empurra essas linhas para o topo quando o filtro é retirado — as
+          // que estavam de fora mantêm os seus lugares.
           if (riskCustomOrder.length > 0) {
-            filtered.sort((a, b) => {
-              const ia = riskCustomOrder.indexOf(riskRowKey(a));
-              const ib = riskCustomOrder.indexOf(riskRowKey(b));
-              if (ia === -1 && ib === -1) return 0;
-              if (ia === -1) return 1;
-              if (ib === -1) return -1;
-              return ia - ib;
+            const lugares = [];
+            const abrangidas = [];
+            filtered.forEach((item, idx) => {
+              if (riskCustomOrder.indexOf(riskRowKey(item)) !== -1) {
+                lugares.push(idx);
+                abrangidas.push(item);
+              }
+            });
+            abrangidas.sort(
+              (a, b) =>
+                riskCustomOrder.indexOf(riskRowKey(a)) -
+                riskCustomOrder.indexOf(riskRowKey(b))
+            );
+            lugares.forEach((lugar, i) => {
+              filtered[lugar] = abrangidas[i];
             });
           }
 
@@ -5375,35 +5403,129 @@
 
         function updateRiskOrderUI() {
           const temOrdem = riskCustomOrder.length > 0;
-          $('#opt-riskOrderBadge').toggle(temOrdem);
+          const $badge = $('#opt-riskOrderBadge');
+          $badge.toggle(temOrdem);
+          if (temOrdem) {
+            if (riskOrderPartilhada === false) {
+              $badge
+                .text('Ordem personalizada (só neste browser)')
+                .attr(
+                  'title',
+                  'Não foi possível guardar a ordem no SharePoint — os outros utilizadores continuam a ver a ordenação automática'
+                )
+                .removeClass('bg-info')
+                .addClass('bg-warning');
+            } else {
+              $badge
+                .text('Ordem personalizada')
+                .attr('title', 'Ordem definida para todos os utilizadores')
+                .removeClass('bg-warning')
+                .addClass('bg-info');
+            }
+          }
           $('#opt-btnRiskResetOrder').toggle(temOrdem || riskEditMode);
         }
 
         function guardarOrdemRisco() {
           const tbody = document.getElementById('opt-tbodyRisk');
           if (!tbody) return;
-          riskCustomOrder = Array.from(
+          const visiveis = Array.from(
             tbody.querySelectorAll('tr[data-risk-key]')
           ).map((tr) => tr.getAttribute('data-risk-key'));
+
+          // Só as linhas à vista é que mudam de lugar: as que já estavam
+          // guardadas mas estão escondidas por um filtro mantêm o seu lugar
+          // na lista, senão reordenar dentro de um filtro apagava o resto.
+          const visiveisSet = new Set(visiveis);
+          const resultado = [];
+          let i = 0;
+          riskCustomOrder.forEach((chave) => {
+            if (visiveisSet.has(chave)) {
+              if (i < visiveis.length) resultado.push(visiveis[i++]);
+            } else {
+              resultado.push(chave);
+            }
+          });
+          while (i < visiveis.length) resultado.push(visiveis[i++]);
+
+          riskCustomOrder = resultado;
+          gravarOrdemRisco();
+        }
+
+        function limparOrdemRisco() {
+          riskCustomOrder = [];
+          gravarOrdemRisco();
+        }
+
+        /* Guarda a ordem para toda a gente (ficheiro na pasta partilhada do
+           SharePoint) e deixa uma cópia neste browser, que serve de reserva
+           quando não se consegue chegar ao SharePoint. */
+        function gravarOrdemRisco() {
           try {
             localStorage.setItem(
               RISK_ORDER_STORAGE_KEY,
               JSON.stringify(riskCustomOrder)
             );
           } catch (e) {
-            console.error('Não foi possível guardar a ordem da tabela:', e);
+            console.error('Não foi possível guardar a ordem localmente:', e);
           }
+          riskOrderPartilhada = null; // enquanto não se souber o resultado
           updateRiskOrderUI();
+
+          uploadFicheiroPartilhado(
+            RISK_ORDER_FILE_NAME,
+            JSON.stringify({
+              ordem: riskCustomOrder,
+              gravadoEm: new Date().toISOString(),
+            })
+          )
+            .done(function () {
+              riskOrderPartilhada = true;
+              updateRiskOrderUI();
+            })
+            .fail(function (xhr, status, error) {
+              riskOrderPartilhada = false;
+              console.error(
+                'Não foi possível guardar a ordem no SharePoint:',
+                status,
+                error
+              );
+              updateRiskOrderUI();
+            });
         }
 
-        function limparOrdemRisco() {
-          riskCustomOrder = [];
-          try {
-            localStorage.removeItem(RISK_ORDER_STORAGE_KEY);
-          } catch (e) {
-            console.error('Não foi possível limpar a ordem da tabela:', e);
-          }
-          updateRiskOrderUI();
+        /* Lê a ordem partilhada. Se não existir ou falhar, usa a cópia local. */
+        function fetchOrdemRiscoPartilhada() {
+          return $.ajax({
+            url: MD07_SHAREPOINT_FOLDER_URL + '/' + RISK_ORDER_FILE_NAME,
+            type: 'GET',
+            dataType: 'text',
+            cache: false,
+          })
+            .done(function (texto) {
+              try {
+                const guardado = JSON.parse(texto);
+                riskCustomOrder = Array.isArray(guardado)
+                  ? guardado
+                  : guardado.ordem || [];
+                riskOrderPartilhada = true;
+                localStorage.setItem(
+                  RISK_ORDER_STORAGE_KEY,
+                  JSON.stringify(riskCustomOrder)
+                );
+              } catch (e) {
+                console.error('Ordem partilhada ilegível:', e);
+                riskOrderPartilhada = false;
+              }
+              updateRiskOrderUI();
+              renderRiskTable();
+            })
+            .fail(function () {
+              // Ainda não existe ordem partilhada (ou sem acesso): fica a
+              // valer a cópia local, se houver.
+              riskOrderPartilhada = riskCustomOrder.length === 0 ? null : false;
+              updateRiskOrderUI();
+            });
         }
 
         /* Arrastar e largar as linhas dentro da tabela (sem bibliotecas):
