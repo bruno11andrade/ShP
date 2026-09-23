@@ -129,8 +129,15 @@
       .ms-webpartPage-root,
       .ms-partSpacingHorizontal,
       .ms-partSpacingVertical,
+      .ms-rtestate-field,
+      .ms-webpart-zone,
+      [id^='MSOZoneCell_WebPart'],
       #MSO_ContentTable,
       #MSO_ContentDiv,
+      #DeltaPlaceHolderMain,
+      #ms-designer-ribbon,
+      #s4-titlerow,
+      .ms-titleArea,
       #WebPartWPQ1,
       #WebPartWPQ2,
       #WebPartWPQ3 {
@@ -2335,8 +2342,75 @@
           return '';
         }
 
+        /* O ficheiro é colocado num Editor de Conteúdo, que fica dentro da
+           área de conteúdo do SharePoint: o espaço em branco por cima vem do
+           enchimento dessa área e das zonas de web part, que variam com a
+           masterpage. Em vez de adivinhar ids, percorre-se a cadeia de
+           elementos que contém o dashboard e anula-se o espaço que cada um
+           acrescenta por cima. Também se recolhem os elementos vazios que
+           ficam acima dele dentro desses contentores. */
+        function colarDashboardAoTopo() {
+          const wrapper = document.getElementById('opt-dashboard-wrapper');
+          if (!wrapper) return 0;
+
+          const antes = wrapper.getBoundingClientRect().top;
+          let el = wrapper.parentElement;
+          while (el && el !== document.body && el !== document.documentElement) {
+            const cs = getComputedStyle(el);
+            if (parseFloat(cs.paddingTop) > 0) el.style.paddingTop = '0px';
+            if (parseFloat(cs.marginTop) > 0) el.style.marginTop = '0px';
+
+            // Elementos vazios antes do dashboard (zonas de web part sem
+            // conteúdo, separadores) que só estão a ocupar altura. Só dentro
+            // da área de conteúdo: ao nível do <body> estão a barra de
+            // navegação e o ribbon do SharePoint, que não se tocam.
+            if (el.parentElement && el.parentElement !== document.body) {
+              let irmao = el.previousElementSibling;
+              while (irmao) {
+                const identificacao = (
+                  (irmao.id || '') + ' ' + (irmao.className || '')
+                ).toLowerCase();
+                const navegacao =
+                  identificacao.indexOf('suite') !== -1 ||
+                  identificacao.indexOf('ribbon') !== -1 ||
+                  identificacao.indexOf('nav') !== -1;
+                const texto = (irmao.textContent || '').trim();
+                const temConteudo = irmao.querySelector(
+                  'img, iframe, input, select, button, a'
+                );
+                if (
+                  !navegacao &&
+                  !texto &&
+                  !temConteudo &&
+                  irmao.offsetHeight > 0
+                ) {
+                  irmao.style.display = 'none';
+                }
+                irmao = irmao.previousElementSibling;
+              }
+            }
+            el = el.parentElement;
+          }
+
+          const recolhido = Math.round(
+            antes - wrapper.getBoundingClientRect().top
+          );
+          if (recolhido > 0) {
+            console.info(
+              `Dashboard encostado ao topo: recolhidos ${recolhido}px de espaço do SharePoint.`
+            );
+          }
+          return recolhido;
+        }
+
         $(document).ready(function () {
           initTema();
+          colarDashboardAoTopo();
+          // O SharePoint ainda mexe na página depois do ready (ribbon,
+          // barra de sufixo): repete-se quando tudo estiver carregado.
+          $(window).on('load', function () {
+            setTimeout(colarDashboardAoTopo, 200);
+          });
           setDefaultDateRange();
           bindEvents();
           loadData();
