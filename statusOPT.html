@@ -1377,14 +1377,14 @@
                     class="btn btn-outline-warning btn-sm fw-bold"
                     title="Reordenar as linhas arrastando-as"
                   >
-                    <i class="fa-solid fa-pen me-1"></i>Editar ordem
+                    <i class="fa-solid fa-pen me-1"></i>
                   </button>
                   <button
                     type="button"
                     id="opt-btnShowManualRiskForm"
                     class="btn btn-outline-info btn-sm fw-bold"
                   >
-                    <i class="fa-solid fa-plus me-1"></i>Adicionar linha manual
+                    <i class="fa-solid fa-plus me-1"></i>
                   </button>
                 </div>
               </div>
@@ -5103,17 +5103,26 @@
               'Days Supply',
             ]);
             const stockDays = parseFloat(rawStock);
-            // +999,9 é o valor "placeholder" do SAP para "sem cobertura
-            // calculável" (ex. sem consumo previsto) e não deve ser
-            // considerado risco. Já -999,9 (negativo) representa uma rutura
-            // real e TEM de ser contabilizado como risco.
-            if (isNaN(stockDays) || stockDays === 999.9) return;
+            if (isNaN(stockDays)) return;
 
             if (!materialInfo[material]) {
-              materialInfo[material] = { Cobertura: stockDays, CCs: new Set() };
+              materialInfo[material] = { Cobertura: null, CCs: new Set() };
             }
             if (cc) materialInfo[material].CCs.add(cc);
-            if (stockDays < materialInfo[material].Cobertura) {
+
+            // +999,9 é o valor "placeholder" do SAP para "sem cobertura
+            // calculável" (ex. sem consumo previsto) e não conta como risco.
+            // O material fica à mesma registado (com Cobertura a null): é
+            // por ele que se chega ao respetivo CO KA, que pode estar em
+            // rutura — descartá-lo aqui fazia perder também esse par.
+            // Já -999,9 (negativo) representa uma rutura real e TEM de
+            // ser contabilizado como risco.
+            if (stockDays === 999.9) return;
+
+            if (
+              materialInfo[material].Cobertura === null ||
+              stockDays < materialInfo[material].Cobertura
+            ) {
               materialInfo[material].Cobertura = stockDays;
             }
           });
@@ -5143,8 +5152,9 @@
             if (ccForDisplay.length === 0) return;
             const ccJoined = ccForDisplay.join(', ');
 
-            // 1) Risco do próprio material planeado
-            if (info.Cobertura < threshold) {
+            // 1) Risco do próprio material planeado (Cobertura a null =
+            // sem cobertura calculável, logo não é risco)
+            if (info.Cobertura !== null && info.Cobertura < threshold) {
               const key = ccJoined + '|' + matKey;
               if (!addedKeys.has(key)) {
                 addedKeys.add(key);
@@ -5164,7 +5174,7 @@
               const coKey = findMaterialKey(coKaMaterial);
               if (coKey) {
                 const coInfo = materialInfo[coKey];
-                if (coInfo.Cobertura < threshold) {
+                if (coInfo.Cobertura !== null && coInfo.Cobertura < threshold) {
                   const key2 = ccJoined + '|' + coKey;
                   if (!addedKeys.has(key2)) {
                     addedKeys.add(key2);
@@ -5424,7 +5434,7 @@
             .html(
               ativo
                 ? '<i class="fa-solid fa-check me-1"></i>Concluir'
-                : '<i class="fa-solid fa-pen me-1"></i>Editar ordem'
+                : '<i class="fa-solid fa-pen me-1"></i>'
             );
           $('#opt-tableRisk').toggleClass('opt-risk-editando', ativo);
           renderRiskTable();
