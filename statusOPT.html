@@ -834,6 +834,13 @@
         color: var(--text-main) !important;
       }
 
+      /* Linha do backlog nos cartões de C.C.: destaca-se das datas por
+         não ser uma data, mas horas arrastadas de dias anteriores */
+      .opt-backlog-row td:first-child {
+        font-style: italic;
+        text-decoration: underline;
+        font-weight: 700;
+      }
       .opt-future-row,
       .opt-future-row td {
         background-color: var(--bg-future-row) !important;
@@ -1080,6 +1087,14 @@
   </head>
   <body>
     <div class="container-fluid" id="opt-dashboard-wrapper">
+      <!-- Hora da última atualização, por cima do cabeçalho -->
+      <div class="d-flex justify-content-end mb-1">
+        <div class="opt-header-status">
+          <i class="fa-regular fa-clock me-1"></i>Atualizado a
+          <span id="opt-lblTimestamp">--/--/---- --:--:--</span>
+        </div>
+      </div>
+
       <!-- Cabeçalho -->
       <div
         class="opt-header-bar d-flex justify-content-between align-items-center"
@@ -1096,6 +1111,15 @@
           >
             <i class="fa-solid fa-sun me-1"></i>Tema claro
           </button>
+          <!-- Backlog: o que ficou por produzir antes do período -->
+          <div
+            class="opt-header-status opt-clickable-status"
+            id="opt-lblBacklog"
+            title="Itens por produzir de datas anteriores ao período"
+          >
+            <i class="fa-solid fa-layer-group me-1"></i>Backlog:
+            <span id="opt-lblBacklogValor">--</span>
+          </div>
           <!-- Estado da ligação à Checklist Ensaio Ferramentas: diz de
                imediato se os ensaios estão a ser lidos e quantos entraram -->
           <div
@@ -1122,10 +1146,6 @@
               class="opt-date-input"
               title="Data Final"
             />
-          </div>
-          <div class="opt-header-status">
-            <i class="fa-regular fa-clock me-1"></i>Atualizado a
-            <span id="opt-lblTimestamp">--/--/---- --:--:--</span>
           </div>
           <button
             id="opt-btnRefresh"
@@ -2110,6 +2130,9 @@
         let ensaiosDiag = { recebidos: 0, aceites: 0, noPeriodo: 0, erro: null };
         let currentFilteredItems = [];
         let currentFilteredEnsaios = [];
+        // Backlog: itens anteriores ao período que ainda não foram produzidos
+        let currentBacklogItems = [];
+        const BACKLOG_KEY = 'BACKLOG';
         let availableCCs = [];
         let expandedCCs = new Set(); // Guarda os CCs expandidos no Accordion
         let liveUpdateTimer = null;
@@ -2409,6 +2432,11 @@
             .off('click')
             .on('click', function () {
               showKpiDetails('ensaios');
+            });
+          $('#opt-lblBacklog')
+            .off('click')
+            .on('click', function () {
+              showKpiDetails('backlog');
             });
 
           // Cartões de KPI do Histórico -> mesmo modal de detalhes
@@ -2711,10 +2739,20 @@
           });
         }
 
+        /* Itens em backlog de um Centro de Custo, opcionalmente
+           restringidos a uma área. */
+        function getBacklogDoCC(cc, selAreaClean) {
+          return currentBacklogItems.filter((i) => {
+            if (!areCCsEqual(i.CC, cc)) return false;
+            if (!selAreaClean) return true;
+            return String(i.Area || '').trim().toLowerCase() === selAreaClean;
+          });
+        }
+
         /* Horas planeadas e produzidas de um Centro de Custo agrupadas por
-           data, somando o plano de produção e os ensaios de ferramenta sem
-           os distinguir. */
-        function agruparHorasPorData(ccItems, ccEnsaios) {
+           data, somando o plano de produção, os ensaios de ferramenta e o
+           backlog, sem os distinguir nas contas. */
+        function agruparHorasPorData(ccItems, ccEnsaios, ccBacklog) {
           const dateGroups = {};
           function grupo(key, rawDate) {
             if (!dateGroups[key]) {
@@ -2728,6 +2766,16 @@
             }
             return dateGroups[key];
           }
+
+          // O backlog fica numa linha própria, sem data: as horas estão
+          // planeadas e por produzir, logo pesam todas no atraso. RawDate a
+          // null põe-na à cabeça da tabela e nunca a trata como futura.
+          (ccBacklog || []).forEach((item) => {
+            const g = grupo(BACKLOG_KEY, null);
+            g.Planeado += item.HorasPlaneadas;
+            g.IsBacklog = true;
+            g.Itens = (g.Itens || 0) + 1;
+          });
 
           (ccItems || []).forEach((item) => {
             const g = grupo(item.DataFormatted, item.RawDateObj);
@@ -3121,6 +3169,17 @@
           });
           ensaiosDiag.noPeriodo = currentFilteredEnsaios.length;
 
+          // Backlog: tudo o que ficou por produzir antes do início do
+          // período. Não entra em currentFilteredItems (que é só o período),
+          // por isso anda à parte, mas conta nas horas planeadas dos C.C.
+          // Os ensaios não entram: os de dias passados dão-se por feitos.
+          currentBacklogItems = rawListItems.filter(
+            (item) =>
+              item.RawDateObj &&
+              item.RawDateObj < startDate &&
+              item.Status !== 'Produzido'
+          );
+
           const optCCs = currentFilteredItems.map((i) => i.CC);
           const modCCs = rawModItems.map((i) => i.CC);
           const ensaioCCs = currentFilteredEnsaios.map((i) => i.CC);
@@ -3405,9 +3464,17 @@
             });
 
             const ccEnsaios = getEnsaiosDoCC(cc, selAreaClean);
-            const dateGroups = agruparHorasPorData(ccItems, ccEnsaios);
+            const ccBacklog = getBacklogDoCC(cc, selAreaClean);
+            const dateGroups = agruparHorasPorData(
+              ccItems,
+              ccEnsaios,
+              ccBacklog
+            );
 
+            // O backlog não tem data: fica sempre à cabeça da lista
             const allCcDates = Object.keys(dateGroups).sort((a, b) => {
+              if (a === BACKLOG_KEY) return -1;
+              if (b === BACKLOG_KEY) return 1;
               const da = a.split('-').reverse().join('-');
               const db = b.split('-').reverse().join('-');
               return da.localeCompare(db);
@@ -3427,7 +3494,12 @@
                   )
                 : null;
               const isFuture = rowDate && rowDate > todayObj;
-              const rowClass = isFuture ? 'opt-future-row' : '';
+              const rowClass = [
+                isFuture ? 'opt-future-row' : '',
+                r.IsBacklog ? 'opt-backlog-row' : '',
+              ]
+                .filter(Boolean)
+                .join(' ');
               const futureBadge = isFuture
                 ? ' <span class="badge bg-dark text-secondary border border-secondary ms-1 fw-normal" style="font-size:0.65rem;" title="Data futura">Futuro</span>'
                 : '';
@@ -3439,13 +3511,18 @@
                     r.Ensaios * ENSAIO_HORAS_TOTAIS
                   }h)"></i>`
                 : '';
+              const rotulo = r.IsBacklog
+                ? `<span title="${r.Itens} ${
+                    r.Itens === 1 ? 'item' : 'itens'
+                  } por produzir de datas anteriores ao período">${BACKLOG_KEY}</span>`
+                : r.Data;
               tableRowsHtml += `
                     <tr class="${rowClass}" data-date="${
                 r.Data
               }" data-is-future="${
                 isFuture ? 'true' : 'false'
               }" data-planeado="${r.Planeado}" data-produzido="${r.Produzido}">
-                        <td>${r.Data}${ensaioBadge}${futureBadge}</td>
+                        <td>${rotulo}${ensaioBadge}${futureBadge}</td>
                         <td>${formatHoursToHHMM(r.Planeado)}</td>
                         <td>${formatHoursToHHMM(r.Produzido)}</td>
                     </tr>
@@ -3477,7 +3554,12 @@
             });
 
             const isExpanded = expandedCCs.has(cc);
-            const headerDelta = calculateCcDelta(cc, ccItems, ccEnsaios);
+            const headerDelta = calculateCcDelta(
+              cc,
+              ccItems,
+              ccEnsaios,
+              ccBacklog
+            );
             const headerCfg = getDelayCardConfig(headerDelta);
             const accordionHtml = `
               <div class="col-12 col-md-6">
@@ -3637,13 +3719,14 @@
             );
         }
 
-        function calculateCcDelta(cc, ccItems, ccEnsaios) {
+        function calculateCcDelta(cc, ccItems, ccEnsaios, ccBacklog) {
           const todayObj = getTodayZero();
           const todayFormatted = formatDateShort(todayObj);
 
           const dateGroups = agruparHorasPorData(
             ccItems,
-            ccEnsaios || getEnsaiosDoCC(cc)
+            ccEnsaios || getEnsaiosDoCC(cc),
+            ccBacklog || getBacklogDoCC(cc)
           );
 
           let totalPlaneadoEfetivo = 0;
@@ -3747,6 +3830,39 @@
           );
         }
 
+        /* Backlog do período restringido à área selecionada e aos CCs
+           ativos — o mesmo recorte que é feito às linhas do plano. */
+        function filtrarBacklogPorAreaECC(selectedArea, activeCCs) {
+          return currentBacklogItems.filter(
+            (i) =>
+              (!selectedArea || i.Area === selectedArea) &&
+              activeCCs.some((acc) => areCCsEqual(acc, i.CC))
+          );
+        }
+
+        /* Indicador do backlog no cabeçalho: nº de itens por produzir de
+           datas anteriores e o total de horas que representam. */
+        function updateBacklogStatusUI(itens) {
+          const $caixa = $('#opt-lblBacklog');
+          if (!$caixa.length) return;
+          const lista = itens || [];
+          const horas = lista.reduce(
+            (a, i) => a + (i.HorasPlaneadas || 0),
+            0
+          );
+          $('#opt-lblBacklogValor')
+            .text(formatQtd(lista.length))
+            .css('color', lista.length ? '#fb923c' : corTema('--text-strong'));
+          $caixa.attr(
+            'title',
+            `${formatQtd(lista.length)} ${
+              lista.length === 1 ? 'item' : 'itens'
+            } por produzir de datas anteriores ao período (${formatHoursToHHMM(
+              horas
+            )}) — clique para ver os detalhes`
+          );
+        }
+
         /* Ordenação usada nas tabelas de detalhes: Data mais antiga primeiro
            e, dentro da mesma data, por Centro de Custo. */
         function ordenarPorDataCC(a, b) {
@@ -3797,6 +3913,9 @@
             ...areaFilteredEnsaios,
           ];
           updateEnsaiosStatusUI(areaFilteredEnsaios.length);
+          updateBacklogStatusUI(
+            filtrarBacklogPorAreaECC(selectedArea, activeCCs)
+          );
 
           if (itensDisponibilidade.length === 0) {
             $('#opt-kpiCcAtraso8h').text('0%');
@@ -3815,13 +3934,14 @@
             const ccItems = areaFilteredItems.filter((i) =>
               areCCsEqual(i.CC, cc)
             );
+            const areaLimpa = selectedArea
+              ? selectedArea.trim().toLowerCase()
+              : null;
             const delta = calculateCcDelta(
               cc,
               ccItems,
-              getEnsaiosDoCC(
-                cc,
-                selectedArea ? selectedArea.trim().toLowerCase() : null
-              )
+              getEnsaiosDoCC(cc, areaLimpa),
+              getBacklogDoCC(cc, areaLimpa)
             );
             if (delta < -8.0) {
               ccAtrasoMaior8Count++;
@@ -4214,6 +4334,57 @@
             <td><span class="badge ${badgeClass}">${pct}%</span></td>
           </tr>`;
               });
+            }
+            html += `</tbody></table></div>`;
+          } else if (type === 'backlog') {
+            title =
+              '<i class="fa-solid fa-layer-group me-2"></i>Detalhes: Backlog (por produzir de datas anteriores)';
+            const backlog = filtrarBacklogPorAreaECC(
+              selectedArea,
+              activeCCs
+            ).sort(ordenarPorDataCC);
+            const horasBacklog = backlog.reduce(
+              (a, i) => a + (i.HorasPlaneadas || 0),
+              0
+            );
+            html = `
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-opt w-100">
+          <thead>
+            <tr>
+              <th>CC</th>
+              <th>KA / Material</th>
+              <th>Data</th>
+              <th>Status</th>
+              <th>Horas Planeadas</th>
+              <th>Qtd. Planeada</th>
+              <th>Qtd. Produzida</th>
+            </tr>
+          </thead>
+          <tbody>`;
+            if (backlog.length === 0) {
+              html += `<tr><td colspan="7" class="text-muted">Sem itens por produzir de datas anteriores ao período.</td></tr>`;
+            } else {
+              backlog.forEach((item) => {
+                html += `
+          <tr>
+            <td class="fw-bold">${escapeHtml(item.CC)}</td>
+            <td>${escapeHtml(item.KA)}</td>
+            <td>${item.DataFormatted || '—'}</td>
+            <td><span class="badge bg-secondary">${escapeHtml(
+              item.Status || 'N/D'
+            )}</span></td>
+            <td>${formatHoursToHHMM(item.HorasPlaneadas || 0)}</td>
+            <td>${formatQtd(item.QtdPlaneada)}</td>
+            <td>${formatQtd(item.QtdProduzida)}</td>
+          </tr>`;
+              });
+              html += `
+          <tr class="fw-bold">
+            <td colspan="4" class="text-end">Total</td>
+            <td>${formatHoursToHHMM(horasBacklog)}</td>
+            <td colspan="2"></td>
+          </tr>`;
             }
             html += `</tbody></table></div>`;
           } else if (type === 'ensaios') {
