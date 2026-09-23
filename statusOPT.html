@@ -699,6 +699,14 @@
         color: var(--cyan-accent);
       }
 
+      /* Etiqueta de Status: a cor vem da lista do SharePoint, por isso é
+         aplicada em linha; aqui fica só a forma. */
+      .opt-badge-status {
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        border: 1px solid rgba(15, 23, 42, 0.25);
+      }
+
       /* Etiqueta das linhas vindas da Checklist Ensaio Ferramentas — usa o
          mesmo azul dos ensaios no calendário do Plano de Produção, para se
          reconhecerem de imediato entre as linhas do plano. */
@@ -3808,6 +3816,15 @@
           return baseDelta + hoursRemaining;
         }
 
+        /* "% CC em atraso > 8H" é um indicador ao contrário dos outros:
+           quanto maior, pior. Vermelho a partir de 80%, verde quando não há
+           nenhum centro de custo nessas condições. */
+        function getAtraso8hColor(pct) {
+          if (pct >= 80) return '#f87171'; // Vermelho
+          if (pct > 0) return '#fd7e14'; // Laranja
+          return '#34d399'; // Verde
+        }
+
         /* Função auxiliar para determinar a cor com base na percentagem (global) */
         function getKpiColor(pct) {
           if (pct < 50) return '#f87171'; // Vermelho
@@ -3924,6 +3941,32 @@
           });
         }
 
+        /* Cores do Status, iguais às definidas na lista do SharePoint
+           (Infowise Color Choice). O texto é escuro ou claro conforme o
+           fundo, para se ler em qualquer um deles. */
+        const CORES_STATUS = {
+          PLANEADO: { fundo: '#999999', texto: '#111827' },
+          PREPARADA: { fundo: '#f58231', texto: '#111827' },
+          'EM CURSO': { fundo: '#ffe119', texto: '#111827' },
+          PRODUZIDO: { fundo: '#33cc00', texto: '#111827' },
+          INTERROMPIDO: { fundo: '#ff0000', texto: '#ffffff' },
+        };
+
+        /* Etiqueta de Status com a cor correspondente. Um status que não
+           esteja na lista fica com o cinzento neutro de sempre. */
+        function badgeStatus(status) {
+          const texto = (status || '').toString().trim();
+          const cor = CORES_STATUS[texto.toUpperCase()];
+          if (!cor) {
+            return `<span class="badge bg-secondary">${escapeHtml(
+              texto || 'N/D'
+            )}</span>`;
+          }
+          return `<span class="badge opt-badge-status" style="background-color: ${
+            cor.fundo
+          }; color: ${cor.texto}">${escapeHtml(texto)}</span>`;
+        }
+
         /* Cor do badge de uma disponibilidade: só 'OK' fica a verde;
            'PENDENTE' fica a amarelo e tudo o resto a vermelho. */
         function getDispBadgeClass(valor) {
@@ -3968,7 +4011,9 @@
           );
 
           if (itensDisponibilidade.length === 0) {
-            $('#opt-kpiCcAtraso8h').text('0%');
+            $('#opt-kpiCcAtraso8h')
+              .text('0%')
+              .css('color', getAtraso8hColor(0));
             $('#opt-kpiQtdRatio').text('0%').css('color', corTema('--text-muted'));
             $('#opt-kpiDispMP').text('0%').css('color', getKpiColor(0));
             $('#opt-kpiDispFRT').text('0%').css('color', getKpiColor(0));
@@ -4054,7 +4099,9 @@
           );
 
           // Aplicação dos valores e cores dinâmicas
-          $('#opt-kpiCcAtraso8h').text(`${pctCcAtraso8h}%`);
+          $('#opt-kpiCcAtraso8h')
+            .text(`${pctCcAtraso8h}%`)
+            .css('color', getAtraso8hColor(pctCcAtraso8h));
           $('#opt-kpiQtdRatio')
             .text(`${ratioQtdPct}%`)
             .css('color', ratioColor);
@@ -4425,9 +4472,7 @@
             <td class="fw-bold">${escapeHtml(item.CC)}</td>
             <td>${escapeHtml(item.KA)}</td>
             <td>${item.DataFormatted || '—'}</td>
-            <td><span class="badge bg-secondary">${escapeHtml(
-              item.Status || 'N/D'
-            )}</span></td>
+            <td>${badgeStatus(item.Status)}</td>
             <td>${formatHoursToHHMM(item.HorasPlaneadas || 0)}</td>
             <td>${formatQtd(item.QtdPlaneada)}</td>
             <td>${formatQtd(item.QtdProduzida)}</td>
@@ -4754,7 +4799,7 @@
             <td>${escapeHtml(item.KA)}</td>
             <td>${item.DataFormatted || '—'}</td>
             <td>${item.DataProducaoFormatted || '—'}</td>
-            <td>${escapeHtml(item.Status || '—')}</td>
+            <td>${badgeStatus(item.Status)}</td>
             <td>${formatQtd(item.QtdProduzida)}</td>
           </tr>`;
               });
