@@ -496,25 +496,123 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .opt-delay-card {
+      /* --- CARTÃO DE CENTRO DE CUSTO --------------------------------
+         Três números de cabeça (planeado, produzido e o desvio), a faixa
+         do backlog e só depois o detalhe por dia. */
+      .opt-cc-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      .opt-cc-stat {
         background: var(--bg-card);
-        border-radius: 6px;
-        padding: 8px 12px;
         border: 1px solid var(--border-color);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
-        margin-bottom: 10px;
+        border-radius: 8px;
+        padding: 7px 10px;
         display: flex;
-        justify-content: space-between;
-        align-items: center;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
       }
-      .opt-delay-title {
+      .opt-cc-stat-label {
+        font-size: 0.66rem;
         font-weight: 700;
-        font-size: 0.9rem;
-        color: var(--text-strong);
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        white-space: nowrap;
       }
-      .opt-delay-value {
-        font-size: 1.25rem;
+      .opt-cc-stat-value {
+        font-size: 1.1rem;
         font-weight: 800;
+        color: var(--text-strong);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      /* O desvio é o número que decide se é preciso agir */
+      .opt-cc-stat-destaque {
+        border-color: rgba(148, 163, 184, 0.45);
+        background: var(--bg-subtle);
+      }
+
+      /* Faixa do backlog: trabalho arrastado de datas anteriores */
+      .opt-cc-backlog {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+        padding: 7px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(251, 146, 60, 0.45);
+        border-left: 3px solid #fb923c;
+        background: rgba(251, 146, 60, 0.1);
+        color: var(--text-strong);
+        text-align: left;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+      .opt-cc-backlog:hover {
+        background: rgba(251, 146, 60, 0.18);
+        border-color: #fb923c;
+      }
+      .opt-cc-backlog-titulo {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        min-width: 0;
+      }
+      .opt-cc-backlog-titulo i {
+        color: #fb923c;
+      }
+      .opt-cc-backlog-itens {
+        font-weight: 500;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .opt-cc-backlog-horas {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #fb923c;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+
+      /* Tabela dos dias: datas à esquerda, horas alinhadas à direita */
+      .opt-cc-table td,
+      .opt-cc-table th {
+        font-variant-numeric: tabular-nums;
+      }
+      .opt-cc-table td:not(.opt-cc-col-data),
+      .opt-cc-table th:not(:first-child) {
+        text-align: right;
+        padding-right: 10px;
+      }
+      .opt-cc-table td.opt-cc-col-data {
+        text-align: left;
+        padding-left: 10px;
+      }
+      .opt-hoje-row td {
+        font-weight: 700;
+      }
+      .opt-hoje-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 5px;
+        border-radius: 4px;
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--on-accent);
+        background: var(--cyan-accent);
+        vertical-align: middle;
       }
 
       /* ACCORDION DE CENTROS DE CUSTO */
@@ -2560,13 +2658,7 @@
         function startLiveTimer() {
           if (liveUpdateTimer) clearInterval(liveUpdateTimer);
           liveUpdateTimer = setInterval(() => {
-            const selectedArea = $('#opt-selArea').val();
-            const displayCCs = getCCsForArea(selectedArea);
-            displayCCs.forEach((cc) => {
-              if ($(`#tbody_${cc}`).length > 0) {
-                filterTableRows(cc);
-              }
-            });
+            refrescarTotaisCC();
             renderSummaryKPIs();
             updateMd07StaleAlert();
           }, 10000);
@@ -3436,6 +3528,68 @@
           }
         }
 
+        /* Números de um Centro de Custo: as horas por data (plano, ensaios
+           e backlog), os totais e o avanço/atraso. Fica à parte do desenho
+           porque também é preciso para ir atualizando os cartões já
+           desenhados, sem os voltar a construir. */
+        function calcularResumoCC(cc, selAreaClean) {
+          const ccItems = currentFilteredItems.filter((i) => {
+            const matchCC = areCCsEqual(i.CC, cc);
+            const matchArea =
+              !selAreaClean ||
+              (i.Area && String(i.Area).trim().toLowerCase() === selAreaClean);
+            return matchCC && matchArea;
+          });
+          const ccEnsaios = getEnsaiosDoCC(cc, selAreaClean);
+          const ccBacklog = getBacklogDoCC(cc, selAreaClean);
+          const dateGroups = agruparHorasPorData(ccItems, ccEnsaios, ccBacklog);
+          const rows = Object.values(dateGroups).sort(
+            (a, b) => (a.RawDate || 0) - (b.RawDate || 0)
+          );
+          const delta = calculateCcDelta(cc, ccItems, ccEnsaios, ccBacklog);
+
+          return {
+            ccItems: ccItems,
+            ccEnsaios: ccEnsaios,
+            ccBacklog: ccBacklog,
+            dateGroups: dateGroups,
+            rows: rows,
+            totalPlaneado: rows.reduce((a, r) => a + r.Planeado, 0),
+            totalProduzido: rows.reduce((a, r) => a + r.Produzido, 0),
+            delta: delta,
+            cfg: getDelayCardConfig(delta),
+          };
+        }
+
+        /* Atualiza os números dos cartões já desenhados (as horas produzidas
+           dos ensaios e o crédito das horas que faltam hoje andam com o
+           relógio). Mexe só no texto, para não interromper quem está a
+           trabalhar no cartão. */
+        function refrescarTotaisCC() {
+          const selectedArea = $('#opt-selArea').val() || '';
+          const selAreaClean = selectedArea
+            ? String(selectedArea).trim().toLowerCase()
+            : null;
+
+          getCCsForArea(selectedArea).forEach((cc) => {
+            if ($(`#tbody_${cc}`).length === 0) return;
+            const resumo = calcularResumoCC(cc, selAreaClean);
+            $(`#cc_plan_${cc}`).text(formatHoursToHHMM(resumo.totalPlaneado));
+            $(`#cc_prod_${cc}`).text(formatHoursToHHMM(resumo.totalProduzido));
+            $(`#cc_delta_label_${cc}`).text(resumo.cfg.title);
+            $(`#cc_delta_${cc}`)
+              .css('color', resumo.cfg.color)
+              .html(
+                `${resumo.cfg.valueText} <i class="${resumo.cfg.icon}" style="font-size: 0.8rem"></i>`
+              );
+            $(`#header_delay_${cc}`)
+              .css('color', resumo.cfg.color)
+              .html(
+                `${resumo.cfg.valueText} <i class="${resumo.cfg.icon}" style="font-size:0.85rem;"></i>`
+              );
+          });
+        }
+
         /* RENDERIZAR CARTÕES DE CC COMO ACCORDION DINÂMICO */
         function renderCCTables(displayCCs, selectedArea) {
           const container = $('#opt-ccAccordionContainer');
@@ -3454,38 +3608,13 @@
             : null;
 
           displayCCs.forEach((cc, index) => {
-            const ccItems = currentFilteredItems.filter((i) => {
-              const matchCC = areCCsEqual(i.CC, cc);
-              const matchArea =
-                !selAreaClean ||
-                (i.Area &&
-                  String(i.Area).trim().toLowerCase() === selAreaClean);
-              return matchCC && matchArea;
-            });
-
-            const ccEnsaios = getEnsaiosDoCC(cc, selAreaClean);
-            const ccBacklog = getBacklogDoCC(cc, selAreaClean);
-            const dateGroups = agruparHorasPorData(
-              ccItems,
-              ccEnsaios,
-              ccBacklog
-            );
-
-            // O backlog não tem data: fica sempre à cabeça da lista
-            const allCcDates = Object.keys(dateGroups).sort((a, b) => {
-              if (a === BACKLOG_KEY) return -1;
-              if (b === BACKLOG_KEY) return 1;
-              const da = a.split('-').reverse().join('-');
-              const db = b.split('-').reverse().join('-');
-              return da.localeCompare(db);
-            });
-
-            const rows = Object.values(dateGroups).sort(
-              (a, b) => (a.RawDate || 0) - (b.RawDate || 0)
-            );
+            const resumo = calcularResumoCC(cc, selAreaClean);
+            const dateGroups = resumo.dateGroups;
+            const rows = resumo.rows;
 
             let tableRowsHtml = '';
             rows.forEach((r) => {
+              if (r.IsBacklog) return; // aparece na faixa, acima da tabela
               const rowDate = r.RawDate
                 ? new Date(
                     r.RawDate.getFullYear(),
@@ -3494,9 +3623,11 @@
                   )
                 : null;
               const isFuture = rowDate && rowDate > todayObj;
+              const isHoje =
+                rowDate && rowDate.getTime() === todayObj.getTime();
               const rowClass = [
                 isFuture ? 'opt-future-row' : '',
-                r.IsBacklog ? 'opt-backlog-row' : '',
+                isHoje ? 'opt-hoje-row' : '',
               ]
                 .filter(Boolean)
                 .join(' ');
@@ -3511,18 +3642,14 @@
                     r.Ensaios * ENSAIO_HORAS_TOTAIS
                   }h)"></i>`
                 : '';
-              const rotulo = r.IsBacklog
-                ? `<span title="${r.Itens} ${
-                    r.Itens === 1 ? 'item' : 'itens'
-                  } por produzir de datas anteriores ao período">${BACKLOG_KEY}</span>`
-                : r.Data;
+              const hojeBadge = isHoje
+                ? ' <span class="opt-hoje-badge">Hoje</span>'
+                : '';
               tableRowsHtml += `
-                    <tr class="${rowClass}" data-date="${
-                r.Data
-              }" data-is-future="${
-                isFuture ? 'true' : 'false'
-              }" data-planeado="${r.Planeado}" data-produzido="${r.Produzido}">
-                        <td>${rotulo}${ensaioBadge}${futureBadge}</td>
+                    <tr class="${rowClass}" data-date="${r.Data}">
+                        <td class="opt-cc-col-data">${
+                          r.Data
+                        }${hojeBadge}${ensaioBadge}${futureBadge}</td>
                         <td>${formatHoursToHHMM(r.Planeado)}</td>
                         <td>${formatHoursToHHMM(r.Produzido)}</td>
                     </tr>
@@ -3533,34 +3660,30 @@
               tableRowsHtml = `<tr><td colspan="3" class="text-muted">Sem registos</td></tr>`;
             }
 
-            let dateOptionsHtml = `
-                <li>
-                    <div class="form-check my-1 px-3">
-                        <input class="form-check-input" type="checkbox" id="chk_all_${cc}" checked>
-                        <label class="form-check-label fw-bold small text-light" for="chk_all_${cc}" style="cursor: pointer;">Todas</label>
-                    </div>
-                </li>
-                <li><hr class="dropdown-divider my-1"></li>
-            `;
-            allCcDates.forEach((d, idx) => {
-              dateOptionsHtml += `
-                <li>
-                    <div class="form-check my-1 px-3">
-                        <input class="form-check-input chk-date-${cc}" type="checkbox" value="${d}" id="chk_${cc}_${idx}" checked>
-                        <label class="form-check-label small text-secondary" for="chk_${cc}_${idx}" style="cursor: pointer;">${d}</label>
-                    </div>
-                </li>
-                `;
-            });
+            // O backlog sai da tabela para uma faixa própria: não é uma data,
+            // é trabalho arrastado de trás, e é isso que se quer ver primeiro.
+            const grupoBacklog = dateGroups[BACKLOG_KEY];
+            const backlogBandaHtml = grupoBacklog
+              ? `
+                        <button type="button" class="opt-cc-backlog" data-cc="${escapeHtml(
+                          cc
+                        )}" title="Ver os itens por produzir de datas anteriores ao período">
+                          <span class="opt-cc-backlog-titulo">
+                            <i class="fa-solid fa-layer-group"></i>Backlog
+                            <span class="opt-cc-backlog-itens">${
+                              grupoBacklog.Itens
+                            } ${
+                  grupoBacklog.Itens === 1 ? 'item' : 'itens'
+                } por produzir</span>
+                          </span>
+                          <span class="opt-cc-backlog-horas">${formatHoursToHHMM(
+                            grupoBacklog.Planeado
+                          )}</span>
+                        </button>`
+              : '';
 
             const isExpanded = expandedCCs.has(cc);
-            const headerDelta = calculateCcDelta(
-              cc,
-              ccItems,
-              ccEnsaios,
-              ccBacklog
-            );
-            const headerCfg = getDelayCardConfig(headerDelta);
+            const headerCfg = resumo.cfg;
             const accordionHtml = `
               <div class="col-12 col-md-6">
                 <div class="accordion-item accordion-item-cc">
@@ -3585,33 +3708,38 @@
             }" aria-labelledby="heading_${cc}" data-cc="${cc}">
                     <div class="accordion-body p-2" style="background-color: var(--bg-inset);">
                       <div class="opt-cc-container border-0 p-0">
-                        <div class="opt-delay-card">
-                            <span class="opt-delay-title" id="delay_title_${cc}">Avanço</span>
-                            <span class="opt-delay-value" id="delay_${cc}">
-                                --:-- <i class="fa-solid fa-clock ms-1" style="font-size:0.9rem;"></i>
+                        <div class="opt-cc-stats">
+                          <div class="opt-cc-stat">
+                            <span class="opt-cc-stat-label">Planeado</span>
+                            <span class="opt-cc-stat-value" id="cc_plan_${cc}">${formatHoursToHHMM(
+              resumo.totalPlaneado
+            )}</span>
+                          </div>
+                          <div class="opt-cc-stat">
+                            <span class="opt-cc-stat-label">Produzido</span>
+                            <span class="opt-cc-stat-value" id="cc_prod_${cc}">${formatHoursToHHMM(
+              resumo.totalProduzido
+            )}</span>
+                          </div>
+                          <div class="opt-cc-stat opt-cc-stat-destaque">
+                            <span class="opt-cc-stat-label" id="cc_delta_label_${cc}">${
+              headerCfg.title
+            }</span>
+                            <span class="opt-cc-stat-value" id="cc_delta_${cc}" style="color: ${
+              headerCfg.color
+            }">${headerCfg.valueText}
+                              <i class="${
+                                headerCfg.icon
+                              }" style="font-size: 0.8rem"></i>
                             </span>
+                          </div>
                         </div>
+                        ${backlogBandaHtml}
                         <div class="table-responsive" style="overflow: visible;">
-                            <table class="table table-bordered table-striped table-opt">
+                            <table class="table table-bordered table-striped table-opt opt-cc-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 145px;">
-                                            <div class="dropdown d-inline-block w-100">
-                                                <button class="btn btn-sm btn-light border dropdown-toggle py-0 px-2 fw-semibold w-100 d-flex justify-content-between align-items-center" 
-                                                        type="button" 
-                                                        id="dropdownData_${cc}" 
-                                                        data-bs-toggle="dropdown" 
-                                                        data-bs-auto-close="outside" 
-                                                        aria-expanded="false" 
-                                                        style="font-size: 0.8rem; height: 26px;">
-                                                    <span class="me-1">Data:</span> 
-                                                    <span id="labelData_${cc}" class="badge bg-primary ms-auto me-1">Todas</span>
-                                                </button>
-                                                <ul class="dropdown-menu p-2 shadow border-secondary" aria-labelledby="dropdownData_${cc}" style="min-width: 160px; max-height: 220px; overflow-y: auto;">
-                                                    ${dateOptionsHtml}
-                                                </ul>
-                                            </div>
-                                        </th>
+                                        <th style="width: 45%; text-align: left">Data</th>
                                         <th>Planeado</th>
                                         <th>Produzido</th>
                                     </tr>
@@ -3629,94 +3757,16 @@
             `;
 
             container.append(accordionHtml);
+          });
 
-            $(`#chk_all_${cc}`).on('change', function () {
-              const isChecked = $(this).is(':checked');
-              $(`.chk-date-${cc}`).prop('checked', isChecked);
-              filterTableRows(cc);
+          // A faixa do backlog abre os detalhes já filtrados por esse C.C.
+          container
+            .off('click', '.opt-cc-backlog')
+            .on('click', '.opt-cc-backlog', function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              showKpiDetails('backlog', $(this).data('cc'));
             });
-
-            $(`.chk-date-${cc}`).on('change', function () {
-              filterTableRows(cc);
-            });
-
-            filterTableRows(cc);
-          });
-        }
-
-        function filterTableRows(ccId) {
-          const checkedDates = [];
-          $(`.chk-date-${ccId}:checked`).each(function () {
-            checkedDates.push($(this).val());
-          });
-          const totalDates = $(`.chk-date-${ccId}`).length;
-          const checkedCount = checkedDates.length;
-          const labelSpan = $(`#labelData_${ccId}`);
-          const masterCheck = $(`#chk_all_${ccId}`);
-
-          if (checkedCount === totalDates) {
-            labelSpan
-              .text('Todas')
-              .removeClass('bg-warning bg-danger')
-              .addClass('bg-primary');
-            masterCheck.prop('checked', true);
-          } else if (checkedCount === 0) {
-            labelSpan
-              .text('Nenhuma')
-              .removeClass('bg-primary bg-warning')
-              .addClass('bg-danger');
-            masterCheck.prop('checked', false);
-          } else {
-            labelSpan
-              .text(`${checkedCount} sel.`)
-              .removeClass('bg-primary bg-danger text-white')
-              .addClass('bg-warning text-dark');
-            masterCheck.prop('checked', false);
-          }
-          let totalPlaneadoEfetivo = 0;
-          let totalProduzidoEfetivo = 0;
-          const todayFormatted = formatDateShort(getTodayZero());
-          let isTodaySelected = false;
-
-          $(`#tbody_${ccId} tr`).each(function () {
-            const rowDate = $(this).data('date');
-            const isFuture =
-              $(this).data('is-future') === true ||
-              $(this).data('is-future') === 'true';
-            if (checkedDates.includes(rowDate)) {
-              $(this).show();
-              if (rowDate === todayFormatted) {
-                isTodaySelected = true;
-              }
-              const plan = parseFloat($(this).data('planeado')) || 0;
-              const prod = parseFloat($(this).data('produzido')) || 0;
-              if (isFuture) {
-                totalProduzidoEfetivo += prod;
-              } else {
-                totalPlaneadoEfetivo += plan;
-                totalProduzidoEfetivo += prod;
-              }
-            } else {
-              $(this).hide();
-            }
-          });
-          const hoursRemainingToday = isTodaySelected
-            ? getHoursRemainingToday()
-            : 0;
-          const baseDelta = totalProduzidoEfetivo - totalPlaneadoEfetivo;
-          const finalDelta = baseDelta + hoursRemainingToday;
-          const cardConfig = getDelayCardConfig(finalDelta);
-          $(`#delay_title_${ccId}`).text(cardConfig.title);
-          $(`#delay_${ccId}`)
-            .css('color', cardConfig.color)
-            .html(
-              `${cardConfig.valueText} <i class="${cardConfig.icon} ms-1" style="font-size:0.9rem;"></i>`
-            );
-          $(`#header_delay_${ccId}`)
-            .css('color', cardConfig.color)
-            .html(
-              `${cardConfig.valueText} <i class="${cardConfig.icon}" style="font-size:0.85rem;"></i>`
-            );
         }
 
         function calculateCcDelta(cc, ccItems, ccEnsaios, ccBacklog) {
@@ -4219,7 +4269,7 @@
             });
         }
 
-        function showKpiDetails(type) {
+        function showKpiDetails(type, ccFiltro) {
           const selectedArea = $('#opt-selArea').val() || '';
           const displayCCs = getCCsForArea(selectedArea);
           const activeCCs = getActiveCCs(displayCCs);
@@ -4339,10 +4389,14 @@
           } else if (type === 'backlog') {
             title =
               '<i class="fa-solid fa-layer-group me-2"></i>Detalhes: Backlog (por produzir de datas anteriores)';
-            const backlog = filtrarBacklogPorAreaECC(
-              selectedArea,
-              activeCCs
-            ).sort(ordenarPorDataCC);
+            let backlog = filtrarBacklogPorAreaECC(selectedArea, activeCCs);
+            if (ccFiltro) {
+              backlog = backlog.filter((i) => areCCsEqual(i.CC, ccFiltro));
+              title += ` <span class="badge bg-secondary ms-1">C.C. ${escapeHtml(
+                String(ccFiltro)
+              )}</span>`;
+            }
+            backlog = backlog.slice().sort(ordenarPorDataCC);
             const horasBacklog = backlog.reduce(
               (a, i) => a + (i.HorasPlaneadas || 0),
               0
