@@ -2344,23 +2344,25 @@
 
         /* O ficheiro é colocado num Editor de Conteúdo, que fica dentro da
            área de conteúdo do SharePoint: o espaço em branco por cima vem do
-           enchimento dessa área e das zonas de web part, que variam com a
-           masterpage. Em vez de adivinhar ids, percorre-se a cadeia de
-           elementos que contém o dashboard e anula-se o espaço que cada um
-           acrescenta por cima. Também se recolhem os elementos vazios que
-           ficam acima dele dentro desses contentores. */
-        function colarDashboardAoTopo() {
-          const wrapper = document.getElementById('opt-dashboard-wrapper');
-          if (!wrapper) return 0;
-
-          const antes = wrapper.getBoundingClientRect().top;
+           enchimento dessa área, das zonas de web part e da linha de título,
+           que variam com a masterpage. Faz-se em dois tempos: primeiro
+           anula-se o espaço que os contentores acrescentam; depois mede-se o
+           que ainda sobra e puxa-se o dashboard para cima exatamente essa
+           distância — assim funciona mesmo sem se conhecer a estrutura. */
+        function limparEspacoDosContentores(wrapper) {
           let el = wrapper.parentElement;
           while (el && el !== document.body && el !== document.documentElement) {
             const cs = getComputedStyle(el);
-            if (parseFloat(cs.paddingTop) > 0) el.style.paddingTop = '0px';
-            if (parseFloat(cs.marginTop) > 0) el.style.marginTop = '0px';
+            // !important, porque parte destes estilos vem do próprio
+            // SharePoint com prioridade
+            if (parseFloat(cs.paddingTop) > 0) {
+              el.style.setProperty('padding-top', '0px', 'important');
+            }
+            if (parseFloat(cs.marginTop) > 0) {
+              el.style.setProperty('margin-top', '0px', 'important');
+            }
 
-            // Elementos vazios antes do dashboard (zonas de web part sem
+            // Contentores vazios antes do dashboard (zonas de web part sem
             // conteúdo, separadores) que só estão a ocupar altura. Só dentro
             // da área de conteúdo: ao nível do <body> estão a barra de
             // navegação e o ribbon do SharePoint, que não se tocam.
@@ -2374,7 +2376,12 @@
                   identificacao.indexOf('suite') !== -1 ||
                   identificacao.indexOf('ribbon') !== -1 ||
                   identificacao.indexOf('nav') !== -1;
-                const texto = (irmao.textContent || '').trim();
+                // Um parágrafo deixado no Editor de Conteúdo costuma ter
+                // só um &nbsp;, que não desaparece com um trim() normal
+                const texto = (irmao.textContent || '').replace(
+                  /[\s\u00a0]+/g,
+                  ''
+                );
                 const temConteudo = irmao.querySelector(
                   'img, iframe, input, select, button, a'
                 );
@@ -2391,15 +2398,56 @@
             }
             el = el.parentElement;
           }
+        }
 
-          const recolhido = Math.round(
-            antes - wrapper.getBoundingClientRect().top
-          );
-          if (recolhido > 0) {
-            console.info(
-              `Dashboard encostado ao topo: recolhidos ${recolhido}px de espaço do SharePoint.`
+        /* Onde acaba o que está mesmo por cima do dashboard (a barra do
+           SharePoint, tipicamente): o elemento visível mais baixo que ainda
+           fica acima dele. É a referência para saber quanto espaço sobra. */
+        function limiteDaChromeAcima(wrapper) {
+          const topo = wrapper.getBoundingClientRect().top;
+          let limite = 0;
+          document.querySelectorAll('body *').forEach((el) => {
+            if (el === wrapper || el.contains(wrapper) || wrapper.contains(el)) {
+              return;
+            }
+            const r = el.getBoundingClientRect();
+            if (r.height <= 0 || r.width <= 0) return;
+            if (r.bottom <= topo + 1 && r.bottom > limite) limite = r.bottom;
+          });
+          return limite;
+        }
+
+        function colarDashboardAoTopo() {
+          const wrapper = document.getElementById('opt-dashboard-wrapper');
+          if (!wrapper) return 0;
+
+          const antes = wrapper.getBoundingClientRect().top;
+          wrapper.style.marginTop = '';
+          limparEspacoDosContentores(wrapper);
+
+          // O que ainda sobra entre o fim da barra do SharePoint e o
+          // dashboard é puxado para cima com uma margem negativa.
+          const topo = wrapper.getBoundingClientRect().top;
+          const folga = topo - limiteDaChromeAcima(wrapper);
+          if (folga > 4) {
+            wrapper.style.setProperty(
+              'margin-top',
+              `-${Math.round(folga)}px`,
+              'important'
             );
           }
+
+          const depois = wrapper.getBoundingClientRect().top;
+          const recolhido = Math.round(antes - depois);
+          // Mensagem sempre, mesmo quando não há nada a recolher: é por aqui
+          // que se confirma que esta versão do ficheiro está mesmo em uso e
+          // quanto espaço ainda sobra por cima.
+          console.info(
+            `[Dashboard OPT] espaço acima: ${Math.round(
+              antes
+            )}px -> ${Math.round(depois)}px (recolhidos ${recolhido}px; ` +
+              `sobra ${Math.round(folga)}px até ao fim da barra do SharePoint)`
+          );
           return recolhido;
         }
 
