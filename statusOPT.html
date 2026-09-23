@@ -504,13 +504,17 @@
         white-space: nowrap;
       }
       /* --- CARTÃO DE CENTRO DE CUSTO --------------------------------
-         Três números de cabeça (planeado, produzido e o desvio), a faixa
-         do backlog e só depois o detalhe por dia. */
+         Em cima, a faixa do backlog e o desvio lado a lado; por baixo, o
+         detalhe por dia. */
       .opt-cc-stats {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
         gap: 6px;
         margin-bottom: 8px;
+      }
+      .opt-cc-stats-backlog {
+        min-width: 0;
       }
       .opt-cc-stat {
         background: var(--bg-card);
@@ -550,7 +554,6 @@
         align-items: center;
         justify-content: space-between;
         gap: 10px;
-        margin-bottom: 8px;
         padding: 7px 10px;
         border-radius: 8px;
         border: 1px solid rgba(251, 146, 60, 0.45);
@@ -3780,8 +3783,6 @@
           getCCsForArea(selectedArea).forEach((cc) => {
             if ($(`#tbody_${cc}`).length === 0) return;
             const resumo = calcularResumoCC(cc, selAreaClean);
-            $(`#cc_plan_${cc}`).text(formatHoursToHHMM(resumo.totalPlaneado));
-            $(`#cc_prod_${cc}`).text(formatHoursToHHMM(resumo.totalProduzido));
             $(`#cc_delta_label_${cc}`).text(resumo.cfg.title);
             $(`#cc_delta_${cc}`)
               .css('color', resumo.cfg.color)
@@ -3915,18 +3916,7 @@
                     <div class="accordion-body p-2" style="background-color: var(--bg-inset);">
                       <div class="opt-cc-container border-0 p-0">
                         <div class="opt-cc-stats">
-                          <div class="opt-cc-stat">
-                            <span class="opt-cc-stat-label">Planeado</span>
-                            <span class="opt-cc-stat-value" id="cc_plan_${cc}">${formatHoursToHHMM(
-              resumo.totalPlaneado
-            )}</span>
-                          </div>
-                          <div class="opt-cc-stat">
-                            <span class="opt-cc-stat-label">Produzido</span>
-                            <span class="opt-cc-stat-value" id="cc_prod_${cc}">${formatHoursToHHMM(
-              resumo.totalProduzido
-            )}</span>
-                          </div>
+                          <div class="opt-cc-stats-backlog">${backlogBandaHtml}</div>
                           <div class="opt-cc-stat opt-cc-stat-destaque">
                             <span class="opt-cc-stat-label" id="cc_delta_label_${cc}">${
               headerCfg.title
@@ -3940,7 +3930,6 @@
                             </span>
                           </div>
                         </div>
-                        ${backlogBandaHtml}
                         <div class="table-responsive" style="overflow: visible;">
                             <table class="table table-bordered table-striped table-opt opt-cc-table">
                                 <thead>
