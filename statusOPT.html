@@ -1294,8 +1294,7 @@
 
       <!-- Dashboard Content -->
       <div id="opt-dashboardContent" style="display: none">
-        <!-- 5 CARTÕES KPI CENTRADOS NO TOPO -->
-        <!-- 5 CARTÕES KPI CENTRADOS NO TOPO -->
+        <!-- CARTÕES KPI CENTRADOS NO TOPO -->
         <div class="opt-section-box-summary mb-3">
           <div class="row g-2 justify-content-center">
             <!-- 1. Cartão Área -->
@@ -1315,7 +1314,17 @@
               </div>
             </div>
 
-            <!-- 2. Cartão % CC em atraso > 8H -->
+            <!-- 2. Cartão Total avanço/atraso (título e cores dinâmicos) -->
+            <div class="col">
+              <div class="opt-summary-card">
+                <div class="title" id="opt-kpiTotalDeltaTitulo">
+                  TOTAL AVANÇO
+                </div>
+                <div class="value" id="opt-kpiTotalDelta">0:00</div>
+              </div>
+            </div>
+
+            <!-- 3. Cartão % CC em atraso > 8H -->
             <div class="col">
               <div
                 class="opt-summary-card clickable"
@@ -1339,7 +1348,7 @@
               </div>
             </div>
 
-            <!-- 3. Cartão Qtd. PRODUZIDO/PLANEADO (%) -->
+            <!-- 4. Cartão Qtd. PRODUZIDO/PLANEADO (%) -->
             <div class="col">
               <div
                 class="opt-summary-card clickable"
@@ -1359,7 +1368,7 @@
               </div>
             </div>
 
-            <!-- 4. Cartão Disponibilidade MP (INSERIDO AQUI) -->
+            <!-- 5. Cartão Disponibilidade MP -->
             <div class="col">
               <div
                 class="opt-summary-card clickable"
@@ -1377,7 +1386,7 @@
               </div>
             </div>
 
-            <!-- 5. Cartão Disponibilidade FRT (INSERIDO AQUI) -->
+            <!-- 6. Cartão Disponibilidade FRT -->
             <div class="col">
               <div
                 class="opt-summary-card clickable"
@@ -3770,6 +3779,33 @@
           };
         }
 
+        /* Soma dos avanços/atrasos dos centros de custo em exibição: é o
+           mesmo número de cada cartão, somado, pelo que um CC em avanço
+           compensa outro em atraso. O título diz qual dos dois prevalece e
+           acrescenta a área quando há uma selecionada. */
+        function atualizarKpiTotalDelta() {
+          const selectedArea = $('#opt-selArea').val() || '';
+          const selAreaClean = selectedArea
+            ? String(selectedArea).trim().toLowerCase()
+            : null;
+          const total = getCCsForArea(selectedArea).reduce(
+            (soma, cc) => soma + calcularResumoCC(cc, selAreaClean).delta,
+            0
+          );
+          const cfg = getDelayCardConfig(total);
+          const sufixoArea = selectedArea
+            ? ' ' + String(selectedArea).trim().toUpperCase()
+            : '';
+          $('#opt-kpiTotalDeltaTitulo').text(
+            (total >= 0 ? 'TOTAL AVANÇO' : 'TOTAL EM ATRASO') + sufixoArea
+          );
+          $('#opt-kpiTotalDelta')
+            .css('color', cfg.color)
+            .html(
+              `${cfg.valueText} <i class="${cfg.icon}" style="font-size: 0.9rem"></i>`
+            );
+        }
+
         /* Atualiza os números dos cartões já desenhados (as horas produzidas
            dos ensaios e o crédito das horas que faltam hoje andam com o
            relógio). Mexe só no texto, para não interromper quem está a
@@ -3795,6 +3831,8 @@
                 `${resumo.cfg.valueText} <i class="${resumo.cfg.icon}" style="font-size:0.85rem;"></i>`
               );
           });
+
+          atualizarKpiTotalDelta();
         }
 
         /* RENDERIZAR CARTÕES DE CC COMO ACCORDION DINÂMICO */
@@ -4196,6 +4234,7 @@
           updateBacklogStatusUI(
             filtrarBacklogPorAreaECC(selectedArea, activeCCs)
           );
+          atualizarKpiTotalDelta();
 
           if (itensDisponibilidade.length === 0) {
             $('#opt-kpiCcAtraso8h')
