@@ -855,9 +855,22 @@
       .opt-manual-risk-row {
         background: rgba(34, 211, 238, 0.05);
       }
-      .opt-manual-risk-delete {
+      .opt-manual-risk-delete,
+      .opt-risk-row-delete,
+      .opt-risk-confirmar .btn {
         padding: 1px 7px;
         font-size: 0.72rem;
+      }
+      /* Linha à espera da segunda confirmação para ser eliminada */
+      .opt-risk-confirmar {
+        display: inline-flex;
+        gap: 4px;
+        white-space: nowrap;
+      }
+      .opt-risk-editando tbody tr:has(.opt-risk-confirmar) {
+        outline: 1px solid #f87171;
+        outline-offset: -1px;
+        cursor: default;
       }
       .opt-md07-alert {
         margin-top: 8px;
@@ -1499,6 +1512,15 @@
                     title="Voltar à ordenação automática"
                   >
                     <i class="fa-solid fa-rotate-left me-1"></i>Repor ordem
+                  </button>
+                  <button
+                    type="button"
+                    id="opt-btnRiskRestoreRemovidas"
+                    class="btn btn-outline-secondary btn-sm fw-bold"
+                    style="display: none"
+                    title="Trazer de volta as linhas eliminadas"
+                  >
+                    <i class="fa-solid fa-trash-arrow-up me-1"></i>Repor linhas
                   </button>
                   <button
                     type="button"
@@ -2290,6 +2312,12 @@
         // A ordem personalizada pode estar guardada mas desligada, para se
         // ver a ordenação automática sem a perder (escolha de cada um).
         const RISK_ORDER_APLICADA_KEY = 'opt_risk_order_aplicada_v1';
+        /* Linhas eliminadas à mão no modo de edição. Vão com a ordem para o
+           ficheiro partilhado, logo valem para todos os utilizadores. */
+        const RISK_REMOVIDAS_STORAGE_KEY = 'opt_risk_removidas_v1';
+        let riskRemovidas = [];
+        /* Linha à espera da segunda confirmação para ser eliminada */
+        let riskLinhaArmada = null;
         let riskOrderAplicada = true;
 
         // --- UNIFICAÇÃO DE CENTROS DE CUSTO (CC) ---
@@ -2654,6 +2682,38 @@
             .on('click', function () {
               limparOrdemRisco();
               renderRiskTable();
+            });
+
+          $('#opt-btnRiskRestoreRemovidas')
+            .off('click')
+            .on('click', function () {
+              reporLinhasRemovidas();
+            });
+
+          // Eliminar uma linha no modo de edição: primeiro clique arma,
+          // segundo confirma (o X desiste).
+          $('#opt-tbodyRisk')
+            .off('click', '.opt-risk-row-delete')
+            .on('click', '.opt-risk-row-delete', function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              armarEliminacaoRisco($(this).data('risk-key'));
+            });
+
+          $('#opt-tbodyRisk')
+            .off('click', '.opt-risk-row-delete-confirm')
+            .on('click', '.opt-risk-row-delete-confirm', function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              eliminarLinhaRisco($(this).data('risk-key'));
+            });
+
+          $('#opt-tbodyRisk')
+            .off('click', '.opt-risk-row-delete-cancel')
+            .on('click', '.opt-risk-row-delete-cancel', function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              desarmarEliminacaoRisco(true);
             });
 
           $('#opt-btnShowManualRiskForm')
@@ -3579,6 +3639,10 @@
           reevaluateRisk();
         }
 
+        /* Máximo de turnos que se conseguem marcar como trabalho extra:
+           seis, o que cabe num fim de semana. */
+        const TURNOS_EXTRA_MAXIMOS = 6;
+
         function calculateTrabalhoExtra(cc) {
           const aberturaConfig = rawAberturaItems.find((a) =>
             areCCsEqual(a.CC, cc)
@@ -3620,7 +3684,12 @@
           }
 
           const totalPrevisto = turnosExtraMod + ajusteTurnos;
-          return Math.max(0, totalPrevisto);
+          // Por muito atraso que haja, um fim de semana só dá para seis
+          // turnos: mais do que isso não é trabalho que se consiga marcar.
+          return Math.min(
+            TURNOS_EXTRA_MAXIMOS,
+            Math.max(0, totalPrevisto)
+          );
         }
 
         /* RENDERIZAR TABELA PREVISÃO DE TRABALHO EXTRA */
@@ -5071,6 +5140,12 @@
             if (savedOrder) {
               riskCustomOrder = JSON.parse(savedOrder) || [];
             }
+            const savedRemovidas = localStorage.getItem(
+              RISK_REMOVIDAS_STORAGE_KEY
+            );
+            if (savedRemovidas) {
+              riskRemovidas = JSON.parse(savedRemovidas) || [];
+            }
             riskOrderAplicada =
               localStorage.getItem(RISK_ORDER_APLICADA_KEY) !== '0';
             updateRiskOrderUI();
@@ -5783,7 +5858,11 @@
             activeCCs.some((cc) => areCCsEqual(cc, r.CC))
           );
 
-          const filtered = [...riskMaterials, ...manualRiskRowsForArea];
+          // As linhas eliminadas à mão no modo de edição não voltam a
+          // aparecer, mesmo que o MD07 as continue a assinalar.
+          const filtered = [...riskMaterials, ...manualRiskRowsForArea].filter(
+            (item) => riskRemovidas.indexOf(riskRowKey(item)) === -1
+          );
 
           filtered.sort((a, b) => {
             // As falhas de envio vêm sempre à frente: uma falha de envio
@@ -5855,9 +5934,27 @@
             const manualTag = item.isManual
               ? ` <span class="badge bg-info text-dark ms-1" title="Linha adicionada manualmente">Manual</span>`
               : '';
-            const deleteBtn = item.isManual
-              ? `<button type="button" class="btn btn-sm btn-outline-danger opt-manual-risk-delete ms-2" data-id="${item.id}" title="Remover linha manual"><i class="fa-solid fa-trash"></i></button>`
-              : '';
+            // Fora do modo de edição, as linhas manuais mantêm o seu próprio
+            // botão de remover; dentro, todas as linhas usam o mesmo.
+            const deleteBtn =
+              item.isManual && !riskEditMode
+                ? `<button type="button" class="btn btn-sm btn-outline-danger opt-manual-risk-delete ms-2" data-id="${item.id}" title="Remover linha manual"><i class="fa-solid fa-trash"></i></button>`
+                : '';
+            const chaveLinha = riskRowKey(item);
+            let botaoEliminar = '';
+            if (riskEditMode) {
+              botaoEliminar =
+                riskLinhaArmada === chaveLinha
+                  ? `<span class="opt-risk-confirmar ms-2">
+                       <button type="button" class="btn btn-sm btn-danger opt-risk-row-delete-confirm" data-risk-key="${escapeHtml(
+                         chaveLinha
+                       )}" title="Confirmar a eliminação desta linha"><i class="fa-solid fa-trash me-1"></i>Eliminar?</button>
+                       <button type="button" class="btn btn-sm btn-outline-secondary opt-risk-row-delete-cancel" title="Manter a linha"><i class="fa-solid fa-xmark"></i></button>
+                     </span>`
+                  : `<button type="button" class="btn btn-sm btn-outline-danger opt-risk-row-delete ms-2" data-risk-key="${escapeHtml(
+                      chaveLinha
+                    )}" title="Eliminar esta linha"><i class="fa-solid fa-trash"></i></button>`;
+            }
             const classes = [
               item.isManual ? 'opt-manual-risk-row' : '',
               riskEditMode ? 'opt-risk-row-editavel' : '',
@@ -5869,19 +5966,66 @@
               : '';
             $tbody.append(`
                 <tr${classes ? ` class="${classes}"` : ''} data-risk-key="${escapeHtml(
-              riskRowKey(item)
-            )}"${riskEditMode ? ' draggable="true"' : ''}>
+              chaveLinha
+            )}"${
+              riskEditMode && riskLinhaArmada !== chaveLinha
+                ? ' draggable="true"'
+                : ''
+            }>
                     <td>${pega}${escapeHtml(item.CC)}</td>
                     <td>${escapeHtml(item.KA)}</td>
                     <td>${item.Cobertura.toFixed(1)}</td>
                     <td class="comentario-cell ${badgeClass}">${escapeHtml(
               item.Comentario
-            )}${manualTag}${deleteBtn}</td>
+            )}${manualTag}${deleteBtn}${botaoEliminar}</td>
                 </tr>
             `);
           });
 
           if (riskEditMode) bindRiskDragAndDrop();
+        }
+
+        /* Eliminar uma linha exige duas ações: o primeiro clique no caixote
+           arma a linha (o botão passa a "Eliminar?") e só o segundo é que a
+           tira da tabela. A escolha vai com a ordem para o SharePoint, logo
+           vale para todos os utilizadores. */
+        function armarEliminacaoRisco(chave) {
+          riskLinhaArmada = chave;
+          renderRiskTable();
+        }
+
+        function desarmarEliminacaoRisco(redesenhar) {
+          if (riskLinhaArmada === null) return;
+          riskLinhaArmada = null;
+          if (redesenhar) renderRiskTable();
+        }
+
+        function eliminarLinhaRisco(chave) {
+          riskLinhaArmada = null;
+          if (!chave) return;
+          // As linhas adicionadas à mão desaparecem mesmo; as que vêm do
+          // MD07 ficam numa lista de excluídas, senão voltavam no cálculo
+          // seguinte.
+          if (chave.indexOf('M|') === 0) {
+            removeManualRiskRow(chave.slice(2));
+            return;
+          }
+          if (riskRemovidas.indexOf(chave) === -1) riskRemovidas.push(chave);
+          // Sai também da ordem personalizada, para não deixar lá um lugar
+          // guardado a uma linha que já não existe.
+          riskCustomOrder = riskCustomOrder.filter((k) => k !== chave);
+          gravarOrdemRisco();
+          renderRiskTable();
+          updateRiskOrderUI();
+        }
+
+        function reporLinhasRemovidas() {
+          if (riskRemovidas.length === 0) return;
+          riskRemovidas = [];
+          riskLinhaArmada = null;
+          gravarOrdemRisco();
+          renderRiskTable();
+          updateRiskOrderUI();
         }
 
         /* Identifica uma linha da tabela de risco para efeitos de ordem
@@ -5908,6 +6052,7 @@
            definir a ordem, que fica guardada neste browser. */
         function setRiskEditMode(ativo) {
           riskEditMode = ativo;
+          riskLinhaArmada = null;
           $('#opt-btnRiskEdit')
             .toggleClass('btn-outline-warning', !ativo)
             .toggleClass('btn-warning', ativo)
@@ -5954,6 +6099,15 @@
           }
           // O "Repor ordem" só faz sentido enquanto se está a editar
           $('#opt-btnRiskResetOrder').toggle(riskEditMode);
+          // O mesmo para trazer de volta as linhas eliminadas
+          const removidas = riskRemovidas.length;
+          $('#opt-btnRiskRestoreRemovidas')
+            .toggle(riskEditMode && removidas > 0)
+            .html(
+              `<i class="fa-solid fa-trash-arrow-up me-1"></i>Repor ${removidas} linha${
+                removidas === 1 ? '' : 's'
+              }`
+            );
         }
 
         /* Mostra o resultado da gravação da ordem junto à tabela, para não
@@ -6041,6 +6195,10 @@
               RISK_ORDER_STORAGE_KEY,
               JSON.stringify(riskCustomOrder)
             );
+            localStorage.setItem(
+              RISK_REMOVIDAS_STORAGE_KEY,
+              JSON.stringify(riskRemovidas)
+            );
           } catch (e) {
             console.error('Não foi possível guardar a ordem localmente:', e);
           }
@@ -6056,6 +6214,7 @@
             RISK_ORDER_FILE_NAME,
             JSON.stringify({
               ordem: riskCustomOrder,
+              removidas: riskRemovidas,
               gravadoEm: new Date().toISOString(),
             })
           )
@@ -6097,7 +6256,12 @@
           try {
             const guardado = JSON.parse(conteudo);
             const ordem = Array.isArray(guardado) ? guardado : guardado.ordem;
-            return Array.isArray(ordem) ? ordem : null;
+            if (!Array.isArray(ordem)) return null;
+            const removidas =
+              !Array.isArray(guardado) && Array.isArray(guardado.removidas)
+                ? guardado.removidas
+                : [];
+            return { ordem: ordem, removidas: removidas };
           } catch (e) {
             return null;
           }
@@ -6117,17 +6281,22 @@
             cache: false,
           })
             .done(function (texto) {
-              const ordem = parseOrdemRisco(texto);
-              if (!ordem) {
+              const guardado = parseOrdemRisco(texto);
+              if (!guardado) {
                 semOrdemPartilhada();
                 return;
               }
-              riskCustomOrder = ordem;
+              riskCustomOrder = guardado.ordem;
+              riskRemovidas = guardado.removidas;
               riskOrderPartilhada = true;
               try {
                 localStorage.setItem(
                   RISK_ORDER_STORAGE_KEY,
                   JSON.stringify(riskCustomOrder)
+                );
+                localStorage.setItem(
+                  RISK_REMOVIDAS_STORAGE_KEY,
+                  JSON.stringify(riskRemovidas)
                 );
               } catch (e) {
                 /* a cópia local é acessória */
