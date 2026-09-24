@@ -1467,14 +1467,19 @@
                           style="
                             text-align: left;
                             padding-left: 12px;
-                            width: 50%;
+                            width: 28%;
                           "
                         >
                           Centro de Custo
                         </th>
-                        <th style="width: 50%; text-align: center">
-                          Turnos Previstos
+                        <th style="width: 18%; text-align: center">MOD</th>
+                        <th style="width: 18%; text-align: center">
+                          Previsão
                         </th>
+                        <th style="width: 18%; text-align: center">
+                          Pedido TE
+                        </th>
+                        <th style="width: 18%; text-align: center">Real TE</th>
                       </tr>
                     </thead>
                     <tbody id="opt-tbodyTrabalhoExtra">
@@ -2174,6 +2179,12 @@
           'Disponibilidade_x0020_da_x0020_F,MP_x0020_e_x0020_BIPS,' +
           'OData__x00c1_rea';
         const ENSAIOS_SELECT_CANCEL = 'Cancelar,Cancelado_x003f_';
+        // Trabalho Extra - Registos: turnos pedidos e preenchidos por
+        // semana, área e centro de custo
+        const LIST_TE_GUID = '{261FDB0F-CFFD-4AE3-B44E-F73F737D3845}';
+        const TE_SELECT =
+          'ID,Ano,Semana,OData__x00c1_rea,C_x002e_C_x002e_0,' +
+          'Turnos_x0020_Necess_x002e_0,Turnos_x0020_Preench_x002e_';
 
         const COKA_SHAREPOINT_URL =
           'https://pt.sps.automotive.local/departments/logistica/Documentos%20Planeamento/ZZ_Arquivo/KA%20CO.xlsx';
@@ -2255,6 +2266,10 @@
 
         let rawListItems = [];
         let rawModItems = [];
+        let rawTrabalhoExtraItems = [];
+        // Distingue "a lista não trouxe registos" de "a lista não abriu":
+        // no segundo caso mostra-se um traço em vez de zeros.
+        let trabalhoExtraDisponivel = false;
         let rawAberturaItems = [];
         let rawEnsaioItems = [];
         // Diagnóstico da leitura dos ensaios, mostrado no cabeçalho
@@ -3216,6 +3231,66 @@
           return String(val).trim();
         }
 
+        /* Texto de uma coluna sem a marcação HTML que as colunas Infowise
+           por vezes trazem à volta do valor. */
+        function limparTexto(val) {
+          return extractValue(val).replace(/<[^>]*>/g, '').trim();
+        }
+
+        /* Ano e semana chegam como texto: compara-se pelo número, para dar
+           na mesma com "39", "W39" ou "039". */
+        function soNumero(val) {
+          const digitos = limparTexto(val).replace(/[^0-9]/g, '');
+          return digitos === '' ? null : parseInt(digitos, 10);
+        }
+
+        /* Números vindos do SharePoint: as colunas calculadas podem chegar
+           como "float;#5" e com vírgula decimal. */
+        function numeroDoCampo(val) {
+          let texto = limparTexto(val);
+          const sep = texto.lastIndexOf(';#');
+          if (sep !== -1) texto = texto.slice(sep + 2);
+          const n = parseFloat(texto.replace(',', '.'));
+          return isNaN(n) ? 0 : n;
+        }
+
+        /* Semana ISO-8601 (a que o SharePoint e o Excel usam): a semana
+           começa à segunda-feira e a semana 1 é a que contém a primeira
+           quinta-feira do ano. */
+        function getSemanaIso(dateObj) {
+          const d = new Date(
+            dateObj.getFullYear(),
+            dateObj.getMonth(),
+            dateObj.getDate()
+          );
+          // Quinta-feira da mesma semana: decide o ano a que a semana pertence
+          const diaIso = d.getDay() === 0 ? 7 : d.getDay();
+          d.setDate(d.getDate() + 4 - diaIso);
+          const anoIso = d.getFullYear();
+          const primeiroDeJaneiro = new Date(anoIso, 0, 1);
+          // Arredondar os dias, senão a mudança da hora legal (uma hora a
+          // mais ou a menos no meio do ano) dava a semana anterior.
+          const dias = Math.round(
+            (d - primeiroDeJaneiro) / (24 * 60 * 60 * 1000)
+          );
+          const semana = Math.floor(dias / 7) + 1;
+          return { ano: anoIso, semana: semana };
+        }
+
+        /* Segunda-feira da semana do início do período em análise. */
+        function getSegundaDoPeriodo() {
+          const startVal = $('#opt-startDate').val();
+          const base = startVal ? new Date(startVal + 'T00:00:00') : new Date();
+          const diaIso = base.getDay() === 0 ? 7 : base.getDay();
+          const segunda = new Date(
+            base.getFullYear(),
+            base.getMonth(),
+            base.getDate() - (diaIso - 1)
+          );
+          segunda.setHours(0, 0, 0, 0);
+          return segunda;
+        }
+
         function isCurrentWeek(dateObj) {
           if (!dateObj) return false;
           const now = new Date();
@@ -3334,8 +3409,51 @@
                 });
             });
 
-          $.when(reqOpt, reqMod, reqAbertura, reqEnsaios)
-            .done(function (resOpt, resMod, resAbertura, resEnsaios) {
+          // Trabalho Extra - Registos: tal como os ensaios, é um
+          // complemento. Se a lista não abrir, o resto do dashboard tem de
+          // continuar a funcionar, por isso o pedido resolve sempre.
+          const reqTE = $.Deferred();
+          function pedirTrabalhoExtra(select) {
+            const filtros = select ? `$select=${select}&` : '';
+            return $.ajax({
+              url: `${getWebUrl()}/_api/web/lists(guid'${LIST_TE_GUID.replace(
+                /[{}]/g,
+                ''
+              )}')/items?${filtros}$top=5000`,
+              type: 'GET',
+              headers: { Accept: 'application/json; odata=verbose' },
+            });
+          }
+          trabalhoExtraDisponivel = false;
+          pedirTrabalhoExtra('')
+            .done(function (res) {
+              trabalhoExtraDisponivel = true;
+              reqTE.resolve(res);
+            })
+            .fail(function (err) {
+              // Se alguma coluna da lista não for serializável (como
+              // acontece na lista dos ensaios), repete-se a pedir só os
+              // campos usados aqui.
+              console.warn(
+                'Trabalho Extra: pedido completo falhou, a repetir só com os campos usados.',
+                err
+              );
+              pedirTrabalhoExtra(TE_SELECT)
+                .done(function (res) {
+                  trabalhoExtraDisponivel = true;
+                  reqTE.resolve(res);
+                })
+                .fail(function (err2) {
+                  console.error(
+                    'Erro ao carregar a lista Trabalho Extra - Registos:',
+                    err2
+                  );
+                  reqTE.resolve({ d: { results: [] } });
+                });
+            });
+
+          $.when(reqOpt, reqMod, reqAbertura, reqEnsaios, reqTE)
+            .done(function (resOpt, resMod, resAbertura, resEnsaios, resTE) {
               const optItems =
                 resOpt[0] && resOpt[0].d && resOpt[0].d.results
                   ? resOpt[0].d.results
@@ -3356,15 +3474,31 @@
                   ? resEnsaios.d.results
                   : [];
 
-              processItems(optItems, modItems, aberturaItems, ensaioItems);
+              // reqTE, tal como reqEnsaios, resolve com um único valor.
+              const teItems =
+                resTE && resTE.d && resTE.d.results ? resTE.d.results : [];
+
+              processItems(
+                optItems,
+                modItems,
+                aberturaItems,
+                ensaioItems,
+                teItems
+              );
             })
             .fail(function (err) {
               console.error('Erro ao carregar dados do SharePoint:', err);
-              processItems([], [], [], []);
+              processItems([], [], [], [], []);
             });
         }
 
-        function processItems(optItems, modItems, aberturaItems, ensaioItems) {
+        function processItems(
+          optItems,
+          modItems,
+          aberturaItems,
+          ensaioItems,
+          teItems
+        ) {
           rawListItems = optItems.map((item) => {
             const rawCC = item.CC || item.OData_CC || 'N/A';
             const rawKA =
@@ -3478,6 +3612,35 @@
 
           ensaiosDiag.recebidos = (ensaioItems || []).length;
           ensaiosDiag.aceites = rawEnsaioItems.length;
+
+          // Trabalho Extra - Registos: turnos pedidos (Turnos Nec.) e
+          // efetivamente preenchidos (Turnos Preench., coluna calculada).
+          rawTrabalhoExtraItems = (teItems || []).map((item) => ({
+            Ano: soNumero(
+              item.Ano || item.OData_Ano || item.Title
+            ),
+            Semana: soNumero(item.Semana || item.OData_Semana),
+            Area: limparTexto(
+              item.OData__x00c1_rea ||
+                item._x00c1_rea ||
+                item.Area ||
+                item.OData_Area
+            ).toUpperCase(),
+            CC: limparTexto(
+              item.C_x002e_C_x002e_0 ||
+                item.OData_C_x002e_C_x002e_0 ||
+                item.C_x002e_C_x002e_ ||
+                item.CC
+            ),
+            TurnosNec: numeroDoCampo(
+              item.Turnos_x0020_Necess_x002e_0 ||
+                item.OData_Turnos_x0020_Necess_x002e_0
+            ),
+            TurnosPreench: numeroDoCampo(
+              item.Turnos_x0020_Preench_x002e_ ||
+                item.OData_Turnos_x0020_Preench_x002e_
+            ),
+          }));
 
           rawAberturaItems = aberturaItems.map((item) => {
             const rawCC =
@@ -3692,6 +3855,50 @@
           );
         }
 
+        /* MOD do fim de semana da semana em análise: os turnos que a MOD
+           Planeada tem marcados para o sábado e o domingo dessa semana.
+           É esse o pessoal disponível para trabalho extra. */
+        function calcularModFimDeSemana(cc) {
+          const segunda = getSegundaDoPeriodo();
+          const sabado = new Date(segunda);
+          sabado.setDate(segunda.getDate() + 5);
+          const domingo = new Date(segunda);
+          domingo.setDate(segunda.getDate() + 6);
+          const chaves = [formatDateShort(sabado), formatDateShort(domingo)];
+
+          return rawModItems.reduce((soma, m) => {
+            if (!areCCsEqual(m.CC, cc) || !m.RawDateObj) return soma;
+            if (chaves.indexOf(formatDateShort(m.RawDateObj)) === -1) {
+              return soma;
+            }
+            return soma + (m.Turnos || 0);
+          }, 0);
+        }
+
+        /* Turnos pedidos (Turnos Nec.) e preenchidos (Turnos Preench.) na
+           lista "Trabalho Extra - Registos", para o ano e a semana do
+           período em análise, no centro de custo e na área em causa. Sem
+           área selecionada somam-se todas as áreas desse C.C. */
+        function somarTrabalhoExtra(cc, campo, selectedArea) {
+          const { ano, semana } = getSemanaIso(getSegundaDoPeriodo());
+          const areaLimpa = selectedArea
+            ? String(selectedArea).trim().toUpperCase()
+            : null;
+
+          return rawTrabalhoExtraItems.reduce((soma, r) => {
+            if (r.Ano !== ano || r.Semana !== semana) return soma;
+            if (!areCCsEqual(r.CC, cc)) return soma;
+            if (areaLimpa && r.Area !== areaLimpa) return soma;
+            return soma + (r[campo] || 0);
+          }, 0);
+        }
+
+        /* Os turnos aparecem sem casas decimais quando são inteiros. */
+        function formatarTurnos(valor) {
+          if (!isFinite(valor)) return '0';
+          return Number.isInteger(valor) ? String(valor) : valor.toFixed(1);
+        }
+
         /* RENDERIZAR TABELA PREVISÃO DE TRABALHO EXTRA */
         function renderTrabalhoExtraTable(displayCCs) {
           const $tbody = $('#opt-tbodyTrabalhoExtra');
@@ -3699,23 +3906,42 @@
 
           if (displayCCs.length === 0) {
             $tbody.append(
-              '<tr><td colspan="2" class="text-muted text-center p-2">Sem dados disponíveis</td></tr>'
+              '<tr><td colspan="5" class="text-muted text-center p-2">Sem dados disponíveis</td></tr>'
             );
             return;
           }
 
+          const selectedArea = $('#opt-selArea').val() || '';
+          const estiloCelula =
+            'font-weight: 800; font-size: 1.15rem; text-align: center; background-color: #ffffff !important;';
+
           displayCCs.forEach((cc) => {
             const turnosPrevistos = calculateTrabalhoExtra(cc);
             const numColor = turnosPrevistos > 0 ? '#ef4444' : '#22c55e';
+            const mod = calcularModFimDeSemana(cc);
+            // Sem a lista de registos não se pode dizer que são zero turnos
+            const pedido = trabalhoExtraDisponivel
+              ? formatarTurnos(somarTrabalhoExtra(cc, 'TurnosNec', selectedArea))
+              : '—';
+            const real = trabalhoExtraDisponivel
+              ? formatarTurnos(
+                  somarTrabalhoExtra(cc, 'TurnosPreench', selectedArea)
+                )
+              : '—';
 
             $tbody.append(`
               <tr>
                 <td style="text-align: left; padding-left: 15px; font-weight: 700; color: #0f172a; background-color: #ffffff !important;">${escapeHtml(
                   cc
                 )}</td>
-                <td style="font-weight: 800; font-size: 1.15rem; color: ${numColor} !important; text-align: center; background-color: #ffffff !important;">
+                <td style="${estiloCelula} color: #0f172a !important;">${formatarTurnos(
+              mod
+            )}</td>
+                <td style="${estiloCelula} color: ${numColor} !important;">
                   ${turnosPrevistos}
                 </td>
+                <td style="${estiloCelula} color: #0f172a !important;">${pedido}</td>
+                <td style="${estiloCelula} color: #0f172a !important;">${real}</td>
               </tr>
             `);
           });
