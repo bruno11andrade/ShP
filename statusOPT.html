@@ -3254,6 +3254,37 @@
           return isNaN(n) ? 0 : n;
         }
 
+        /* O nome interno de uma coluna do SharePoint é o nome com que foi
+           criada, e não o que aparece na lista depois de a renomearem. Em
+           vez de o fixar, procura-se a coluna pelo nome já descodificado
+           (_x0020_ e companhia fora), o que apanha tanto "TurnosNec" como
+           "Turnos_x0020_Necess_x002e_0". */
+        function normalizarNomeCampo(nome) {
+          return String(nome || '')
+            .replace(/^OData_/, '')
+            .replace(/_x[0-9a-fA-F]{4}_/g, '')
+            .replace(/[^A-Za-z0-9]/g, '')
+            .toLowerCase();
+        }
+
+        /* Devolve { chave, valor } da primeira coluna cujo nome comece pelo
+           prefixo dado. As colunas de ligação (…Id) ficam para o fim, para
+           não serem confundidas com a coluna de valor. */
+        function campoPorPrefixo(item, prefixo) {
+          const candidatos = [];
+          Object.keys(item || {}).forEach((chave) => {
+            if (chave === '__metadata') return;
+            const valor = item[chave];
+            if (valor && typeof valor === 'object' && valor.__deferred) return;
+            const nome = normalizarNomeCampo(chave);
+            if (nome.indexOf(prefixo) !== 0) return;
+            candidatos.push({ chave: chave, valor: valor, ligacao: /id$/.test(nome) });
+          });
+          const escolhido =
+            candidatos.find((c) => !c.ligacao) || candidatos[0] || null;
+          return escolhido;
+        }
+
         /* Semana ISO-8601 (a que o SharePoint e o Excel usam): a semana
            começa à segunda-feira e a semana 1 é a que contém a primeira
            quinta-feira do ano. */
@@ -3613,34 +3644,58 @@
           ensaiosDiag.recebidos = (ensaioItems || []).length;
           ensaiosDiag.aceites = rawEnsaioItems.length;
 
+          /* Valor de uma coluna dos registos de trabalho extra: primeiro
+             pelos nomes conhecidos, depois à procura pelo nome. */
+          function valorDoCampoTE(item, prefixo) {
+            const encontrado = campoPorPrefixo(item, prefixo);
+            return encontrado ? encontrado.valor : null;
+          }
+
           // Trabalho Extra - Registos: turnos pedidos (Turnos Nec.) e
           // efetivamente preenchidos (Turnos Preench., coluna calculada).
           rawTrabalhoExtraItems = (teItems || []).map((item) => ({
             Ano: soNumero(
-              item.Ano || item.OData_Ano || item.Title
+              item.Ano || item.OData_Ano || valorDoCampoTE(item, 'ano')
             ),
-            Semana: soNumero(item.Semana || item.OData_Semana),
+            Semana: soNumero(
+              item.Semana || item.OData_Semana || valorDoCampoTE(item, 'semana')
+            ),
             Area: limparTexto(
               item.OData__x00c1_rea ||
                 item._x00c1_rea ||
                 item.Area ||
-                item.OData_Area
+                item.OData_Area ||
+                valorDoCampoTE(item, 'rea')
             ).toUpperCase(),
             CC: limparTexto(
               item.C_x002e_C_x002e_0 ||
                 item.OData_C_x002e_C_x002e_0 ||
                 item.C_x002e_C_x002e_ ||
-                item.CC
+                item.CC ||
+                valorDoCampoTE(item, 'cc')
             ),
-            TurnosNec: numeroDoCampo(
-              item.Turnos_x0020_Necess_x002e_0 ||
-                item.OData_Turnos_x0020_Necess_x002e_0
-            ),
+            TurnosNec: numeroDoCampo(valorDoCampoTE(item, 'turnosnec')),
             TurnosPreench: numeroDoCampo(
-              item.Turnos_x0020_Preench_x002e_ ||
-                item.OData_Turnos_x0020_Preench_x002e_
+              valorDoCampoTE(item, 'turnospreench')
             ),
           }));
+
+          // Uma linha na consola com as colunas que foram mesmo usadas:
+          // chega para perceber, sem abrir mais nada, se a lista mudou de
+          // nomes ou de conteúdo.
+          if ((teItems || []).length > 0) {
+            const amostra = teItems[0];
+            const cNec = campoPorPrefixo(amostra, 'turnosnec');
+            const cPre = campoPorPrefixo(amostra, 'turnospreench');
+            console.info(
+              `[Dashboard OPT] Trabalho Extra: ${teItems.length} registos; ` +
+                `coluna dos turnos pedidos: ${
+                  cNec ? cNec.chave : 'NÃO ENCONTRADA'
+                }; coluna dos preenchidos: ${
+                  cPre ? cPre.chave : 'NÃO ENCONTRADA'
+                }`
+            );
+          }
 
           rawAberturaItems = aberturaItems.map((item) => {
             const rawCC =
