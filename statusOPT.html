@@ -49,6 +49,13 @@
         --chart-grid: rgba(148, 163, 184, 0.1);
         /* Controla o aspeto nativo de inputs de data e barras de scroll */
         --scheme: dark;
+        /* Tons dos botões: os do Bootstrap são pensados para fundo branco
+           e, no tema claro, ficam demasiado lavados para se lerem */
+        --btn-info: var(--cyan-accent);
+        --btn-secondary: #94a3b8;
+        --btn-warning: #fbbf24;
+        --btn-success: #34d399;
+        --btn-danger: #f87171;
       }
 
       :root[data-theme='light'] {
@@ -75,6 +82,11 @@
         --chart-empty: #64748b;
         --chart-grid: rgba(15, 23, 42, 0.08);
         --scheme: light;
+        --btn-info: #0e7490;
+        --btn-secondary: #475569;
+        --btn-warning: #b45309;
+        --btn-success: #15803d;
+        --btn-danger: #b91c1c;
       }
 
       /* OCULTAR NAVEGAÇÃO LATERAL, RIBBON, TÍTULOS E PESQUISA DO SHAREPOINT */
@@ -167,6 +179,69 @@
       #opt-dashboard-wrapper {
         margin-top: 0 !important;
         padding-top: 0 !important;
+      }
+
+      /* Interruptor do tema: o puxador fica por cima do símbolo do tema
+         que está em uso — sol à esquerda, lua à direita. */
+      .opt-tema-switch {
+        position: relative;
+        flex: 0 0 auto;
+        width: 62px;
+        height: 30px;
+        padding: 0;
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        background: var(--bg-inset);
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+      }
+      .opt-tema-switch:hover {
+        border-color: var(--cyan-accent);
+      }
+      .opt-tema-switch:focus-visible {
+        outline: 2px solid var(--cyan-accent);
+        outline-offset: 2px;
+      }
+      .opt-tema-knob {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--bg-card);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+        /* Por omissão (tema escuro) o puxador está do lado da lua */
+        transform: translateX(30px);
+        transition: transform 0.22s ease, background-color 0.2s ease;
+      }
+      .opt-tema-switch.opt-tema-claro .opt-tema-knob {
+        transform: translateX(0);
+      }
+      .opt-tema-icones {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 7px;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        pointer-events: none;
+      }
+      /* O símbolo do tema em uso é o que fica destacado */
+      .opt-tema-switch .fa-moon {
+        color: var(--cyan-accent);
+      }
+      .opt-tema-switch .fa-sun {
+        color: var(--text-muted);
+      }
+      .opt-tema-switch.opt-tema-claro .fa-moon {
+        color: var(--text-muted);
+      }
+      .opt-tema-switch.opt-tema-claro .fa-sun {
+        color: #f59e0b;
       }
 
       /* CABEÇALHO DA APLICAÇÃO */
@@ -1191,11 +1266,69 @@
         color: var(--on-accent) !important;
       }
       .btn-outline-danger {
-        color: #f87171 !important;
-        border-color: #ef4444 !important;
+        color: var(--btn-danger) !important;
+        border-color: var(--btn-danger) !important;
       }
       .btn-outline-danger:hover {
         background-color: #ef4444 !important;
+        color: #ffffff !important;
+      }
+      /* As restantes variantes do Bootstrap seguem o tema em uso, em vez
+         das cores de origem (azul-claro, amarelo e cinzento pálidos, que
+         sobre branco quase não se veem). */
+      .btn-outline-info {
+        color: var(--btn-info) !important;
+        border-color: var(--btn-info) !important;
+      }
+      .btn-outline-info:hover,
+      .btn-outline-info:focus {
+        background-color: var(--btn-info) !important;
+        border-color: var(--btn-info) !important;
+        color: var(--on-accent) !important;
+      }
+      .btn-info {
+        background-color: var(--btn-info) !important;
+        border-color: var(--btn-info) !important;
+        color: var(--on-accent) !important;
+      }
+      .btn-outline-secondary {
+        color: var(--btn-secondary) !important;
+        border-color: var(--btn-secondary) !important;
+      }
+      .btn-outline-secondary:hover,
+      .btn-outline-secondary:focus {
+        background-color: var(--btn-secondary) !important;
+        border-color: var(--btn-secondary) !important;
+        color: var(--bg-card) !important;
+      }
+      .btn-secondary {
+        background-color: var(--btn-secondary) !important;
+        border-color: var(--btn-secondary) !important;
+        color: var(--bg-card) !important;
+      }
+      .btn-outline-warning {
+        color: var(--btn-warning) !important;
+        border-color: var(--btn-warning) !important;
+      }
+      .btn-outline-warning:hover,
+      .btn-outline-warning:focus {
+        background-color: var(--btn-warning) !important;
+        border-color: var(--btn-warning) !important;
+        color: #ffffff !important;
+      }
+      .btn-warning {
+        background-color: var(--btn-warning) !important;
+        border-color: var(--btn-warning) !important;
+        color: #ffffff !important;
+      }
+      .btn-outline-success {
+        color: var(--btn-success) !important;
+        border-color: var(--btn-success) !important;
+      }
+      .btn-outline-success:hover,
+      .btn-outline-success:focus {
+        background-color: var(--btn-success) !important;
+        border-color: var(--btn-success) !important;
         color: #ffffff !important;
       }
       .btn-light {
@@ -1262,10 +1395,15 @@
           <button
             type="button"
             id="opt-btnTema"
-            class="btn btn-outline-primary btn-sm fw-bold"
-            title="Alternar entre tema escuro e claro"
+            class="opt-tema-switch"
+            title="Mudar para o tema claro"
+            aria-label="Mudar para o tema claro"
           >
-            <i class="fa-solid fa-sun me-1"></i>Tema claro
+            <span class="opt-tema-knob"></span>
+            <span class="opt-tema-icones">
+              <i class="fa-solid fa-sun"></i>
+              <i class="fa-solid fa-moon"></i>
+            </span>
           </button>
           <!-- Backlog: o que ficou por produzir antes do período -->
           <div
@@ -1308,14 +1446,6 @@
             class="btn btn-outline-primary btn-sm fw-bold"
           >
             <i class="fa-solid fa-rotate me-1"></i> Atualizar Dados
-          </button>
-          <button
-            type="button"
-            id="opt-btnReporVista"
-            class="btn btn-outline-secondary btn-sm fw-bold"
-            title="Repor a vista: área, período, cartões abertos e painéis"
-          >
-            <i class="fa-solid fa-broom me-1"></i> Repor vista
           </button>
           <button
             type="button"
@@ -2288,11 +2418,11 @@
           } catch (e) {
             console.error('Não foi possível guardar a preferência de tema:', e);
           }
-          $('#opt-btnTema').html(
-            tema === 'light'
-              ? '<i class="fa-solid fa-moon me-1"></i>Tema escuro'
-              : '<i class="fa-solid fa-sun me-1"></i>Tema claro'
-          );
+          const proximo = tema === 'light' ? 'escuro' : 'claro';
+          $('#opt-btnTema')
+            .toggleClass('opt-tema-claro', tema === 'light')
+            .attr('title', `Mudar para o tema ${proximo}`)
+            .attr('aria-label', `Mudar para o tema ${proximo}`);
           // Parte das cores é aplicada por JS no momento em que se desenha
           // (valores dos KPIs, gráficos): sem voltar a desenhar, essas
           // ficariam com as cores do tema anterior.
@@ -2344,10 +2474,12 @@
         let ultimaAtualizacao = null;
         let autoRefreshTimer = null;
         // De quanto em quanto tempo se voltam a ler as listas
-        const AUTO_REFRESH_MINUTOS = 5;
-        // A partir daqui os dados no ecrã deixam de ser de confiança
-        const IDADE_AVISO_MINUTOS = 15;
-        const IDADE_ALERTA_MINUTOS = 60;
+        const AUTO_REFRESH_MINUTOS = 30;
+        /* A partir daqui os dados no ecrã deixam de ser de confiança. Os
+           limites acompanham o intervalo da releitura: o aviso só aparece
+           depois de um ciclo ter falhado, senão estaria sempre aceso. */
+        const IDADE_AVISO_MINUTOS = 45;
+        const IDADE_ALERTA_MINUTOS = 90;
         // Estado dos painéis colapsáveis, lembrado entre visitas
         const PAINEIS_STORAGE_KEY = 'opt_paineis_v1';
         let ccsExpandidosAntes = 0;
@@ -2660,63 +2792,6 @@
           });
         });
 
-        /* Repõe a vista de quem está a ver — área, período, cartões
-           abertos e painéis — sem tocar no que é partilhado por todos (a
-           ordem personalizada e as linhas eliminadas do material em risco
-           têm o seu próprio "repor", dentro do modo de edição). */
-        function reporVista() {
-          // Filtros
-          $('#opt-areaButtons .opt-area-btn').removeClass('active');
-          $('#opt-selArea').val('');
-          setDefaultDateRange();
-
-          // Cartões de C.C. abertos
-          expandedCCs.clear();
-          ccsExpandidosAntes = 0;
-
-          // Painéis de volta ao estado por omissão (fechados) e memória limpa
-          try {
-            localStorage.removeItem(PAINEIS_STORAGE_KEY);
-          } catch (e) {
-            /* sem memória, fica na mesma pelo estado abaixo */
-          }
-          mostrarPainel('mod', false);
-          mostrarPainel('extra', false);
-
-          // Material em risco: sai-se do modo de edição e volta-se a usar a
-          // ordem partilhada (nada é apagado)
-          if (typeof riskEditMode !== 'undefined' && riskEditMode) {
-            setRiskEditMode(false);
-          }
-          if (typeof riskOrderAplicada !== 'undefined' && !riskOrderAplicada) {
-            alternarOrdemRisco();
-          }
-
-          applyDateFilter();
-
-          // O que é partilhado não se mexe, mas diz-se onde se desfaz
-          const partilhadas = [];
-          if (riskCustomOrder.length > 0) partilhadas.push('a ordem personalizada');
-          if (riskRemovidas.length > 0) {
-            partilhadas.push(
-              `${riskRemovidas.length} linha${
-                riskRemovidas.length === 1 ? '' : 's'
-              } eliminada${riskRemovidas.length === 1 ? '' : 's'}`
-            );
-          }
-          if (partilhadas.length > 0) {
-            mostrarAvisoOrdem(
-              '<i class="fa-solid fa-circle-info me-1"></i>Vista reposta. ' +
-                partilhadas.join(' e ') +
-                ' no material em risco ' +
-                (partilhadas.length === 1 ? 'é partilhada' : 'são partilhadas') +
-                ' por todos — reponha no lápis (Editar).',
-              'text-muted',
-              10000
-            );
-          }
-        }
-
         function bindEvents() {
           $('#opt-kpiModal')
             .off('hidden.bs.modal')
@@ -2760,12 +2835,6 @@
               fetchCoKaFromSharePoint(false);
               // O relógio da releitura automática recomeça a partir daqui
               agendarRefrescoAutomatico();
-            });
-
-          $('#opt-btnReporVista')
-            .off('click')
-            .on('click', function () {
-              reporVista();
             });
 
           $('#opt-btnTema')
