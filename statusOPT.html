@@ -1053,6 +1053,15 @@
         border-collapse: separate;
         border-spacing: 0;
       }
+      /* Totais por coluna, entre parênteses no cabeçalho: informação de
+         apoio, não deve competir com o nome da coluna. */
+      #opt-tableTrabalhoExtra th .opt-te-total {
+        font-weight: 400;
+        font-size: 0.82em;
+        opacity: 0.7;
+        margin-left: 3px;
+        white-space: nowrap;
+      }
       #opt-tableTrabalhoExtra th {
         background-color: #0f172a !important;
         color: #ffffff !important;
@@ -1331,7 +1340,7 @@
             <div class="col">
               <div class="opt-summary-card">
                 <div class="title" id="opt-kpiTotalDeltaTitulo">
-                  TOTAL AVANÇO
+                  TOTAL EM ATRASO
                 </div>
                 <div class="value" id="opt-kpiTotalDelta">0:00</div>
               </div>
@@ -1472,14 +1481,34 @@
                         >
                           Centro de Custo
                         </th>
-                        <th style="width: 18%; text-align: center">MOD</th>
+                        <th style="width: 18%; text-align: center">
+                          MOD
+                          <span
+                            class="opt-te-total"
+                            id="opt-teTotalMod"
+                          ></span>
+                        </th>
                         <th style="width: 18%; text-align: center">
                           Previsão
+                          <span
+                            class="opt-te-total"
+                            id="opt-teTotalPrevisao"
+                          ></span>
                         </th>
                         <th style="width: 18%; text-align: center">
                           Pedido TE
+                          <span
+                            class="opt-te-total"
+                            id="opt-teTotalPedido"
+                          ></span>
                         </th>
-                        <th style="width: 18%; text-align: center">Real TE</th>
+                        <th style="width: 18%; text-align: center">
+                          Real TE
+                          <span
+                            class="opt-te-total"
+                            id="opt-teTotalReal"
+                          ></span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody id="opt-tbodyTrabalhoExtra">
@@ -3963,6 +3992,7 @@
             $tbody.append(
               '<tr><td colspan="5" class="text-muted text-center p-2">Sem dados disponíveis</td></tr>'
             );
+            mostrarTotaisTrabalhoExtra(null);
             return;
           }
 
@@ -3970,19 +4000,23 @@
           const estiloCelula =
             'font-weight: 800; font-size: 1.15rem; text-align: center; background-color: #ffffff !important;';
 
+          const totais = { mod: 0, previsao: 0, pedido: 0, real: 0 };
+
           displayCCs.forEach((cc) => {
             const turnosPrevistos = calculateTrabalhoExtra(cc);
             const numColor = turnosPrevistos > 0 ? '#ef4444' : '#22c55e';
             const mod = calcularModFimDeSemana(cc);
+            const pedidoNum = somarTrabalhoExtra(cc, 'TurnosNec', selectedArea);
+            const realNum = somarTrabalhoExtra(cc, 'TurnosPreench', selectedArea);
+            totais.mod += mod;
+            totais.previsao += turnosPrevistos;
+            totais.pedido += pedidoNum;
+            totais.real += realNum;
             // Sem a lista de registos não se pode dizer que são zero turnos
             const pedido = trabalhoExtraDisponivel
-              ? formatarTurnos(somarTrabalhoExtra(cc, 'TurnosNec', selectedArea))
+              ? formatarTurnos(pedidoNum)
               : '—';
-            const real = trabalhoExtraDisponivel
-              ? formatarTurnos(
-                  somarTrabalhoExtra(cc, 'TurnosPreench', selectedArea)
-                )
-              : '—';
+            const real = trabalhoExtraDisponivel ? formatarTurnos(realNum) : '—';
 
             $tbody.append(`
               <tr>
@@ -4000,6 +4034,34 @@
               </tr>
             `);
           });
+
+          mostrarTotaisTrabalhoExtra(totais);
+        }
+
+        /* Totais de cada coluna, entre parênteses no cabeçalho. Sem linhas
+           na tabela (ou sem a lista de registos) fica em branco, em vez de
+           mostrar zeros que não querem dizer nada. */
+        function mostrarTotaisTrabalhoExtra(totais) {
+          function escrever(id, valor) {
+            $(id).text(valor === null ? '' : ` (${valor})`);
+          }
+          if (!totais) {
+            escrever('#opt-teTotalMod', null);
+            escrever('#opt-teTotalPrevisao', null);
+            escrever('#opt-teTotalPedido', null);
+            escrever('#opt-teTotalReal', null);
+            return;
+          }
+          escrever('#opt-teTotalMod', formatarTurnos(totais.mod));
+          escrever('#opt-teTotalPrevisao', formatarTurnos(totais.previsao));
+          escrever(
+            '#opt-teTotalPedido',
+            trabalhoExtraDisponivel ? formatarTurnos(totais.pedido) : '—'
+          );
+          escrever(
+            '#opt-teTotalReal',
+            trabalhoExtraDisponivel ? formatarTurnos(totais.real) : '—'
+          );
         }
 
         /* RENDERIZAR MATRIZ MOD PLANEADA */
@@ -4113,26 +4175,32 @@
           };
         }
 
-        /* Soma dos avanços/atrasos dos centros de custo em exibição: é o
-           mesmo número de cada cartão, somado, pelo que um CC em avanço
-           compensa outro em atraso. O título diz qual dos dois prevalece e
-           acrescenta a área quando há uma selecionada. */
+        /* Atraso total dos centros de custo em exibição: somam-se apenas os
+           que estão em atraso. Quem está em avanço não o compensa — as horas
+           adiantadas num CC não recuperam as que faltam noutro, são
+           máquinas e pessoas diferentes. */
         function atualizarKpiTotalDelta() {
           const selectedArea = $('#opt-selArea').val() || '';
           const selAreaClean = selectedArea
             ? String(selectedArea).trim().toLowerCase()
             : null;
-          const total = getCCsForArea(selectedArea).reduce(
-            (soma, cc) => soma + calcularResumoCC(cc, selAreaClean).delta,
-            0
-          );
-          const cfg = getDelayCardConfig(total);
+          const total = getCCsForArea(selectedArea).reduce((soma, cc) => {
+            const delta = calcularResumoCC(cc, selAreaClean).delta;
+            return soma + (delta < 0 ? delta : 0);
+          }, 0);
           const sufixoArea = selectedArea
             ? ' ' + String(selectedArea).trim().toUpperCase()
             : '';
-          $('#opt-kpiTotalDeltaTitulo').text(
-            (total >= 0 ? 'TOTAL AVANÇO' : 'TOTAL EM ATRASO') + sufixoArea
-          );
+          // Sem nenhum CC em atraso não há desvio nenhum a assinalar
+          const cfg =
+            total === 0
+              ? {
+                  color: '#34d399',
+                  icon: 'fa-solid fa-circle-check',
+                  valueText: '0:00',
+                }
+              : getDelayCardConfig(total);
+          $('#opt-kpiTotalDeltaTitulo').text('TOTAL EM ATRASO' + sufixoArea);
           $('#opt-kpiTotalDelta')
             .css('color', cfg.color)
             .html(
