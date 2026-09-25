@@ -5907,11 +5907,11 @@
           }
         }
 
+        /* As linhas acrescentadas à mão são partilhadas, tal como a ordem
+           e as linhas eliminadas: viajam no mesmo ficheiro do SharePoint,
+           para que a tabela de risco seja a mesma para toda a gente. */
         function saveManualRiskRows() {
-          localStorage.setItem(
-            MANUAL_RISK_STORAGE_KEY,
-            JSON.stringify(manualRiskRows)
-          );
+          gravarOrdemRisco();
         }
 
         function addManualRiskRow(cc, ka, cobertura, comentario) {
@@ -6302,8 +6302,9 @@
 
               // Linhas manuais estão associadas ao carregamento anterior — são
               // sempre removidas quando um novo ficheiro MD07 é carregado.
+              // Como são partilhadas, a limpeza também tem de o ser.
               manualRiskRows = [];
-              localStorage.removeItem(MANUAL_RISK_STORAGE_KEY);
+              gravarOrdemRisco();
 
               localStorage.setItem(MD07_STORAGE_KEY, JSON.stringify(md07Data));
               updateMd07StatusUI();
@@ -6717,7 +6718,7 @@
                 ? 'risk-badge-critical'
                 : 'risk-badge-warning';
             const manualTag = item.isManual
-              ? ` <span class="badge bg-info text-dark ms-1" title="Linha adicionada manualmente">Manual</span>`
+              ? ` <span class="badge bg-info text-dark ms-1" title="Linha acrescentada à mão — fica visível para todos os utilizadores">Manual</span>`
               : '';
             // Fora do modo de edição, as linhas manuais mantêm o seu próprio
             // botão de remover; dentro, todas as linhas usam o mesmo.
@@ -6870,10 +6871,10 @@
                 .addClass('bg-secondary');
             } else if (riskOrderPartilhada === false) {
               $badge
-                .text('Ordem personalizada (só neste browser)')
+                .text('Alterações só neste browser')
                 .attr(
                   'title',
-                  'Não foi possível guardar a ordem no SharePoint — os outros utilizadores continuam a ver a ordenação automática. Clique para ver a ordem original'
+                  'Não foi possível guardar no SharePoint — os outros utilizadores não veem estas alterações. Clique para ver a ordem original'
                 )
                 .addClass('bg-warning');
             } else {
@@ -6988,14 +6989,18 @@
               RISK_REMOVIDAS_STORAGE_KEY,
               JSON.stringify(riskRemovidas)
             );
+            localStorage.setItem(
+              MANUAL_RISK_STORAGE_KEY,
+              JSON.stringify(manualRiskRows)
+            );
           } catch (e) {
-            console.error('Não foi possível guardar a ordem localmente:', e);
+            console.error('Não foi possível guardar localmente:', e);
           }
           riskOrderPartilhada = null; // enquanto não se souber o resultado
           updateRiskOrderUI();
 
           mostrarAvisoOrdem(
-            '<i class="fa-solid fa-spinner fa-spin me-1"></i>A guardar a ordem...',
+            '<i class="fa-solid fa-spinner fa-spin me-1"></i>A guardar...',
             'text-muted'
           );
 
@@ -7004,6 +7009,7 @@
             JSON.stringify({
               ordem: riskCustomOrder,
               removidas: riskRemovidas,
+              manuais: manualRiskRows,
               gravadoEm: new Date().toISOString(),
             })
           )
@@ -7011,7 +7017,7 @@
               riskOrderPartilhada = true;
               updateRiskOrderUI();
               mostrarAvisoOrdem(
-                '<i class="fa-solid fa-circle-check me-1"></i>Ordem guardada no SharePoint, para todos os utilizadores.',
+                '<i class="fa-solid fa-circle-check me-1"></i>Guardado no SharePoint, para todos os utilizadores.',
                 'text-success',
                 6000
               );
@@ -7029,7 +7035,7 @@
               mostrarAvisoOrdem(
                 '<i class="fa-solid fa-triangle-exclamation me-1"></i>Não foi possível guardar no SharePoint' +
                   codigo +
-                  ' — a ordem fica só neste browser.',
+                  ' — as alterações ficam só neste browser.',
                 'text-warning'
               );
             });
@@ -7050,7 +7056,13 @@
               !Array.isArray(guardado) && Array.isArray(guardado.removidas)
                 ? guardado.removidas
                 : [];
-            return { ordem: ordem, removidas: removidas };
+            // null = o ficheiro é anterior às linhas manuais partilhadas;
+            // nesse caso não se apaga o que cada um tem guardado.
+            const manuais =
+              !Array.isArray(guardado) && Array.isArray(guardado.manuais)
+                ? guardado.manuais
+                : null;
+            return { ordem: ordem, removidas: removidas, manuais: manuais };
           } catch (e) {
             return null;
           }
@@ -7077,6 +7089,14 @@
               }
               riskCustomOrder = guardado.ordem;
               riskRemovidas = guardado.removidas;
+              // As linhas manuais do SharePoint mandam sobre as locais. Se
+              // o ficheiro ainda não as tiver (é anterior a esta versão),
+              // ficam as locais e sobem na primeira gravação.
+              const migrarManuais =
+                guardado.manuais === null && manualRiskRows.length > 0;
+              if (guardado.manuais !== null) {
+                manualRiskRows = guardado.manuais;
+              }
               riskOrderPartilhada = true;
               try {
                 localStorage.setItem(
@@ -7087,11 +7107,16 @@
                   RISK_REMOVIDAS_STORAGE_KEY,
                   JSON.stringify(riskRemovidas)
                 );
+                localStorage.setItem(
+                  MANUAL_RISK_STORAGE_KEY,
+                  JSON.stringify(manualRiskRows)
+                );
               } catch (e) {
                 /* a cópia local é acessória */
               }
               updateRiskOrderUI();
               renderRiskTable();
+              if (migrarManuais) gravarOrdemRisco();
             })
             .fail(semOrdemPartilhada);
         }
