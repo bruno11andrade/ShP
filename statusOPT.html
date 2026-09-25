@@ -2296,6 +2296,9 @@
         let rawListItems = [];
         let rawModItems = [];
         let rawTrabalhoExtraItems = [];
+        /* Datas (dd-mm-aaaa) com produção ou ensaios planeados. Serve para
+           saber se um sábado ou domingo conta como dia de produção. */
+        let diasComProducao = new Set();
         // Distingue "a lista não trouxe registos" de "a lista não abriu":
         // no segundo caso mostra-se um traço em vez de zeros.
         let trabalhoExtraDisponivel = false;
@@ -3674,6 +3677,20 @@
 
           ensaiosDiag.recebidos = (ensaioItems || []).length;
           ensaiosDiag.aceites = rawEnsaioItems.length;
+
+          // Dias em que há mesmo trabalho planeado — inclui os fins de
+          // semana com trabalho extra marcado.
+          diasComProducao = new Set();
+          rawListItems.forEach((i) => {
+            if (i.DataFormatted && i.DataFormatted !== 'N/D') {
+              diasComProducao.add(i.DataFormatted);
+            }
+          });
+          rawEnsaioItems.forEach((e) => {
+            if (e.DataFormatted && e.DataFormatted !== 'N/D') {
+              diasComProducao.add(e.DataFormatted);
+            }
+          });
 
           /* Valor de uma coluna dos registos de trabalho extra: primeiro
              pelos nomes conhecidos, depois à procura pelo nome. */
@@ -5961,13 +5978,13 @@
           const rows = md07Data.rows;
           const pairs = cokaData && cokaData.pairs ? cokaData.pairs : {};
 
-          // Materiais planeados esta semana (dias úteis) nos CC ativos,
-          // e a que CC(s) pertencem no plano de produção.
+          // Materiais planeados no período em análise nos CC ativos, e a
+          // que CC(s) pertencem no plano de produção. Conta o período todo,
+          // fim de semana incluído: se há trabalho extra marcado para
+          // sábado, o material desse trabalho também pode faltar.
           const plannedKAtoCCs = {};
           currentFilteredItems.forEach((item) => {
             if (!item.RawDateObj) return;
-            const day = item.RawDateObj.getDay();
-            if (day < 1 || day > 5) return;
             if (!activeCCs.some((acc) => areCCsEqual(acc, item.CC))) return;
             const ka = (item.KA || '').toString().toUpperCase().trim();
             if (!ka) return;
@@ -6118,9 +6135,15 @@
           renderRiskTable();
         }
 
+        /* Janela de deteção: mostram-se os materiais que faltam dentro de
+           dois dias de produção. Já não é preciso a exceção de quinta-feira
+           (que abria a janela para 3 dias para espreitar para lá do fim de
+           semana): a contagem dos dias já salta sozinha os dias sem
+           produção. */
+        const RISCO_COBERTURA_MAXIMA = 2;
+
         function getRiskThreshold() {
-          const dayIdx = new Date().getDay();
-          return dayIdx === 4 ? 3 : 2;
+          return RISCO_COBERTURA_MAXIMA;
         }
 
         function getTurno(fracValue) {
@@ -6130,27 +6153,39 @@
           return 'turno da tarde 🌇';
         }
 
-        /* A cobertura do MD07 conta-se em dias de produção, e ao fim de
-           semana não se consome material. Por isso 0,1 dias de cobertura
+        /* A cobertura do MD07 conta-se em dias de produção, e num dia sem
+           produção não se consome material. Por isso 0,1 dias de cobertura
            numa sexta-feira não quer dizer "falha amanhã" — quer dizer que
-           falta na segunda-feira seguinte. Sábados e domingos são saltados
-           em toda a contagem. */
+           falta na segunda-feira seguinte. Um sábado ou domingo só conta se
+           tiver mesmo trabalho planeado (trabalho extra ou ensaio): nesse
+           caso o material falta aí, e não na segunda. */
         function ehFimDeSemana(data) {
           const dia = data.getDay();
           return dia === 0 || dia === 6;
         }
 
-        function proximoDiaUtil(data) {
+        function ehDiaDeProducao(data) {
+          if (!ehFimDeSemana(data)) return true;
+          return diasComProducao.has(formatDateShort(data));
+        }
+
+        function proximoDiaDeProducao(data) {
           const r = new Date(data.getTime());
-          while (ehFimDeSemana(r)) r.setDate(r.getDate() + 1);
+          // O limite evita um ciclo infinito se, por alguma razão, nunca
+          // houvesse dia de produção
+          for (let i = 0; i < 14 && !ehDiaDeProducao(r); i++) {
+            r.setDate(r.getDate() + 1);
+          }
           return r;
         }
 
-        function somarDiasUteis(base, dias) {
-          const r = proximoDiaUtil(base);
+        function somarDiasDeProducao(base, dias) {
+          const r = proximoDiaDeProducao(base);
           for (let i = 0; i < dias; i++) {
             r.setDate(r.getDate() + 1);
-            while (ehFimDeSemana(r)) r.setDate(r.getDate() + 1);
+            for (let j = 0; j < 14 && !ehDiaDeProducao(r); j++) {
+              r.setDate(r.getDate() + 1);
+            }
           }
           return r;
         }
@@ -6160,8 +6195,8 @@
            que a cobertura ainda dá. */
         function diaDaFalhaRisco(cobertura) {
           const hoje = getTodayZero();
-          if (cobertura <= 0) return proximoDiaUtil(hoje);
-          return somarDiasUteis(hoje, Math.floor(cobertura) + 1);
+          if (cobertura <= 0) return proximoDiaDeProducao(hoje);
+          return somarDiasDeProducao(hoje, Math.floor(cobertura) + 1);
         }
 
         /* "hoje" e "amanhã" só quando é mesmo hoje ou o dia seguinte; caso
@@ -6173,7 +6208,9 @@
           amanha.setDate(hoje.getDate() + 1);
           if (dia.getTime() === hoje.getTime()) return 'hoje';
           if (dia.getTime() === amanha.getTime()) return 'amanhã';
-          return 'na ' + DIAS_SEMANA_PT[dia.getDay()];
+          // Sábado e domingo levam "no"; os dias da semana levam "na"
+          const masculino = dia.getDay() === 0 || dia.getDay() === 6;
+          return (masculino ? 'no ' : 'na ') + DIAS_SEMANA_PT[dia.getDay()];
         }
 
         function buildRiskComment(material, cobertura, coKaPair) {
