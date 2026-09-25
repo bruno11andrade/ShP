@@ -1470,6 +1470,9 @@
         </div>
       </div>
 
+      <!-- Aviso de dados incompletos (lista cortada) -->
+      <div id="opt-avisoDados" style="display: none" class="mb-2"></div>
+
       <!-- Dashboard Content -->
       <div id="opt-dashboardContent" style="display: none">
         <!-- CARTÕES KPI CENTRADOS NO TOPO -->
@@ -3420,9 +3423,24 @@
           return dateGroups;
         }
 
-        function getHoursRemainingToday() {
+        /* Turnos de abertura de um centro de custo. Sem configuração
+           assume-se 2, como no cálculo do trabalho extra. */
+        function getTurnosAbertura(cc) {
+          const config = rawAberturaItems.find((a) => areCCsEqual(a.CC, cc));
+          const turnos = config ? Number(config.Turnos) : 0;
+          return turnos > 0 ? turnos : 2;
+        }
+
+        /* Um C.C. de 2 turnos trabalha das 6h às 23h: às 23h05 já não há
+           nada a recuperar nesse dia, e às 5h da manhã ainda está tudo por
+           fazer. Só os de 3 turnos é que vão até ao fim do dia. */
+        const HORA_ABERTURA_2_TURNOS = 6;
+        const HORA_FECHO_2_TURNOS = 23;
+
+        function getHoursRemainingToday(cc) {
           const now = new Date();
-          const endOfDay = new Date(
+          const turnos = cc ? getTurnosAbertura(cc) : 3;
+          const fim = new Date(
             now.getFullYear(),
             now.getMonth(),
             now.getDate(),
@@ -3431,8 +3449,31 @@
             59,
             999
           );
-          const diffMs = endOfDay - now;
-          return Math.max(0, diffMs / (1000 * 60 * 60));
+          if (turnos >= 3) {
+            return Math.max(0, (fim - now) / (1000 * 60 * 60));
+          }
+
+          const fecho = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            HORA_FECHO_2_TURNOS,
+            0,
+            0,
+            0
+          );
+          const abertura = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            HORA_ABERTURA_2_TURNOS,
+            0,
+            0,
+            0
+          );
+          // Antes de abrir, conta-se o dia de trabalho inteiro
+          const inicio = now < abertura ? abertura : now;
+          return Math.max(0, (fecho - inicio) / (1000 * 60 * 60));
         }
 
         function formatHoursToHHMM(decimalHours, isAdvance = false) {
@@ -3610,54 +3651,108 @@
         /* silencioso = atualização automática: não se tira o dashboard do
            ecrã nem se mostra o spinner, senão quem está a olhar perde o que
            estava a ver de 5 em 5 minutos. */
+        /* O SharePoint devolve no máximo $top itens por pedido e, quando
+           há mais, manda em __next o endereço da página seguinte. Sem
+           seguir esse endereço, uma lista com mais de 5000 registos ficava
+           cortada — sem erro nenhum e sem ninguém dar por isso. */
+        const PAGINA_ITENS = 5000;
+        // Travão de segurança: 20 páginas são 100 000 registos
+        const MAX_PAGINAS = 20;
+
+        function urlLista(guid, extra) {
+          return (
+            `${getWebUrl()}/_api/web/lists(guid'${guid.replace(/[{}]/g, '')}')` +
+            `/items?${extra ? extra + '&' : ''}$top=${PAGINA_ITENS}`
+          );
+        }
+
+        function lerListaCompleta(url, nome) {
+          const d = $.Deferred();
+          const itens = [];
+          let paginas = 0;
+
+          function pedirPagina(u) {
+            $.ajax({
+              url: u,
+              type: 'GET',
+              headers: { Accept: 'application/json; odata=verbose' },
+            })
+              .done(function (res) {
+                const dados = (res && res.d) || {};
+                const pagina = dados.results || [];
+                for (let i = 0; i < pagina.length; i++) itens.push(pagina[i]);
+                paginas++;
+                if (dados.__next && paginas < MAX_PAGINAS) {
+                  pedirPagina(dados.__next);
+                  return;
+                }
+                d.resolve({
+                  nome: nome,
+                  itens: itens,
+                  paginas: paginas,
+                  truncado: !!dados.__next,
+                });
+              })
+              .fail(function (err) {
+                d.reject(err);
+              });
+          }
+
+          pedirPagina(url);
+          return d.promise();
+        }
+
+        /* Se alguma lista tiver sido cortada, isso não pode passar
+           despercebido: os números do ecrã ficariam errados. */
+        function mostrarAvisoDados(listasCortadas) {
+          const $aviso = $('#opt-avisoDados');
+          if (!$aviso.length) return;
+          if (!listasCortadas || listasCortadas.length === 0) {
+            $aviso.hide().empty();
+            return;
+          }
+          const nomes = listasCortadas.map((l) => l.nome).join(', ');
+          $aviso
+            .html(
+              '<div class="opt-md07-alert opt-md07-alert-inline">' +
+                '<i class="fa-solid fa-triangle-exclamation me-2"></i>' +
+                `<span>Dados incompletos: ${escapeHtml(nomes)} tem mais de ` +
+                `${(MAX_PAGINAS * PAGINA_ITENS).toLocaleString('pt-PT')} ` +
+                'registos e foi lida só em parte. Os números abaixo estão ' +
+                'por baixo do real.</span></div>'
+            )
+            .show();
+        }
+
         function loadData(silencioso) {
           if (!silencioso) {
             $('#opt-loadingSpinner').show();
             $('#opt-dashboardContent').hide();
           }
 
-          const endpointOpt = `${getWebUrl()}/_api/web/lists(guid'${LIST_GUID.replace(
-            /[{}]/g,
-            ''
-          )}')/items?$top=5000`;
-          const endpointMod = `${getWebUrl()}/_api/web/lists(guid'${LIST_MOD_GUID.replace(
-            /[{}]/g,
-            ''
-          )}')/items?$top=5000`;
-          const endpointAbertura = `${getWebUrl()}/_api/web/lists(guid'${LIST_ABERTURA_GUID.replace(
-            /[{}]/g,
-            ''
-          )}')/items?$top=5000`;
+          const reqOpt = lerListaCompleta(
+            urlLista(LIST_GUID),
+            'Plano de Produção'
+          );
+          const reqMod = lerListaCompleta(
+            urlLista(LIST_MOD_GUID),
+            'MOD Planeada'
+          );
+          const reqAbertura = lerListaCompleta(
+            urlLista(LIST_ABERTURA_GUID),
+            'Abertura dos C.C.'
+          );
 
-          const reqOpt = $.ajax({
-            url: endpointOpt,
-            type: 'GET',
-            headers: { Accept: 'application/json; odata=verbose' },
-          });
-          const reqMod = $.ajax({
-            url: endpointMod,
-            type: 'GET',
-            headers: { Accept: 'application/json; odata=verbose' },
-          });
-          const reqAbertura = $.ajax({
-            url: endpointAbertura,
-            type: 'GET',
-            headers: { Accept: 'application/json; odata=verbose' },
-          });
           // A Checklist Ensaio Ferramentas tem colunas Infowise do tipo
           // ConnectedField que o SharePoint não consegue serializar: pedir a
           // lista sem $select devolve HTTP 500 ("O valor para o campo ... do
           // tipo ConnectedField não pode ser serializado"). Por isso pedem-se
           // explicitamente só os campos usados aqui.
           function pedirEnsaios(select) {
-            return $.ajax({
-              url: `${getWebUrl()}/_api/web/lists(guid'${LIST_ENSAIOS_GUID.replace(
-                /[{}]/g,
-                ''
-              )}')/items?$select=${select}&$top=5000`,
-              type: 'GET',
-              headers: { Accept: 'application/json; odata=verbose' },
-            });
+            return lerListaCompleta(
+              urlLista(LIST_ENSAIOS_GUID, `$select=${select}`),
+              'Ensaios de Ferramenta'
+            );
           }
 
           // Os ensaios são um complemento ao plano: se esta lista falhar, o
@@ -3665,6 +3760,12 @@
           // vazio — por isso o pedido resolve sempre, com uma lista vazia em
           // caso de erro.
           const reqEnsaios = $.Deferred();
+          const semDados = (nome) => ({
+            nome: nome,
+            itens: [],
+            paginas: 0,
+            truncado: false,
+          });
           ensaiosDiag = {
             recebidos: 0,
             aceites: 0,
@@ -3697,7 +3798,7 @@
                   ensaiosDiag.erro =
                     (err2 && err2.status ? `HTTP ${err2.status}` : 'erro') +
                     ' ao ler a lista de ensaios';
-                  reqEnsaios.resolve({ d: { results: [] } });
+                  reqEnsaios.resolve(semDados('Ensaios de Ferramenta'));
                 });
             });
 
@@ -3706,15 +3807,10 @@
           // continuar a funcionar, por isso o pedido resolve sempre.
           const reqTE = $.Deferred();
           function pedirTrabalhoExtra(select) {
-            const filtros = select ? `$select=${select}&` : '';
-            return $.ajax({
-              url: `${getWebUrl()}/_api/web/lists(guid'${LIST_TE_GUID.replace(
-                /[{}]/g,
-                ''
-              )}')/items?${filtros}$top=5000`,
-              type: 'GET',
-              headers: { Accept: 'application/json; odata=verbose' },
-            });
+            return lerListaCompleta(
+              urlLista(LIST_TE_GUID, select ? `$select=${select}` : ''),
+              'Trabalho Extra - Registos'
+            );
           }
           trabalhoExtraDisponivel = false;
           pedirTrabalhoExtra('')
@@ -3740,42 +3836,31 @@
                     'Erro ao carregar a lista Trabalho Extra - Registos:',
                     err2
                   );
-                  reqTE.resolve({ d: { results: [] } });
+                  reqTE.resolve(semDados('Trabalho Extra - Registos'));
                 });
             });
 
           $.when(reqOpt, reqMod, reqAbertura, reqEnsaios, reqTE)
             .done(function (resOpt, resMod, resAbertura, resEnsaios, resTE) {
-              const optItems =
-                resOpt[0] && resOpt[0].d && resOpt[0].d.results
-                  ? resOpt[0].d.results
-                  : [];
-              const modItems =
-                resMod[0] && resMod[0].d && resMod[0].d.results
-                  ? resMod[0].d.results
-                  : [];
-              const aberturaItems =
-                resAbertura[0] && resAbertura[0].d && resAbertura[0].d.results
-                  ? resAbertura[0].d.results
-                  : [];
-
-              // reqEnsaios resolve com um único valor, por isso chega aqui
-              // como o próprio objeto e não como [data, status, jqXHR].
-              const ensaioItems =
-                resEnsaios && resEnsaios.d && resEnsaios.d.results
-                  ? resEnsaios.d.results
-                  : [];
-
-              // reqTE, tal como reqEnsaios, resolve com um único valor.
-              const teItems =
-                resTE && resTE.d && resTE.d.results ? resTE.d.results : [];
+              const listas = [resOpt, resMod, resAbertura, resEnsaios, resTE];
+              mostrarAvisoDados(listas.filter((l) => l && l.truncado));
+              console.info(
+                '[Dashboard OPT] Listas lidas: ' +
+                  listas
+                    .map(
+                      (l) =>
+                        `${l.nome} ${l.itens.length}` +
+                        (l.paginas > 1 ? ` (${l.paginas} páginas)` : '')
+                    )
+                    .join('; ')
+              );
 
               processItems(
-                optItems,
-                modItems,
-                aberturaItems,
-                ensaioItems,
-                teItems
+                resOpt.itens,
+                resMod.itens,
+                resAbertura.itens,
+                resEnsaios.itens,
+                resTE.itens
               );
             })
             .fail(function (err) {
@@ -4485,6 +4570,24 @@
           };
         }
 
+        /* Centros de custo que contam para a "% CC em atraso > 8H": os da
+           área e do período, independentemente de haver cartões abertos. */
+        function getCCsParaAtraso8h(selectedArea) {
+          return getCCsForArea(selectedArea);
+        }
+
+        function calcularPctCcAtraso8h(selectedArea) {
+          const selAreaClean = selectedArea
+            ? String(selectedArea).trim().toLowerCase()
+            : null;
+          const ccs = getCCsParaAtraso8h(selectedArea);
+          if (ccs.length === 0) return 0;
+          const emAtraso = ccs.filter(
+            (cc) => calcularResumoCC(cc, selAreaClean).delta < -8.0
+          ).length;
+          return Math.round((emAtraso / ccs.length) * 100);
+        }
+
         /* Atraso total dos centros de custo em exibição: somam-se apenas os
            que estão em atraso. Quem está em avanço não o compensa — as horas
            adiantadas num CC não recuperam as que faltam noutro, são
@@ -4748,7 +4851,9 @@
             }
           });
 
-          const hoursRemaining = isTodayPresent ? getHoursRemainingToday() : 0;
+          const hoursRemaining = isTodayPresent
+            ? getHoursRemainingToday(cc)
+            : 0;
           const baseDelta = totalProduzidoEfetivo - totalPlaneadoEfetivo;
           return baseDelta + hoursRemaining;
         }
@@ -4958,33 +5063,15 @@
             return;
           }
 
-          const optCCsInPeriod = [
-            ...new Set(areaFilteredItems.map((i) => i.CC)),
-          ].filter((x) => x && x !== 'N/A');
-
-          let ccAtrasoMaior8Count = 0;
-          optCCsInPeriod.forEach((cc) => {
-            const ccItems = areaFilteredItems.filter((i) =>
-              areCCsEqual(i.CC, cc)
-            );
-            const areaLimpa = selectedArea
-              ? selectedArea.trim().toLowerCase()
-              : null;
-            const delta = calculateCcDelta(
-              cc,
-              ccItems,
-              getEnsaiosDoCC(cc, areaLimpa),
-              getBacklogDoCC(cc, areaLimpa)
-            );
-            if (delta < -8.0) {
-              ccAtrasoMaior8Count++;
-            }
-          });
-
-          const pctCcAtraso8h =
-            optCCsInPeriod.length > 0
-              ? Math.round((ccAtrasoMaior8Count / optCCsInPeriod.length) * 100)
-              : 0;
+          // Esta percentagem é sempre sobre TODOS os centros de custo da
+          // área e do período: é um retrato geral, e abrir o cartão de um
+          // C.C. não pode transformá-la num "100%" que só diz respeito a
+          // esse C.C.
+          const ccsParaAtraso8h = getCCsParaAtraso8h(selectedArea);
+          const pctCcAtraso8h = calcularPctCcAtraso8h(selectedArea);
+          const ccAtrasoMaior8Count = Math.round(
+            (pctCcAtraso8h / 100) * ccsParaAtraso8h.length
+          );
 
           // CÁLCULO E DINÂMICA DE CORES DO KPI: Qtd. PRODUZIDO/PLANEADO (%)
           // Só contabiliza dias já decorridos (até hoje) dentro do período
@@ -5282,9 +5369,11 @@
           if (type === 'atraso8h') {
             title =
               '<i class="fa-solid fa-clock-rotate-left me-2"></i>Detalhes: % CC em atraso > 8H';
-            const optCCsInPeriod = [
-              ...new Set(areaFilteredItems.map((i) => i.CC)),
-            ].filter((x) => x && x !== 'N/A');
+            // Tal como o cartão, a lista é a da área e do período inteiros
+            const optCCsInPeriod = getCCsParaAtraso8h(selectedArea);
+            const areaLimpaAtraso = selectedArea
+              ? String(selectedArea).trim().toLowerCase()
+              : null;
 
             html = `
       <div class="table-responsive">
@@ -5301,10 +5390,7 @@
               html += `<tr><td colspan="3" class="text-muted">Sem dados disponíveis.</td></tr>`;
             } else {
               optCCsInPeriod.forEach((cc) => {
-                const ccItems = areaFilteredItems.filter((i) =>
-                  areCCsEqual(i.CC, cc)
-                );
-                const delta = calculateCcDelta(cc, ccItems);
+                const delta = calcularResumoCC(cc, areaLimpaAtraso).delta;
                 const isAtraso8h = delta < -8.0;
                 const statusText = formatHoursToHHMM(delta, delta >= 0);
 
