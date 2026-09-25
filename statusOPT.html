@@ -192,6 +192,23 @@
         padding: 6px 14px;
         border-radius: 6px;
         border: 1px solid var(--border-color);
+        transition: color 0.2s ease, border-color 0.2s ease,
+          background-color 0.2s ease;
+      }
+      /* Dados a envelhecer: num ecrã de fábrica, o pior que pode acontecer
+         é alguém decidir com base em números de há duas horas sem dar por
+         isso. A idade dos dados fica à vista. */
+      .opt-header-status.opt-dados-velhos {
+        color: #fb923c;
+        border-color: rgba(251, 146, 60, 0.6);
+        background: rgba(251, 146, 60, 0.12);
+        font-weight: 700;
+      }
+      .opt-header-status.opt-dados-muito-velhos {
+        color: #f87171;
+        border-color: rgba(248, 113, 113, 0.7);
+        background: rgba(248, 113, 113, 0.14);
+        font-weight: 700;
       }
       .opt-week-badge {
         background-color: rgba(6, 182, 212, 0.12);
@@ -1230,6 +1247,7 @@
         <div class="opt-header-status">
           <i class="fa-regular fa-clock me-1"></i>Atualizado a
           <span id="opt-lblTimestamp">--/--/---- --:--:--</span>
+          <span id="opt-lblIdadeDados"></span>
         </div>
       </div>
 
@@ -1290,6 +1308,14 @@
             class="btn btn-outline-primary btn-sm fw-bold"
           >
             <i class="fa-solid fa-rotate me-1"></i> Atualizar Dados
+          </button>
+          <button
+            type="button"
+            id="opt-btnReporVista"
+            class="btn btn-outline-secondary btn-sm fw-bold"
+            title="Repor a vista: área, período, cartões abertos e painéis"
+          >
+            <i class="fa-solid fa-broom me-1"></i> Repor vista
           </button>
           <button
             type="button"
@@ -2313,6 +2339,18 @@
         const BACKLOG_KEY = 'BACKLOG';
         let availableCCs = [];
         let expandedCCs = new Set(); // Guarda os CCs expandidos no Accordion
+        /* Última leitura bem sucedida das listas do SharePoint. É por aqui
+           que se sabe a idade do que está no ecrã. */
+        let ultimaAtualizacao = null;
+        let autoRefreshTimer = null;
+        // De quanto em quanto tempo se voltam a ler as listas
+        const AUTO_REFRESH_MINUTOS = 5;
+        // A partir daqui os dados no ecrã deixam de ser de confiança
+        const IDADE_AVISO_MINUTOS = 15;
+        const IDADE_ALERTA_MINUTOS = 60;
+        // Estado dos painéis colapsáveis, lembrado entre visitas
+        const PAINEIS_STORAGE_KEY = 'opt_paineis_v1';
+        let ccsExpandidosAntes = 0;
         let liveUpdateTimer = null;
 
         if (
@@ -2608,16 +2646,83 @@
           });
           setDefaultDateRange();
           bindEvents();
+          initPaineis();
           loadData();
           startLiveTimer();
+          agendarRefrescoAutomatico();
           initRiskModule();
+
+          // Um ecrã que esteve escondido (separador noutro lado, portátil
+          // fechado) volta com dados velhos: atualiza-se assim que reaparece.
+          document.addEventListener('visibilitychange', function () {
+            if (document.hidden) return;
+            refrescarSeVelho();
+          });
         });
+
+        /* Repõe a vista de quem está a ver — área, período, cartões
+           abertos e painéis — sem tocar no que é partilhado por todos (a
+           ordem personalizada e as linhas eliminadas do material em risco
+           têm o seu próprio "repor", dentro do modo de edição). */
+        function reporVista() {
+          // Filtros
+          $('#opt-areaButtons .opt-area-btn').removeClass('active');
+          $('#opt-selArea').val('');
+          setDefaultDateRange();
+
+          // Cartões de C.C. abertos
+          expandedCCs.clear();
+          ccsExpandidosAntes = 0;
+
+          // Painéis de volta ao estado por omissão (fechados) e memória limpa
+          try {
+            localStorage.removeItem(PAINEIS_STORAGE_KEY);
+          } catch (e) {
+            /* sem memória, fica na mesma pelo estado abaixo */
+          }
+          mostrarPainel('mod', false);
+          mostrarPainel('extra', false);
+
+          // Material em risco: sai-se do modo de edição e volta-se a usar a
+          // ordem partilhada (nada é apagado)
+          if (typeof riskEditMode !== 'undefined' && riskEditMode) {
+            setRiskEditMode(false);
+          }
+          if (typeof riskOrderAplicada !== 'undefined' && !riskOrderAplicada) {
+            alternarOrdemRisco();
+          }
+
+          applyDateFilter();
+
+          // O que é partilhado não se mexe, mas diz-se onde se desfaz
+          const partilhadas = [];
+          if (riskCustomOrder.length > 0) partilhadas.push('a ordem personalizada');
+          if (riskRemovidas.length > 0) {
+            partilhadas.push(
+              `${riskRemovidas.length} linha${
+                riskRemovidas.length === 1 ? '' : 's'
+              } eliminada${riskRemovidas.length === 1 ? '' : 's'}`
+            );
+          }
+          if (partilhadas.length > 0) {
+            mostrarAvisoOrdem(
+              '<i class="fa-solid fa-circle-info me-1"></i>Vista reposta. ' +
+                partilhadas.join(' e ') +
+                ' no material em risco ' +
+                (partilhadas.length === 1 ? 'é partilhada' : 'são partilhadas') +
+                ' por todos — reponha no lápis (Editar).',
+              'text-muted',
+              10000
+            );
+          }
+        }
 
         function bindEvents() {
           $('#opt-kpiModal')
             .off('hidden.bs.modal')
             .on('hidden.bs.modal', function () {
               closeColFilterPanel();
+              refrescarSeVelho();
             });
 
           $('#opt-selArea')
@@ -2653,6 +2758,14 @@
               loadData();
               fetchMd07FromSharePoint(false);
               fetchCoKaFromSharePoint(false);
+              // O relógio da releitura automática recomeça a partir daqui
+              agendarRefrescoAutomatico();
+            });
+
+          $('#opt-btnReporVista')
+            .off('click')
+            .on('click', function () {
+              reporVista();
             });
 
           $('#opt-btnTema')
@@ -2932,36 +3045,75 @@
 
         /* Mantém a caixa "MOD Planeada" e "Previsão Trabalho Extra" colapsada por defeito e expande-a automaticamente
            assim que pelo menos um CC é expandido no accordion (dinâmico, sem ação manual extra). */
-        function syncModCollapseState() {
-          const modCollapseEl = document.getElementById('collapseMOD');
-          const extraCollapseEl = document.getElementById(
-            'collapseTrabalhoExtra'
-          ); // Referência à Tabela Extra
+        /* Painéis colapsáveis (MOD Planeada e Previsão de Trabalho Extra):
+           o estado é de quem está a ver e fica guardado neste browser, para
+           o dashboard abrir como foi deixado. */
+        const PAINEIS = {
+          mod: 'collapseMOD',
+          extra: 'collapseTrabalhoExtra',
+        };
 
-          if (
-            !modCollapseEl ||
-            !extraCollapseEl ||
-            typeof bootstrap === 'undefined'
-          )
-            return;
-
-          const bsCollapseMod = bootstrap.Collapse.getOrCreateInstance(
-            modCollapseEl,
-            { toggle: false }
-          );
-
-          const bsCollapseExtra = bootstrap.Collapse.getOrCreateInstance(
-            extraCollapseEl,
-            { toggle: false }
-          );
-
-          if (expandedCCs.size > 0) {
-            bsCollapseMod.show();
-            bsCollapseExtra.show(); // Abre a Tabela Extra simultaneamente
-          } else {
-            bsCollapseMod.hide();
-            bsCollapseExtra.hide(); // Fecha a Tabela Extra simultaneamente
+        function lerEstadoPaineis() {
+          try {
+            const guardado = localStorage.getItem(PAINEIS_STORAGE_KEY);
+            return guardado ? JSON.parse(guardado) || {} : {};
+          } catch (e) {
+            return {};
           }
+        }
+
+        function guardarEstadoPainel(nome, aberto) {
+          try {
+            const estado = lerEstadoPaineis();
+            estado[nome] = aberto;
+            localStorage.setItem(PAINEIS_STORAGE_KEY, JSON.stringify(estado));
+          } catch (e) {
+            /* a memória é uma comodidade, não pode partir nada */
+          }
+        }
+
+        function mostrarPainel(nome, aberto) {
+          const el = document.getElementById(PAINEIS[nome]);
+          if (!el || typeof bootstrap === 'undefined') return;
+          const bs = bootstrap.Collapse.getOrCreateInstance(el, {
+            toggle: false,
+          });
+          if (aberto) bs.show();
+          else bs.hide();
+        }
+
+        /* Aplica o estado guardado e passa a registar o que o utilizador
+           fizer a seguir. */
+        function initPaineis() {
+          const estado = lerEstadoPaineis();
+          Object.keys(PAINEIS).forEach((nome) => {
+            const el = document.getElementById(PAINEIS[nome]);
+            if (!el) return;
+            if (estado[nome] === true) mostrarPainel(nome, true);
+            $(el)
+              .off('shown.bs.collapse.optPainel hidden.bs.collapse.optPainel')
+              .on('shown.bs.collapse.optPainel', function (e) {
+                if (e.target !== el) return;
+                guardarEstadoPainel(nome, true);
+              })
+              .on('hidden.bs.collapse.optPainel', function (e) {
+                if (e.target !== el) return;
+                guardarEstadoPainel(nome, false);
+              });
+          });
+        }
+
+        /* Abrir o primeiro cartão de C.C. continua a abrir os dois painéis,
+           que é a comodidade que já existia. O que deixou de acontecer é
+           fecharem-se sozinhos: fechar é uma decisão de quem está a ver, e
+           fica guardada. */
+        function syncModCollapseState() {
+          const agora = expandedCCs.size;
+          const abriuOPrimeiro = ccsExpandidosAntes === 0 && agora > 0;
+          ccsExpandidosAntes = agora;
+          if (!abriuOPrimeiro) return;
+          mostrarPainel('mod', true);
+          mostrarPainel('extra', true);
         }
 
         function startLiveTimer() {
@@ -2970,6 +3122,7 @@
             refrescarTotaisCC();
             renderSummaryKPIs();
             updateMd07StaleAlert();
+            atualizarFrescuraDados();
           }, 10000);
         }
 
@@ -3385,9 +3538,14 @@
           );
         }
 
-        function loadData() {
-          $('#opt-loadingSpinner').show();
-          $('#opt-dashboardContent').hide();
+        /* silencioso = atualização automática: não se tira o dashboard do
+           ecrã nem se mostra o spinner, senão quem está a olhar perde o que
+           estava a ver de 5 em 5 minutos. */
+        function loadData(silencioso) {
+          if (!silencioso) {
+            $('#opt-loadingSpinner').show();
+            $('#opt-dashboardContent').hide();
+          }
 
           const endpointOpt = `${getWebUrl()}/_api/web/lists(guid'${LIST_GUID.replace(
             /[{}]/g,
@@ -3762,14 +3920,78 @@
           applyDateFilter();
           reevaluateRisk();
 
-          const now = new Date();
+          ultimaAtualizacao = new Date();
           $('#opt-lblTimestamp').text(
-            now.toLocaleDateString('pt-PT') +
+            ultimaAtualizacao.toLocaleDateString('pt-PT') +
               ' ' +
-              now.toLocaleTimeString('pt-PT')
+              ultimaAtualizacao.toLocaleTimeString('pt-PT')
           );
+          atualizarFrescuraDados();
           $('#opt-loadingSpinner').hide();
           $('#opt-dashboardContent').fadeIn();
+        }
+
+        /* Idade dos dados no ecrã: até 15 minutos passa despercebida, a
+           partir daí fica laranja e, acima de uma hora, vermelha. */
+        function atualizarFrescuraDados() {
+          const $caixa = $('.opt-header-status');
+          const $idade = $('#opt-lblIdadeDados');
+          if (!ultimaAtualizacao) {
+            $caixa.removeClass('opt-dados-velhos opt-dados-muito-velhos');
+            $idade.text('');
+            return;
+          }
+          const minutos = Math.floor((Date.now() - ultimaAtualizacao) / 60000);
+          let texto = '';
+          if (minutos >= 1) {
+            texto =
+              minutos < 60
+                ? ` (há ${minutos} min)`
+                : ` (há ${Math.floor(minutos / 60)}h${String(
+                    minutos % 60
+                  ).padStart(2, '0')})`;
+          }
+          $idade.text(texto);
+          $caixa
+            .toggleClass(
+              'opt-dados-velhos',
+              minutos >= IDADE_AVISO_MINUTOS && minutos < IDADE_ALERTA_MINUTOS
+            )
+            .toggleClass(
+              'opt-dados-muito-velhos',
+              minutos >= IDADE_ALERTA_MINUTOS
+            );
+        }
+
+        /* Releitura automática das listas. Não se faz enquanto houver um
+           popup aberto ou enquanto se está a editar a ordem do material em
+           risco — nesses momentos o utilizador está a meio de alguma coisa.
+           Com o separador escondido também não vale a pena: assim que
+           voltar a estar à vista, atualiza-se. */
+        function refrescoAutomatico() {
+          if (document.hidden) return;
+          if (typeof riskEditMode !== 'undefined' && riskEditMode) return;
+          if (document.querySelector('.modal.show')) return;
+          loadData(true);
+          fetchMd07FromSharePoint(false);
+          fetchCoKaFromSharePoint(false);
+        }
+
+        /* Depois de um momento em que a releitura ficou adiada (popup
+           aberto, ordem a ser editada, separador escondido), não se espera
+           pelo ciclo seguinte se os dados já estão velhos. */
+        function refrescarSeVelho() {
+          if (!ultimaAtualizacao) return;
+          const minutos = (Date.now() - ultimaAtualizacao) / 60000;
+          if (minutos >= AUTO_REFRESH_MINUTOS) refrescoAutomatico();
+        }
+
+        function agendarRefrescoAutomatico() {
+          if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+          autoRefreshTimer = setInterval(
+            refrescoAutomatico,
+            AUTO_REFRESH_MINUTOS * 60000
+          );
         }
 
         function applyDateFilter() {
@@ -6472,6 +6694,10 @@
           $('#opt-tableRisk').toggleClass('opt-risk-editando', ativo);
           renderRiskTable();
           updateRiskOrderUI();
+          // A releitura automática esteve adiada enquanto se editava
+          if (!ativo && typeof refrescarSeVelho === 'function') {
+            refrescarSeVelho();
+          }
         }
 
         function updateRiskOrderUI() {
