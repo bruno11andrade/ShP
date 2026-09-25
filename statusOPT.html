@@ -2980,10 +2980,12 @@
             now.getMonth(),
             diffToMonday
           );
-          const friday = new Date(monday);
-          friday.setDate(monday.getDate() + 4);
+          // A semana abre completa (segunda a domingo): o fim de semana
+          // pode ter trabalho extra marcado e tem de estar à vista.
+          const domingo = new Date(monday);
+          domingo.setDate(monday.getDate() + 6);
           $('#opt-startDate').val(formatDateToInput(monday));
-          $('#opt-endDate').val(formatDateToInput(friday));
+          $('#opt-endDate').val(formatDateToInput(domingo));
         }
 
         function getTwoWeeksDates() {
@@ -6128,17 +6130,50 @@
           return 'turno da tarde 🌇';
         }
 
-        function getWeekdayNamePt(diasOffsetInteiro) {
-          const target = new Date();
-          target.setHours(0, 0, 0, 0);
-          target.setDate(target.getDate() + diasOffsetInteiro + 1);
-          let dow = target.getDay();
-          if (dow === 6) {
-            target.setDate(target.getDate() + 2);
-          } else if (dow === 0) {
-            target.setDate(target.getDate() + 1);
+        /* A cobertura do MD07 conta-se em dias de produção, e ao fim de
+           semana não se consome material. Por isso 0,1 dias de cobertura
+           numa sexta-feira não quer dizer "falha amanhã" — quer dizer que
+           falta na segunda-feira seguinte. Sábados e domingos são saltados
+           em toda a contagem. */
+        function ehFimDeSemana(data) {
+          const dia = data.getDay();
+          return dia === 0 || dia === 6;
+        }
+
+        function proximoDiaUtil(data) {
+          const r = new Date(data.getTime());
+          while (ehFimDeSemana(r)) r.setDate(r.getDate() + 1);
+          return r;
+        }
+
+        function somarDiasUteis(base, dias) {
+          const r = proximoDiaUtil(base);
+          for (let i = 0; i < dias; i++) {
+            r.setDate(r.getDate() + 1);
+            while (ehFimDeSemana(r)) r.setDate(r.getDate() + 1);
           }
-          return DIAS_SEMANA_PT[target.getDay()];
+          return r;
+        }
+
+        /* Dia em que o material falta. Cobertura esgotada (<= 0) falta já,
+           no primeiro dia de produção; o resto conta os dias de produção
+           que a cobertura ainda dá. */
+        function diaDaFalhaRisco(cobertura) {
+          const hoje = getTodayZero();
+          if (cobertura <= 0) return proximoDiaUtil(hoje);
+          return somarDiasUteis(hoje, Math.floor(cobertura) + 1);
+        }
+
+        /* "hoje" e "amanhã" só quando é mesmo hoje ou o dia seguinte; caso
+           contrário diz-se o nome do dia, que é o que evita o engano de uma
+           sexta-feira apontar para sábado. */
+        function nomeDoDiaDaFalha(dia) {
+          const hoje = getTodayZero();
+          const amanha = new Date(hoje.getTime());
+          amanha.setDate(hoje.getDate() + 1);
+          if (dia.getTime() === hoje.getTime()) return 'hoje';
+          if (dia.getTime() === amanha.getTime()) return 'amanhã';
+          return 'na ' + DIAS_SEMANA_PT[dia.getDay()];
         }
 
         function buildRiskComment(material, cobertura, coKaPair) {
@@ -6146,30 +6181,17 @@
           const pairSuffix = coKaPair ? ` (CO KA de ${coKaPair})` : '';
 
           const absCob = Math.abs(cobertura);
-          const diasInteiros = Math.floor(cobertura);
           const fracValue = absCob - Math.floor(absCob);
+          const quando = nomeDoDiaDaFalha(diaDaFalhaRisco(cobertura));
+          // Cobertura já esgotada é o caso crítico
+          const marca = cobertura <= 0 ? '🔴' : '⚠️';
 
           if (isEnvio) {
-            if (cobertura <= 0) return `🔴 Falha envio hoje${pairSuffix}`;
-            if (cobertura < 1) return `⚠️ Falha envio amanhã${pairSuffix}`;
-            return `⚠️ Falha envio na ${getWeekdayNamePt(
-              diasInteiros
-            )}${pairSuffix}`;
+            return `${marca} Falha envio ${quando}${pairSuffix}`;
           }
-
-          if (cobertura <= 0) {
-            return `🔴 Falha produção hoje no ${getTurno(
-              fracValue
-            )}${pairSuffix}`;
-          }
-          if (cobertura < 1) {
-            return `⚠️ Falha produção amanhã no ${getTurno(
-              fracValue
-            )}${pairSuffix}`;
-          }
-          return `⚠️ Falha produção na ${getWeekdayNamePt(
-            diasInteiros
-          )} no ${getTurno(fracValue)}${pairSuffix}`;
+          return `${marca} Falha produção ${quando} no ${getTurno(
+            fracValue
+          )}${pairSuffix}`;
         }
 
         function renderRiskTable() {
