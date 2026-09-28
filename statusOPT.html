@@ -3637,6 +3637,17 @@
           return dateObj >= monday && dateObj <= sunday;
         }
 
+        /* Uma linha do plano dá-se por produzida quando o estado o diz. A
+           comparação é tolerante: o estado vem escrito à mão na lista e
+           aparece com maiúsculas e espaços diferentes. */
+        function estaProduzido(item) {
+          return (
+            String((item && item.Status) || '')
+              .trim()
+              .toUpperCase() === 'PRODUZIDO'
+          );
+        }
+
         /* Verifica se uma data corresponde ao dia de hoje (ignora a hora) */
         function isToday(dateObj) {
           if (!dateObj) return false;
@@ -4173,7 +4184,7 @@
             (item) =>
               item.RawDateObj &&
               item.RawDateObj < startDate &&
-              item.Status !== 'Produzido'
+              !estaProduzido(item)
           );
 
           const optCCs = currentFilteredItems.map((i) => i.CC);
@@ -6356,12 +6367,20 @@
           const rows = md07Data.rows;
           const pairs = cokaData && cokaData.pairs ? cokaData.pairs : {};
 
-          // Materiais planeados no período em análise nos CC ativos, e a
-          // que CC(s) pertencem no plano de produção. Conta o período todo,
-          // fim de semana incluído: se há trabalho extra marcado para
-          // sábado, o material desse trabalho também pode faltar.
+          /* Materiais de tudo o que está POR PRODUZIR nos CC ativos: as
+             linhas do período que ainda não foram produzidas mais o
+             backlog (o que ficou para trás e continua por fazer). Uma linha
+             já produzida não precisa de material nenhum; uma que está em
+             backlog precisa, e é justamente a que corre mais risco de bater
+             numa rutura. Conta o período todo, fim de semana incluído: se há
+             trabalho extra marcado para sábado, o material desse trabalho
+             também pode faltar. */
           const plannedKAtoCCs = {};
-          currentFilteredItems.forEach((item) => {
+          const porProduzir = [
+            ...currentFilteredItems.filter((i) => !estaProduzido(i)),
+            ...currentBacklogItems,
+          ];
+          porProduzir.forEach((item) => {
             if (!item.RawDateObj) return;
             if (!activeCCs.some((acc) => areCCsEqual(acc, item.CC))) return;
             const ka = (item.KA || '').toString().toUpperCase().trim();
