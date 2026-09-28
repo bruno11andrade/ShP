@@ -3272,9 +3272,11 @@
 
         /* --- ENSAIOS DE FERRAMENTA -------------------------------------
            A Checklist Ensaio Ferramentas não tem horas planeadas nem Status:
-           cada ensaio ocupa o Centro de Custo um dia de trabalho completo
+           os ensaios de um Centro de Custo ocupam-lhe o dia de trabalho
            (9h-12h e 13h-17h = 7h) e as horas produzidas vão-se acumulando
-           com o relógio, porque não há registo de conclusão.            */
+           com o relógio, porque não há registo de conclusão. Havendo mais
+           do que um ensaio no mesmo C.C. e no mesmo dia, o dia reparte-se
+           entre eles.                                                    */
         const AREAS_ENSAIO = ['OPA', 'OPT'];
         const ENSAIO_HORA_INICIO = 9 * 60;
         const ENSAIO_PAUSA_INICIO = 12 * 60;
@@ -3341,20 +3343,63 @@
           return (manha + tarde) / 60;
         }
 
+        /* Horas planeadas de um ensaio: a fatia do dia que lhe toca. */
+        function getHorasEnsaioPlaneadas(ensaio) {
+          const fatia = ensaio && ensaio.HorasPlaneadas;
+          return fatia > 0 ? fatia : ENSAIO_HORAS_TOTAIS;
+        }
+
         /* Horas produzidas de um ensaio: dias passados contam como feitos na
            totalidade, os futuros ainda não contam, e no dia de hoje vai
-           acompanhando o relógio. */
-        function getHorasEnsaioProduzidas(dataObj) {
+           acompanhando o relógio. Quando há vários ensaios no mesmo C.C. e
+           no mesmo dia, fazem-se um a seguir ao outro pela ordem do KA: o
+           segundo só começa a contar quando o primeiro tiver a sua fatia
+           completa. */
+        function getHorasEnsaioProduzidas(ensaio) {
+          const dataObj = ensaio && ensaio.RawDateObj;
           if (!dataObj) return 0;
+          const fatia = getHorasEnsaioPlaneadas(ensaio);
           const hoje = getTodayZero();
           const dia = new Date(
             dataObj.getFullYear(),
             dataObj.getMonth(),
             dataObj.getDate()
           );
-          if (dia < hoje) return ENSAIO_HORAS_TOTAIS;
+          if (dia < hoje) return fatia;
           if (dia > hoje) return 0;
-          return getHorasEnsaioDecorridas(new Date());
+          // O que os ensaios anteriores do mesmo dia já consomem
+          const jaOcupadas = (ensaio.OrdemNoDia || 0) * fatia;
+          const decorridas = getHorasEnsaioDecorridas(new Date());
+          return Math.min(Math.max(decorridas - jaOcupadas, 0), fatia);
+        }
+
+        /* Reparte o dia de trabalho pelos ensaios do mesmo C.C. e do mesmo
+           dia e fixa a ordem por que são feitos (a do KA). Dois ensaios no
+           mesmo dia ficam com 3h30 cada, e não com 7h cada. */
+        function repartirHorasDosEnsaios() {
+          const grupos = {};
+          rawEnsaioItems.forEach((e) => {
+            const chave = `${String(e.CC || '').trim().toUpperCase()}|${
+              e.DataFormatted
+            }`;
+            if (!grupos[chave]) grupos[chave] = [];
+            grupos[chave].push(e);
+          });
+          Object.keys(grupos).forEach((chave) => {
+            const lista = grupos[chave];
+            lista.sort((a, b) =>
+              String(a.KA || '').localeCompare(String(b.KA || ''), 'pt', {
+                numeric: true,
+                sensitivity: 'base',
+              })
+            );
+            const fatia = ENSAIO_HORAS_TOTAIS / lista.length;
+            lista.forEach((e, i) => {
+              e.HorasPlaneadas = fatia;
+              e.EnsaiosNoDia = lista.length;
+              e.OrdemNoDia = i;
+            });
+          });
         }
 
         /* Ensaios do período (já filtrados pelas datas) de um Centro de
@@ -3415,9 +3460,11 @@
 
           (ccEnsaios || []).forEach((ensaio) => {
             const g = grupo(ensaio.DataFormatted, ensaio.RawDateObj);
-            g.Planeado += ENSAIO_HORAS_TOTAIS;
-            g.Produzido += getHorasEnsaioProduzidas(ensaio.RawDateObj);
+            const horasEnsaio = getHorasEnsaioPlaneadas(ensaio);
+            g.Planeado += horasEnsaio;
+            g.Produzido += getHorasEnsaioProduzidas(ensaio);
             g.Ensaios++;
+            g.EnsaioHoras = (g.EnsaioHoras || 0) + horasEnsaio;
           });
 
           return dateGroups;
@@ -3977,6 +4024,7 @@
                 Area: extractValue(rawArea),
                 DataFormatted: dateObj ? formatDateShort(dateObj) : 'N/D',
                 RawDateObj: dateObj,
+                // A fatia certa é atribuída em repartirHorasDosEnsaios()
                 HorasPlaneadas: ENSAIO_HORAS_TOTAIS,
                 // Equivalentes aos do plano: "Matéria-prima e BIPS" conta
                 // como Disponibilidade MP e "Disponibilidade da Ferramenta"
@@ -3997,6 +4045,8 @@
                 !e.Cancelado &&
                 AREAS_ENSAIO.includes(String(e.Area || '').trim().toUpperCase())
             );
+
+          repartirHorasDosEnsaios();
 
           ensaiosDiag.recebidos = (ensaioItems || []).length;
           ensaiosDiag.aceites = rawEnsaioItems.length;
@@ -4709,9 +4759,11 @@
               const ensaioBadge = r.Ensaios
                 ? ` <i class="fa-solid fa-flask ms-1" style="color:#8bb3f2;font-size:0.7rem;" title="Inclui ${
                     r.Ensaios
-                  } ensaio${r.Ensaios === 1 ? '' : 's'} de ferramenta (${
-                    r.Ensaios * ENSAIO_HORAS_TOTAIS
-                  }h)"></i>`
+                  } ensaio${
+                    r.Ensaios === 1 ? '' : 's'
+                  } de ferramenta (${formatHoursToHHMM(
+                    r.EnsaioHoras || 0
+                  )})"></i>`
                 : '';
               const hojeBadge = isHoje
                 ? ' <span class="opt-hoje-badge">Hoje</span>'
@@ -5552,7 +5604,7 @@
               html += `<tr><td colspan="8" class="text-muted">Sem ensaios para o período, área e C.C. selecionados.</td></tr>`;
             } else {
               ensaios.forEach((item) => {
-                const produzido = getHorasEnsaioProduzidas(item.RawDateObj);
+                const produzido = getHorasEnsaioProduzidas(item);
                 // A hora do ensaio só aparece quando está preenchida na lista
                 const hora = item.RawDateObj
                   ? item.RawDateObj.toLocaleTimeString('pt-PT', {
@@ -5578,7 +5630,7 @@
             <td><span class="badge ${getDispBadgeClass(
               item.DispMP
             )}">${escapeHtml(item.DispMP || 'N/D')}</span></td>
-            <td>${formatHoursToHHMM(ENSAIO_HORAS_TOTAIS)}</td>
+            <td>${formatHoursToHHMM(getHorasEnsaioPlaneadas(item))}</td>
             <td>${formatHoursToHHMM(produzido)}</td>
           </tr>`;
               });
