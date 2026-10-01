@@ -637,6 +637,34 @@
       .opt-cc-stat-destaque {
         border-color: rgba(148, 163, 184, 0.45);
         background: var(--bg-subtle);
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease;
+      }
+      .opt-cc-stat-destaque:hover {
+        border-color: var(--cyan-accent);
+        background: var(--bg-inset);
+      }
+
+      /* Resumo da conta do avanço/atraso, no topo do respetivo popup */
+      .opt-delta-resumo > div {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 6px 12px;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-label);
+      }
+      .opt-delta-resumo > div strong {
+        font-variant-numeric: tabular-nums;
+        color: var(--text-strong);
+        white-space: nowrap;
+      }
+      .opt-delta-resumo .opt-delta-total {
+        border-bottom: 0;
+        border-top: 2px solid var(--border-color);
+        font-weight: 700;
+        font-size: 1.05rem;
       }
 
       /* Faixa do backlog: trabalho arrastado de datas anteriores */
@@ -4833,7 +4861,9 @@
                       <div class="opt-cc-container border-0 p-0">
                         <div class="opt-cc-stats">
                           <div class="opt-cc-stats-backlog">${backlogBandaHtml}</div>
-                          <div class="opt-cc-stat opt-cc-stat-destaque">
+                          <div class="opt-cc-stat opt-cc-stat-destaque" data-cc="${escapeHtml(
+                            cc
+                          )}" title="Ver o que entra nesta conta">
                             <span class="opt-cc-stat-label" id="cc_delta_label_${cc}">${
               headerCfg.title
             }</span>
@@ -4878,6 +4908,117 @@
               e.stopPropagation();
               showKpiDetails('backlog', $(this).data('cc'));
             });
+
+          // O quadro do desvio abre a conta detalhada desse C.C.
+          container
+            .off('click', '.opt-cc-stat-destaque')
+            .on('click', '.opt-cc-stat-destaque', function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              showKpiDetails('delta', $(this).data('cc'));
+            });
+        }
+
+        /* Abre a conta do avanço/atraso de um C.C. linha a linha, com as
+           mesmas regras do cálculo: as datas já passadas e a de hoje contam
+           o planeado e o produzido; as futuras só contam o que já está
+           produzido; o backlog só pesa pelo planeado; e no fim somam-se as
+           horas de trabalho que ainda faltam hoje. */
+        function detalharDelta(cc, selAreaClean) {
+          const resumo = calcularResumoCC(cc, selAreaClean);
+          const hoje = getTodayZero();
+          const hojeFormatado = formatDateShort(hoje);
+          const linhas = [];
+          let planeado = 0;
+          let produzido = 0;
+          let temHoje = false;
+
+          function ehFuturo(raw) {
+            if (!raw) return false;
+            const d = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate());
+            return d > hoje;
+          }
+
+          function juntar(dados) {
+            if (dados.Data === hojeFormatado) temHoje = true;
+            if (dados.futuro) {
+              dados.contributo = dados.produzido;
+              dados.entra = 'Só o produzido (data futura)';
+            } else {
+              dados.contributo = dados.produzido - dados.planeado;
+              dados.entra = dados.backlog
+                ? 'Planeado por produzir (backlog)'
+                : 'Planeado e produzido';
+              planeado += dados.planeado;
+            }
+            produzido += dados.produzido;
+            linhas.push(dados);
+          }
+
+          resumo.ccItems.forEach((i) => {
+            const horas = i.HorasPlaneadas || 0;
+            juntar({
+              Data: i.DataFormatted,
+              RawDate: i.RawDateObj,
+              KA: i.KA,
+              tipo: 'Plano',
+              Status: i.Status,
+              futuro: ehFuturo(i.RawDateObj),
+              planeado: horas,
+              // Mesma regra do agrupamento por data: uma linha dada como
+              // produzida conta as horas que tinha planeadas
+              produzido: i.Status === 'Produzido' ? horas : 0,
+            });
+          });
+
+          resumo.ccEnsaios.forEach((e) => {
+            juntar({
+              Data: e.DataFormatted,
+              RawDate: e.RawDateObj,
+              KA: e.KA,
+              tipo: 'Ensaio',
+              Status: '',
+              futuro: ehFuturo(e.RawDateObj),
+              planeado: getHorasEnsaioPlaneadas(e),
+              produzido: getHorasEnsaioProduzidas(e),
+            });
+          });
+
+          resumo.ccBacklog.forEach((i) => {
+            juntar({
+              Data: i.DataFormatted,
+              RawDate: null,
+              KA: i.KA,
+              tipo: 'Backlog',
+              Status: i.Status,
+              futuro: false,
+              backlog: true,
+              planeado: i.HorasPlaneadas || 0,
+              produzido: 0,
+            });
+          });
+
+          // O backlog à cabeça, depois por data e por KA
+          linhas.sort((a, b) => {
+            if (!!a.backlog !== !!b.backlog) return a.backlog ? -1 : 1;
+            const da = a.RawDate ? a.RawDate.getTime() : 0;
+            const db = b.RawDate ? b.RawDate.getTime() : 0;
+            if (da !== db) return da - db;
+            return String(a.KA || '').localeCompare(String(b.KA || ''), 'pt', {
+              numeric: true,
+            });
+          });
+
+          const credito = temHoje ? getHoursRemainingToday(cc) : 0;
+          return {
+            linhas: linhas,
+            planeado: planeado,
+            produzido: produzido,
+            credito: credito,
+            temHoje: temHoje,
+            total: produzido - planeado + credito,
+            delta: resumo.delta,
+          };
         }
 
         function calculateCcDelta(cc, ccItems, ccEnsaios, ccBacklog) {
@@ -5570,6 +5711,104 @@
             <td colspan="4" class="text-end">Total</td>
             <td>${formatHoursToHHMM(horasBacklog)}</td>
             <td colspan="2"></td>
+          </tr>`;
+            }
+            html += `</tbody></table></div>`;
+          } else if (type === 'delta') {
+            const areaLimpaDelta = selectedArea
+              ? String(selectedArea).trim().toLowerCase()
+              : null;
+            const det = detalharDelta(ccFiltro, areaLimpaDelta);
+            const cfgDelta = getDelayCardConfig(det.delta);
+            title =
+              `<i class="${cfgDelta.icon} me-2"></i>Detalhes: ${cfgDelta.title}` +
+              ` <span class="badge bg-secondary ms-1">C.C. ${escapeHtml(
+                String(ccFiltro)
+              )}</span>`;
+
+            const corTotal = cfgDelta.color;
+            html = `
+      <div class="opt-delta-resumo mb-3">
+        <div><span>Planeado (datas até hoje e backlog)</span><strong>${formatHoursToHHMM(
+          det.planeado
+        )}</strong></div>
+        <div><span>Produzido (inclui datas futuras já produzidas)</span><strong>${formatHoursToHHMM(
+          det.produzido
+        )}</strong></div>
+        ${
+          det.temHoje
+            ? `<div><span>Horas de trabalho que ainda faltam hoje</span><strong>${formatHoursToHHMM(
+                det.credito
+              )}</strong></div>`
+            : ''
+        }
+        <div class="opt-delta-total"><span>${
+          cfgDelta.title
+        }</span><strong style="color: ${corTotal}">${
+              cfgDelta.valueText
+            }</strong></div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-opt w-100">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>KA / Material</th>
+              <th>Origem</th>
+              <th>Status</th>
+              <th>Planeado</th>
+              <th>Produzido</th>
+              <th>Como entra na conta</th>
+              <th>Contributo</th>
+            </tr>
+          </thead>
+          <tbody>`;
+            if (det.linhas.length === 0) {
+              html += `<tr><td colspan="8" class="text-muted">Sem linhas a contar para este C.C. no período.</td></tr>`;
+            } else {
+              det.linhas.forEach((l) => {
+                const etiqueta = l.backlog
+                  ? '<span class="badge bg-warning text-dark ms-1">Backlog</span>'
+                  : l.futuro
+                  ? '<span class="badge bg-dark text-secondary border border-secondary ms-1 fw-normal">Futuro</span>'
+                  : '';
+                const corContributo =
+                  l.contributo > 0
+                    ? '#34d399'
+                    : l.contributo < 0
+                    ? '#f87171'
+                    : 'var(--text-muted)';
+                html += `
+          <tr>
+            <td>${l.backlog ? '—' : l.Data || '—'}${etiqueta}</td>
+            <td>${escapeHtml(l.KA || '')}</td>
+            <td>${
+              l.tipo === 'Ensaio'
+                ? '<i class="fa-solid fa-flask me-1" style="color:#8bb3f2"></i>Ensaio'
+                : escapeHtml(l.tipo)
+            }</td>
+            <td>${l.Status ? badgeStatus(l.Status) : '—'}</td>
+            <td${l.futuro ? ' class="text-muted"' : ''}>${formatHoursToHHMM(
+                  l.planeado
+                )}</td>
+            <td>${formatHoursToHHMM(l.produzido)}</td>
+            <td class="text-muted" style="font-size: 0.8rem">${l.entra}</td>
+            <td style="color: ${corContributo}; font-weight: 700">${formatHoursToHHMM(
+                  l.contributo,
+                  l.contributo > 0
+                )}</td>
+          </tr>`;
+              });
+              html += `
+          <tr class="fw-bold">
+            <td colspan="4" class="text-end">Total das linhas</td>
+            <td>${formatHoursToHHMM(det.planeado)}</td>
+            <td>${formatHoursToHHMM(det.produzido)}</td>
+            <td></td>
+            <td>${formatHoursToHHMM(
+              det.produzido - det.planeado,
+              det.produzido - det.planeado > 0
+            )}</td>
           </tr>`;
             }
             html += `</tbody></table></div>`;
