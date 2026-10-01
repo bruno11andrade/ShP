@@ -1388,6 +1388,11 @@
         border-color: var(--cyan-accent) !important;
         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
       }
+      /* Um pouco mais larga do que a modal-lg do Bootstrap: as tabelas de
+         detalhe têm oito colunas e a última ficava cortada. */
+      .modal-kpi .modal-dialog {
+        max-width: min(1060px, 96vw);
+      }
       .modal-kpi .modal-content {
         background-color: var(--bg-card);
         color: var(--text-main);
