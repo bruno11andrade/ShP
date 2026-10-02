@@ -4947,13 +4947,10 @@
           function juntar(dados) {
             if (dados.Data === hojeFormatado) temHoje = true;
             if (dados.futuro) {
+              // Numa data futura só conta o que já está produzido
               dados.contributo = dados.produzido;
-              dados.entra = 'Só o produzido (data futura)';
             } else {
               dados.contributo = dados.produzido - dados.planeado;
-              dados.entra = dados.backlog
-                ? 'Planeado por produzir (backlog)'
-                : 'Planeado e produzido';
               planeado += dados.planeado;
             }
             produzido += dados.produzido;
@@ -5763,13 +5760,12 @@
               <th>Status</th>
               <th>Planeado</th>
               <th>Produzido</th>
-              <th>Como entra na conta</th>
               <th>Contributo</th>
             </tr>
           </thead>
           <tbody>`;
             if (det.linhas.length === 0) {
-              html += `<tr><td colspan="8" class="text-muted">Sem linhas a contar para este C.C. no período.</td></tr>`;
+              html += `<tr><td colspan="7" class="text-muted">Sem linhas a contar para este C.C. no período.</td></tr>`;
             } else {
               det.linhas.forEach((l) => {
                 const etiqueta = l.backlog
@@ -5797,7 +5793,6 @@
                   l.planeado
                 )}</td>
             <td>${formatHoursToHHMM(l.produzido)}</td>
-            <td class="text-muted" style="font-size: 0.8rem">${l.entra}</td>
             <td style="color: ${corContributo}; font-weight: 700">${formatHoursToHHMM(
                   l.contributo,
                   l.contributo > 0
@@ -5809,7 +5804,6 @@
             <td colspan="4" class="text-end">Total das linhas</td>
             <td>${formatHoursToHHMM(det.planeado)}</td>
             <td>${formatHoursToHHMM(det.produzido)}</td>
-            <td></td>
             <td>${formatHoursToHHMM(
               det.produzido - det.planeado,
               det.produzido - det.planeado > 0
