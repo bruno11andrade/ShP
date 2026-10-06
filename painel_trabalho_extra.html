@@ -878,20 +878,20 @@
                         class="kpi-card highlight-card p-2 px-3 d-flex flex-column justify-content-center h-100"
                         id="kpiAdesaoCard"
                         style="
-                          border-left: 8px solid #cbd5e1;
-                          background-color: #ffffff;
+                          border-left: 8px solid #198754;
+                          background-color: #d1e7dd;
                         "
                       >
                         <div
                           class="kpi-title fw-bold text-uppercase text-dark"
-                          style="font-size: 0.8rem; color: #334155 !important"
+                          style="font-size: 0.8rem"
                         >
                           PRODUZIDO/PLANEADO (%)
                         </div>
                         <div
                           class="fw-bolder text-dark my-1"
                           id="kpiAdesaoPct"
-                          style="font-size: 2.8rem; line-height: 1.1; color: #64748b !important"
+                          style="font-size: 2.8rem; line-height: 1.1"
                         >
                           0%
                         </div>
@@ -914,18 +914,18 @@
                             ></div>
                             <div
                               class="kpi-card p-2 d-flex flex-column justify-content-center flex-grow-1"
-                              style="border-left: 5px solid #38bdf8"
+                              style="border-left: 5px solid #005a9e"
                             >
                               <div
                                 class="kpi-title fw-bold text-dark"
-                                style="font-size: 0.65rem; color: #334155 !important"
+                                style="font-size: 0.65rem"
                               >
                                 PEÇAS PLANEADAS
                               </div>
                               <div
                                 class="fw-bold text-dark mt-1"
                                 id="kpiQtdPlaneada"
-                                style="font-size: 1.8rem; color: #0f172a !important"
+                                style="font-size: 1.8rem"
                               >
                                 0
                               </div>
@@ -1020,18 +1020,18 @@
                             ></div>
                             <div
                               class="kpi-card p-2 d-flex flex-column justify-content-center flex-grow-1"
-                              style="border-left: 5px solid #34d399"
+                              style="border-left: 5px solid #10b981"
                             >
                               <div
                                 class="kpi-title fw-bold text-dark"
-                                style="font-size: 0.65rem; color: #334155 !important"
+                                style="font-size: 0.65rem"
                               >
                                 PEÇAS PRODUZIDAS
                               </div>
                               <div
                                 class="fw-bold text-dark mt-1"
                                 id="kpiQtdProduzida"
-                                style="font-size: 1.8rem; color: #0f172a !important"
+                                style="font-size: 1.8rem"
                               >
                                 0
                               </div>
@@ -3156,31 +3156,23 @@
               );
               $('#kpiAdesaoPct').text(`${adesaoPct}%`);
 
-              const adesaoCor =
-                qtdPlaneada > 0 ? getCumprimentoColor(Number(adesaoPct)) : '#64748b';
-              $('#kpiAdesaoCard').css({
-                'background-color': '#ffffff',
-                'border-left-color': qtdPlaneada > 0 ? adesaoCor : '#cbd5e1',
-              });
-              document
-                .getElementById('kpiAdesaoPct')
-                .style.setProperty('color', adesaoCor, 'important');
-            }
-
-            /* Cores de "Cumprimento" (Produzido vs Planeado), iguais às do
-               statusOPT: verde entre 90% e 110%, laranja entre 80% e 90%,
-               vermelho abaixo de 80% ou a partir de 110%. */
-            function getCumprimentoColor(pct) {
-              if (pct >= 90 && pct < 110) return '#34d399'; // Verde
-              if (pct >= 80 && pct < 90) return '#fb923c'; // Laranja
-              return '#f87171'; // Vermelho (< 80% ou >= 110%)
-            }
-
-            /* Mesma regra, em classe de badge Bootstrap (tabela do plano). */
-            function getCumprimentoBadgeClass(pct) {
-              if (pct >= 90 && pct < 110) return 'bg-success';
-              if (pct >= 80 && pct < 90) return 'bg-warning text-dark';
-              return 'bg-danger';
+              const adesaoCard = $('#kpiAdesaoCard');
+              if (adesaoPct >= 90 && adesaoPct <= 110) {
+                adesaoCard.css({
+                  'background-color': '#d1e7dd',
+                  'border-left-color': '#198754',
+                });
+              } else if (adesaoPct >= 80 && adesaoPct < 90) {
+                adesaoCard.css({
+                  'background-color': '#fff3cd',
+                  'border-left-color': '#ffc107',
+                });
+              } else {
+                adesaoCard.css({
+                  'background-color': '#f8d7da',
+                  'border-left-color': '#dc3545',
+                });
+              }
             }
 
             function updateLogisticaKPIAndChart(logisticaData) {
@@ -4221,7 +4213,10 @@
                   d.QtdPlaneada > 0
                     ? ((d.QtdProduzida / d.QtdPlaneada) * 100).toFixed(1)
                     : 0;
-                const badgeClass = getCumprimentoBadgeClass(Number(pct));
+                let badgeClass = 'bg-danger';
+                if (pct > 101) badgeClass = 'bg-warning text-dark';
+                else if (pct >= 90) badgeClass = 'bg-success';
+                else if (pct >= 80) badgeClass = 'bg-warning text-dark';
 
                 const row = `
                       <tr>
