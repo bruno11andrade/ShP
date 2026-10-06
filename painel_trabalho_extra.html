@@ -27,16 +27,6 @@
         --sp-success: #10b981;
         --sp-bg: #f4f6f9;
         --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-
-        /* Valores do tema claro do statusOPT, com os mesmos nomes, para
-           os cartões que já seguem o estilo do statusOPT. */
-        --bg-card: #ffffff;
-        --border-color: #cbd5e1;
-        --cyan-accent: #0e7490;
-        --text-muted: #64748b;
-        --text-label: #334155;
-        --text-strong: #0f172a;
-        --opt-card-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
       }
 
       /* ----------------------------------------------------
@@ -164,83 +154,6 @@
 
       .kpi-card:hover {
         transform: translateY(-2px);
-      }
-
-      /* ----------------------------------------------------
-           CARTÕES PRODUZIDO/PLANEADO — mesmo estilo do statusOPT:
-           o cartão é neutro e a cor do semáforo vai só no número.
-        ---------------------------------------------------- */
-      .opt-summary-card {
-        background: var(--bg-card);
-        border-radius: 8px;
-        padding: 12px 10px;
-        text-align: center;
-        box-shadow: var(--opt-card-shadow);
-        border: 1px solid var(--border-color);
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-      }
-      .opt-summary-card .title {
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: var(--text-label);
-        margin-bottom: 6px;
-        text-transform: uppercase;
-      }
-      .opt-summary-card .value {
-        font-size: 1.7rem;
-        font-weight: 800;
-      }
-      .opt-summary-card-main {
-        border: 1px solid var(--cyan-accent) !important;
-        box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25), var(--opt-card-shadow) !important;
-      }
-      .opt-summary-card-main .title {
-        color: var(--cyan-accent) !important;
-      }
-      .opt-summary-card-main .value {
-        font-size: 2.1rem;
-      }
-      /* Quantidades com o marcador de cor do statusOPT:
-         verde = produzida, azul = planeada. */
-      .opt-kpi-dual-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-      }
-      .opt-kpi-dual-label {
-        display: flex;
-        align-items: center;
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: var(--text-label);
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-      .opt-kpi-dual-value {
-        font-size: 1.35rem;
-        font-weight: 800;
-        color: var(--text-strong);
-        white-space: nowrap;
-      }
-      .opt-kpi-dot {
-        display: inline-block;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        margin-right: 6px;
-        flex: 0 0 auto;
-      }
-      .opt-kpi-dot-prod {
-        background: #34d399;
-        box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
-      }
-      .opt-kpi-dot-plan {
-        background: #38bdf8;
-        box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
       }
 
       .kpi-title {
@@ -962,16 +875,23 @@
                   <div class="row g-3 mb-3 align-items-stretch">
                     <div class="col-xxl-3 col-xl-3 col-lg-4">
                       <div
-                        class="opt-summary-card opt-summary-card-main"
+                        class="kpi-card highlight-card p-2 px-3 d-flex flex-column justify-content-center h-100"
                         id="kpiAdesaoCard"
+                        style="
+                          border-left: 8px solid #cbd5e1;
+                          background-color: #ffffff;
+                        "
                       >
-                        <div class="title">
-                          <i class="fa-solid fa-percent me-1"></i>PRODUZIDO/PLANEADO
+                        <div
+                          class="kpi-title fw-bold text-uppercase text-dark"
+                          style="font-size: 0.8rem; color: #334155 !important"
+                        >
+                          PRODUZIDO/PLANEADO (%)
                         </div>
                         <div
-                          class="value"
+                          class="fw-bolder text-dark my-1"
                           id="kpiAdesaoPct"
-                          style="color: var(--text-muted)"
+                          style="font-size: 2.8rem; line-height: 1.1; color: #64748b !important"
                         >
                           0%
                         </div>
@@ -993,15 +913,21 @@
                               style="height: 26px"
                             ></div>
                             <div
-                              class="opt-summary-card flex-grow-1"
-                              style="height: auto"
+                              class="kpi-card p-2 d-flex flex-column justify-content-center flex-grow-1"
+                              style="border-left: 5px solid #38bdf8"
                             >
-                              <div class="opt-kpi-dual-row">
-                                <span class="opt-kpi-dual-label">
-                                  <span class="opt-kpi-dot opt-kpi-dot-plan"></span>
-                                  <i class="fa-solid fa-boxes-stacked me-1"></i>PEÇAS PLANEADAS
-                                </span>
-                                <span class="opt-kpi-dual-value" id="kpiQtdPlaneada">0</span>
+                              <div
+                                class="kpi-title fw-bold text-dark"
+                                style="font-size: 0.65rem; color: #334155 !important"
+                              >
+                                PEÇAS PLANEADAS
+                              </div>
+                              <div
+                                class="fw-bold text-dark mt-1"
+                                id="kpiQtdPlaneada"
+                                style="font-size: 1.8rem; color: #0f172a !important"
+                              >
+                                0
                               </div>
                             </div>
                           </div>
@@ -1093,15 +1019,21 @@
                               style="height: 26px"
                             ></div>
                             <div
-                              class="opt-summary-card flex-grow-1"
-                              style="height: auto"
+                              class="kpi-card p-2 d-flex flex-column justify-content-center flex-grow-1"
+                              style="border-left: 5px solid #34d399"
                             >
-                              <div class="opt-kpi-dual-row">
-                                <span class="opt-kpi-dual-label">
-                                  <span class="opt-kpi-dot opt-kpi-dot-prod"></span>
-                                  <i class="fa-solid fa-boxes-packing me-1"></i>PEÇAS PRODUZIDAS
-                                </span>
-                                <span class="opt-kpi-dual-value" id="kpiQtdProduzida">0</span>
+                              <div
+                                class="kpi-title fw-bold text-dark"
+                                style="font-size: 0.65rem; color: #334155 !important"
+                              >
+                                PEÇAS PRODUZIDAS
+                              </div>
+                              <div
+                                class="fw-bold text-dark mt-1"
+                                id="kpiQtdProduzida"
+                                style="font-size: 1.8rem; color: #0f172a !important"
+                              >
+                                0
                               </div>
                             </div>
                           </div>
@@ -3224,28 +3156,27 @@
               );
               $('#kpiAdesaoPct').text(`${adesaoPct}%`);
 
-              // Como no statusOPT: o cartão fica neutro e só o número muda
-              // de cor; sem nada planeado fica cinzento (sem dados).
-              $('#kpiAdesaoPct').css(
-                'color',
-                qtdPlaneada > 0
-                  ? getCumprimentoColor(Number(adesaoPct))
-                  : 'var(--text-muted)'
-              );
+              const adesaoCor =
+                qtdPlaneada > 0 ? getCumprimentoColor(Number(adesaoPct)) : '#64748b';
+              $('#kpiAdesaoCard').css({
+                'background-color': '#ffffff',
+                'border-left-color': qtdPlaneada > 0 ? adesaoCor : '#cbd5e1',
+              });
+              document
+                .getElementById('kpiAdesaoPct')
+                .style.setProperty('color', adesaoCor, 'important');
             }
 
-            /* Regra de cor de "Cumprimento" (Produzido vs Planeado), igual à do
+            /* Cores de "Cumprimento" (Produzido vs Planeado), iguais às do
                statusOPT: verde entre 90% e 110%, laranja entre 80% e 90%,
-               vermelho abaixo de 80% ou a partir de 110% (tanto por defeito
-               como por excesso são desvios ao plano). */
+               vermelho abaixo de 80% ou a partir de 110%. */
             function getCumprimentoColor(pct) {
               if (pct >= 90 && pct < 110) return '#34d399'; // Verde
               if (pct >= 80 && pct < 90) return '#fb923c'; // Laranja
               return '#f87171'; // Vermelho (< 80% ou >= 110%)
             }
 
-            /* Mesma regra, devolvendo a classe de badge Bootstrap usada na
-               tabela de detalhe do plano. */
+            /* Mesma regra, em classe de badge Bootstrap (tabela do plano). */
             function getCumprimentoBadgeClass(pct) {
               if (pct >= 90 && pct < 110) return 'bg-success';
               if (pct >= 80 && pct < 90) return 'bg-warning text-dark';
