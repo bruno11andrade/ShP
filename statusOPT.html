@@ -876,6 +876,13 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
+      /* No popup de avanço/atraso a 1ª coluna é a Data: precisa de um
+         pouco mais do que os 80px do CC para a data caber inteira. */
+      #opt-kpiModalBody table.table-opt.opt-delta-tabela th:first-child,
+      #opt-kpiModalBody table.table-opt.opt-delta-tabela td:first-child {
+        width: 88px;
+        max-width: 88px;
+      }
       .opt-th-filter-btn {
         cursor: pointer;
         opacity: 0.55;
@@ -975,7 +982,6 @@
       .opt-manual-risk-row {
         background: rgba(34, 211, 238, 0.05);
       }
-      .opt-manual-risk-delete,
       .opt-risk-row-delete,
       .opt-risk-confirmar .btn {
         padding: 1px 7px;
@@ -3023,13 +3029,6 @@
               $('#opt-manualRiskKA').val('').removeClass('is-invalid');
               $('#opt-manualRiskCobertura').val('');
               $('#opt-manualRiskComentario').val('');
-            });
-
-          $('#opt-tbodyRisk')
-            .off('click', '.opt-manual-risk-delete')
-            .on('click', '.opt-manual-risk-delete', function () {
-              const id = $(this).data('id');
-              removeManualRiskRow(id);
             });
 
           // Eventos de clique nos cartões de KPI para abrir Modal
@@ -5155,6 +5154,55 @@
           );
         }
 
+        /* Itens que contam para a Disponibilidade MP e FRT: só o que ainda
+           está por produzir com data até amanhã (inclusive) — linhas do
+           período, backlog e ensaios, na área e nos C.C. ativos. Os ensaios
+           não têm Status: os de dias passados dão-se por feitos. */
+        function getItensDisponibilidade(selectedArea, activeCCs) {
+          const hoje = getTodayZero();
+          const fimDeAmanha = new Date(hoje);
+          fimDeAmanha.setDate(fimDeAmanha.getDate() + 1);
+          fimDeAmanha.setHours(23, 59, 59, 999);
+          const ateAmanha = (i) => i.RawDateObj && i.RawDateObj <= fimDeAmanha;
+
+          const plano = currentFilteredItems.filter(
+            (i) =>
+              (!selectedArea || i.Area === selectedArea) &&
+              activeCCs.some((acc) => areCCsEqual(acc, i.CC)) &&
+              !estaProduzido(i) &&
+              ateAmanha(i)
+          );
+          const backlog = filtrarBacklogPorAreaECC(selectedArea, activeCCs).filter(
+            ateAmanha
+          );
+          const ensaios = filtrarEnsaiosPorAreaECC(selectedArea, activeCCs).filter(
+            (i) => ateAmanha(i) && i.RawDateObj >= hoje
+          );
+          return [...plano, ...backlog, ...ensaios];
+        }
+
+        /* Cartões Disponibilidade MP / FRT: só conta 'OK'. Sem nada por
+           produzir até amanhã não há nada a avaliar, e o cartão diz isso
+           em vez de mostrar um 0% vermelho. */
+        function atualizarKpisDisponibilidade(itens) {
+          [
+            ['#opt-kpiDispMP', 'DispMP'],
+            ['#opt-kpiDispFRT', 'DispFRT'],
+          ].forEach(([seletor, campo]) => {
+            if (itens.length === 0) {
+              $(seletor)
+                .text('—')
+                .css('color', corTema('--text-muted'))
+                .attr('title', 'Nada por produzir até amanhã');
+              return;
+            }
+            const pct = Math.round(
+              (itens.filter((i) => i[campo] === 'OK').length / itens.length) * 100
+            );
+            $(seletor).text(`${pct}%`).css('color', getKpiColor(pct)).removeAttr('title');
+          });
+        }
+
         /* Indicador do backlog no cabeçalho: nº de itens por produzir de
            datas anteriores e o total de horas que representam. */
         function updateBacklogStatusUI(itens) {
@@ -5249,23 +5297,20 @@
             selectedArea,
             activeCCs
           );
-          const itensDisponibilidade = [
-            ...areaFilteredItems,
-            ...areaFilteredEnsaios,
-          ];
           updateEnsaiosStatusUI(areaFilteredEnsaios.length);
           updateBacklogStatusUI(
             filtrarBacklogPorAreaECC(selectedArea, activeCCs)
           );
           atualizarKpiTotalDelta();
+          atualizarKpisDisponibilidade(
+            getItensDisponibilidade(selectedArea, activeCCs)
+          );
 
-          if (itensDisponibilidade.length === 0) {
+          if (areaFilteredItems.length + areaFilteredEnsaios.length === 0) {
             $('#opt-kpiCcAtraso8h')
               .text('0%')
               .css('color', getAtraso8hColor(0));
             $('#opt-kpiQtdRatio').text('0%').css('color', corTema('--text-muted'));
-            $('#opt-kpiDispMP').text('0%').css('color', getKpiColor(0));
-            $('#opt-kpiDispFRT').text('0%').css('color', getKpiColor(0));
             return;
           }
 
@@ -5314,21 +5359,6 @@
             ratioColor = '#34d399';
           }
 
-          // CÁLCULO DA DISPONIBILIDADE MP E FRT (Apenas 'OK' conta)
-          const okMPCount = itensDisponibilidade.filter(
-            (i) => i.DispMP === 'OK'
-          ).length;
-          const pctDispMP = Math.round(
-            (okMPCount / itensDisponibilidade.length) * 100
-          );
-
-          const okFRTCount = itensDisponibilidade.filter(
-            (i) => i.DispFRT === 'OK'
-          ).length;
-          const pctDispFRT = Math.round(
-            (okFRTCount / itensDisponibilidade.length) * 100
-          );
-
           // Aplicação dos valores e cores dinâmicas
           $('#opt-kpiCcAtraso8h')
             .text(`${pctCcAtraso8h}%`)
@@ -5336,14 +5366,6 @@
           $('#opt-kpiQtdRatio')
             .text(`${ratioQtdPct}%`)
             .css('color', ratioColor);
-
-          $('#opt-kpiDispMP')
-            .text(`${pctDispMP}%`)
-            .css('color', getKpiColor(pctDispMP));
-
-          $('#opt-kpiDispFRT')
-            .text(`${pctDispFRT}%`)
-            .css('color', getKpiColor(pctDispFRT));
         }
 
         // =====================================================================
@@ -5562,12 +5584,13 @@
           // ORDENAÇÃO SEMPRE POR: DATA > CC
           areaFilteredItems.sort(ordenarPorDataCC);
 
-          // Nos detalhes de disponibilidade, os ensaios aparecem lado a lado
+          // Nos detalhes de disponibilidade entram os mesmos itens que no
+          // cartão (por produzir até amanhã); os ensaios aparecem lado a lado
           // com as linhas do plano, identificados por uma etiqueta.
-          const itensDisponibilidade = [
-            ...areaFilteredItems,
-            ...filtrarEnsaiosPorAreaECC(selectedArea, activeCCs),
-          ].sort(ordenarPorDataCC);
+          const itensDisponibilidade = getItensDisponibilidade(
+            selectedArea,
+            activeCCs
+          ).sort(ordenarPorDataCC);
 
           let title = '';
           let html = '';
@@ -5751,7 +5774,7 @@
             }</strong></div>
       </div>
       <div class="table-responsive">
-        <table class="table table-bordered table-striped table-opt w-100">
+        <table class="table table-bordered table-striped table-opt opt-delta-tabela w-100">
           <thead>
             <tr>
               <th>Data</th>
@@ -5890,7 +5913,7 @@
           </thead>
           <tbody>`;
             if (itensDisponibilidade.length === 0) {
-              html += `<tr><td colspan="4" class="text-muted">Sem registos no período selecionado.</td></tr>`;
+              html += `<tr><td colspan="4" class="text-muted">Nada por produzir até amanhã.</td></tr>`;
             } else {
               itensDisponibilidade.forEach((item) => {
                 const badgeClass = getDispBadgeClass(item.DispMP);
@@ -5923,7 +5946,7 @@
           </thead>
           <tbody>`;
             if (itensDisponibilidade.length === 0) {
-              html += `<tr><td colspan="4" class="text-muted">Sem registos no período selecionado.</td></tr>`;
+              html += `<tr><td colspan="4" class="text-muted">Nada por produzir até amanhã.</td></tr>`;
             } else {
               itensDisponibilidade.forEach((item) => {
                 const badgeClass = getDispBadgeClass(item.DispFRT);
@@ -7029,12 +7052,8 @@
             const manualTag = item.isManual
               ? ` <span class="badge bg-info text-dark ms-1" title="Linha acrescentada à mão — fica visível para todos os utilizadores">Manual</span>`
               : '';
-            // Fora do modo de edição, as linhas manuais mantêm o seu próprio
-            // botão de remover; dentro, todas as linhas usam o mesmo.
-            const deleteBtn =
-              item.isManual && !riskEditMode
-                ? `<button type="button" class="btn btn-sm btn-outline-danger opt-manual-risk-delete ms-2" data-id="${item.id}" title="Remover linha manual"><i class="fa-solid fa-trash"></i></button>`
-                : '';
+            // Eliminar (manuais incluídas) só no modo de edição, e sempre
+            // com dupla confirmação, para não se apagar nada sem querer.
             const chaveLinha = riskRowKey(item);
             let botaoEliminar = '';
             if (riskEditMode) {
@@ -7072,7 +7091,7 @@
                     <td>${item.Cobertura.toFixed(1)}</td>
                     <td class="comentario-cell ${badgeClass}">${escapeHtml(
               item.Comentario
-            )}${manualTag}${deleteBtn}${botaoEliminar}</td>
+            )}${manualTag}${botaoEliminar}</td>
                 </tr>
             `);
           });
