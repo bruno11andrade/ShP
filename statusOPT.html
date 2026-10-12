@@ -463,6 +463,12 @@
         overflow-y: auto !important;
         overflow-x: hidden !important;
       }
+      /* Versão mais baixa da área com scroll, para cartões numa fila de
+         gráficos de 260px (a área + o eixo fixo ocupam o mesmo). */
+      .opt-chart-card .opt-topka-scrollwrap.opt-scroll-compacto {
+        height: 214px !important;
+        max-height: 214px !important;
+      }
       .opt-chart-card .chart-title {
         font-size: 0.9rem;
         font-weight: 700;
@@ -1536,7 +1542,11 @@
 
             <!-- 2. Cartão Total avanço/atraso (título e cores dinâmicos) -->
             <div class="col">
-              <div class="opt-summary-card">
+              <div
+                class="opt-summary-card clickable"
+                id="btn-kpi-totalDelta"
+                title="Clique para ver detalhes"
+              >
                 <div class="title" id="opt-kpiTotalDeltaTitulo">
                   TOTAL EM ATRASO
                 </div>
@@ -1580,7 +1590,7 @@
               </div>
             </div>
 
-            <!-- 5. Cartão Disponibilidade MP -->
+            <!-- 5. Cartão Disponibilidade Matéria-Prima -->
             <div class="col">
               <div
                 class="opt-summary-card clickable"
@@ -1588,13 +1598,13 @@
                 title="Clique para ver detalhes"
               >
                 <div class="title">
-                  Disponibilidade MP
+                  Disponibilidade Matéria&#8209;Prima
                 </div>
                 <div class="value" id="opt-kpiDispMP">0%</div>
               </div>
             </div>
 
-            <!-- 6. Cartão Disponibilidade FRT -->
+            <!-- 6. Cartão Disponibilidade Ferramenta -->
             <div class="col">
               <div
                 class="opt-summary-card clickable"
@@ -1602,7 +1612,7 @@
                 title="Clique para ver detalhes"
               >
                 <div class="title">
-                  Disponibilidade FRT
+                  Disponibilidade Ferramenta
                 </div>
                 <div class="value" id="opt-kpiDispFRT">0%</div>
               </div>
@@ -2297,8 +2307,24 @@
                   <button type="button" data-modo="ka">KA</button>
                 </div>
               </div>
-              <div style="position: relative; height: 260px">
-                <canvas id="hist-chartInterrupcoes"></canvas>
+              <div
+                class="opt-topka-scrollwrap opt-scroll-compacto"
+                style="padding-right: 10px"
+                id="opt-interrupcoesScrollWrap"
+              >
+                <div
+                  id="opt-interrupcoesInner"
+                  style="position: relative; width: 100%; height: 214px"
+                >
+                  <canvas id="hist-chartInterrupcoes"></canvas>
+                </div>
+              </div>
+              <!-- Eixo dos X fixo (não faz scroll), sempre alinhado com as barras acima -->
+              <div
+                class="opt-chart-axis-wrap"
+                style="height: 46px; padding-right: 10px"
+              >
+                <canvas id="hist-chartInterrupcoesAxis"></canvas>
               </div>
             </div>
           </div>
@@ -2540,6 +2566,7 @@
         let histChartCC = null;
         let histChartArea = null;
         let histChartInterrupcoes = null;
+        let histChartInterrupcoesAxis = null;
         // Dimensão de cada gráfico com seletor: 'cc' (Centro de Custo) ou 'ka'
         let histInterrupcoesModo = 'cc';
         let histBobinesModo = 'ka';
@@ -3032,6 +3059,11 @@
             });
 
           // Eventos de clique nos cartões de KPI para abrir Modal
+          $('#btn-kpi-totalDelta')
+            .off('click')
+            .on('click', function () {
+              showKpiDetails('deltaTotal');
+            });
           $('#btn-kpi-atraso8h')
             .off('click')
             .on('click', function () {
@@ -4681,32 +4713,34 @@
           return Math.round((emAtraso / ccs.length) * 100);
         }
 
-        /* Atraso total dos centros de custo em exibição: somam-se apenas os
-           que estão em atraso. Quem está em avanço não o compensa — as horas
-           adiantadas num CC não recuperam as que faltam noutro, são
-           máquinas e pessoas diferentes. */
+        /* Conta geral dos centros de custo da área selecionada (ou de
+           todos, sem área): soma o avanço/atraso de cada um, com os avanços
+           a compensar os atrasos. O título diz se o saldo é de avanço ou de
+           atraso. */
         function atualizarKpiTotalDelta() {
           const selectedArea = $('#opt-selArea').val() || '';
           const selAreaClean = selectedArea
             ? String(selectedArea).trim().toLowerCase()
             : null;
-          const total = getCCsForArea(selectedArea).reduce((soma, cc) => {
-            const delta = calcularResumoCC(cc, selAreaClean).delta;
-            return soma + (delta < 0 ? delta : 0);
-          }, 0);
+          const total = getCCsForArea(selectedArea).reduce(
+            (soma, cc) => soma + calcularResumoCC(cc, selAreaClean).delta,
+            0
+          );
           const sufixoArea = selectedArea
             ? ' ' + String(selectedArea).trim().toUpperCase()
             : '';
-          // Sem nenhum CC em atraso não há desvio nenhum a assinalar
+          // Saldo nulo: nem avanço nem atraso a assinalar
           const cfg =
-            total === 0
+            Math.abs(total) < 1 / 120
               ? {
                   color: '#34d399',
                   icon: 'fa-solid fa-circle-check',
                   valueText: '0:00',
                 }
               : getDelayCardConfig(total);
-          $('#opt-kpiTotalDeltaTitulo').text('TOTAL EM ATRASO' + sufixoArea);
+          $('#opt-kpiTotalDeltaTitulo').text(
+            (total >= 0 ? 'TOTAL AVANÇO' : 'TOTAL EM ATRASO') + sufixoArea
+          );
           $('#opt-kpiTotalDelta')
             .css('color', cfg.color)
             .html(
@@ -5020,6 +5054,49 @@
             total: produzido - planeado + credito,
             delta: resumo.delta,
           };
+        }
+
+        /* A conta do cartão TOTAL: junta as linhas de todos os centros de
+           custo da área (cada uma marcada com o seu C.C.) e soma os totais,
+           incluindo as horas que ainda faltam hoje de cada C.C. */
+        function detalharDeltaTotal(selectedArea) {
+          const selAreaClean = selectedArea
+            ? String(selectedArea).trim().toLowerCase()
+            : null;
+          const total = {
+            linhas: [],
+            planeado: 0,
+            produzido: 0,
+            credito: 0,
+            temHoje: false,
+            total: 0,
+            delta: 0,
+          };
+          getCCsForArea(selectedArea).forEach((cc) => {
+            const det = detalharDelta(cc, selAreaClean);
+            det.linhas.forEach((l) => total.linhas.push({ ...l, CC: cc }));
+            total.planeado += det.planeado;
+            total.produzido += det.produzido;
+            total.credito += det.credito;
+            total.temHoje = total.temHoje || det.temHoje;
+            total.total += det.total;
+            total.delta += det.delta;
+          });
+          // O backlog à cabeça, depois por data, C.C. e KA
+          total.linhas.sort((a, b) => {
+            if (!!a.backlog !== !!b.backlog) return a.backlog ? -1 : 1;
+            const da = a.RawDate ? a.RawDate.getTime() : 0;
+            const db = b.RawDate ? b.RawDate.getTime() : 0;
+            if (da !== db) return da - db;
+            const porCC = String(a.CC).localeCompare(String(b.CC), 'pt', {
+              numeric: true,
+            });
+            if (porCC !== 0) return porCC;
+            return String(a.KA || '').localeCompare(String(b.KA || ''), 'pt', {
+              numeric: true,
+            });
+          });
+          return total;
         }
 
         function calculateCcDelta(cc, ccItems, ccEnsaios, ccBacklog) {
@@ -5739,17 +5816,26 @@
           </tr>`;
             }
             html += `</tbody></table></div>`;
-          } else if (type === 'delta') {
+          } else if (type === 'delta' || type === 'deltaTotal') {
+            // 'deltaTotal' = cartão TOTAL: todos os C.C. da área juntos
+            const doTotal = type === 'deltaTotal';
             const areaLimpaDelta = selectedArea
               ? String(selectedArea).trim().toLowerCase()
               : null;
-            const det = detalharDelta(ccFiltro, areaLimpaDelta);
+            const det = doTotal
+              ? detalharDeltaTotal(selectedArea)
+              : detalharDelta(ccFiltro, areaLimpaDelta);
             const cfgDelta = getDelayCardConfig(det.delta);
+            const etiquetaAlvo = doTotal
+              ? `Total${
+                  selectedArea
+                    ? ' ' + escapeHtml(String(selectedArea).trim().toUpperCase())
+                    : ''
+                } · ${getCCsForArea(selectedArea).length} C.C.`
+              : `C.C. ${escapeHtml(String(ccFiltro))}`;
             title =
               `<i class="${cfgDelta.icon} me-2"></i>Detalhes: ${cfgDelta.title}` +
-              ` <span class="badge bg-secondary ms-1">C.C. ${escapeHtml(
-                String(ccFiltro)
-              )}</span>`;
+              ` <span class="badge bg-secondary ms-1">${etiquetaAlvo}</span>`;
 
             const corTotal = cfgDelta.color;
             html = `
@@ -5762,7 +5848,9 @@
         )}</strong></div>
         ${
           det.temHoje
-            ? `<div><span>Horas de trabalho que ainda faltam hoje</span><strong>${formatHoursToHHMM(
+            ? `<div><span>Horas de trabalho que ainda faltam hoje${
+                doTotal ? ' (soma dos C.C.)' : ''
+              }</span><strong>${formatHoursToHHMM(
                 det.credito
               )}</strong></div>`
             : ''
@@ -5778,6 +5866,7 @@
           <thead>
             <tr>
               <th>Data</th>
+              ${doTotal ? '<th>C.C.</th>' : ''}
               <th>KA / Material</th>
               <th>Origem</th>
               <th>Status</th>
@@ -5788,7 +5877,11 @@
           </thead>
           <tbody>`;
             if (det.linhas.length === 0) {
-              html += `<tr><td colspan="7" class="text-muted">Sem linhas a contar para este C.C. no período.</td></tr>`;
+              html += `<tr><td colspan="${
+                doTotal ? 8 : 7
+              }" class="text-muted">Sem linhas a contar ${
+                doTotal ? 'nos C.C. selecionados' : 'para este C.C.'
+              } no período.</td></tr>`;
             } else {
               det.linhas.forEach((l) => {
                 const etiqueta = l.backlog
@@ -5805,6 +5898,7 @@
                 html += `
           <tr>
             <td>${l.backlog ? '—' : l.Data || '—'}${etiqueta}</td>
+            ${doTotal ? `<td class="fw-bold">${escapeHtml(String(l.CC))}</td>` : ''}
             <td>${escapeHtml(l.KA || '')}</td>
             <td>${
               l.tipo === 'Ensaio'
@@ -5824,7 +5918,7 @@
               });
               html += `
           <tr class="fw-bold">
-            <td colspan="4" class="text-end">Total das linhas</td>
+            <td colspan="${doTotal ? 5 : 4}" class="text-end">Total das linhas</td>
             <td>${formatHoursToHHMM(det.planeado)}</td>
             <td>${formatHoursToHHMM(det.produzido)}</td>
             <td>${formatHoursToHHMM(
@@ -5899,7 +5993,7 @@
             html += `</tbody></table></div>`;
           } else if (type === 'mp') {
             title =
-              '<i class="fa-solid fa-boxes-stacked me-2"></i>Detalhes: Disponibilidade MP';
+              '<i class="fa-solid fa-boxes-stacked me-2"></i>Detalhes: Disponibilidade Matéria-Prima';
             html = `
       <div class="table-responsive">
         <table class="table table-bordered table-striped table-opt w-100">
@@ -5932,7 +6026,7 @@
             html += `</tbody></table></div>`;
           } else if (type === 'frt') {
             title =
-              '<i class="fa-solid fa-wrench me-2"></i>Detalhes: Disponibilidade FRT (Ferramenta)';
+              '<i class="fa-solid fa-wrench me-2"></i>Detalhes: Disponibilidade Ferramenta';
             html = `
       <div class="table-responsive">
         <table class="table table-bordered table-striped table-opt w-100">
@@ -8221,6 +8315,7 @@
               histChartCC,
               histChartArea,
               histChartInterrupcoes,
+              histChartInterrupcoesAxis,
               histChartPrazo,
               histChartProducoes,
               histChartProducoesAxis,
@@ -8558,99 +8653,44 @@
             totalInterrupcoes += qtd;
           });
 
-          const TOP_N = 8;
-          const all = Object.keys(map)
-            .map((k) => ({
-              chave: k,
-              producoes: map[k].producoes,
-              interrupcoes: map[k].interrupcoes,
-              pct:
-                map[k].producoes > 0
-                  ? (map[k].interrupcoes / map[k].producoes) * 100
-                  : 0,
-            }))
-            .filter((e) => e.interrupcoes > 0)
-            .sort((a, b) => b.pct - a.pct);
-          const top = all.slice(0, TOP_N);
-          const hasData = top.length > 0;
+          const pcts = {};
+          const detalhe = {};
+          Object.keys(map).forEach((k) => {
+            const e = map[k];
+            if (e.interrupcoes <= 0 || e.producoes <= 0) return;
+            pcts[k] = (e.interrupcoes / e.producoes) * 100;
+            detalhe[k] = e;
+          });
 
           $('#hist-lblTotalInterrupcoes').text(
             `${formatQtd(totalInterrupcoes)} interrup. / ${formatQtd(
               items.length
-            )} produções` +
-              (all.length > TOP_N ? ` · top ${TOP_N}` : '')
+            )} produções`
           );
 
-          if (histChartInterrupcoes) histChartInterrupcoes.destroy();
-          histChartInterrupcoes = new Chart(
-            document.getElementById('hist-chartInterrupcoes'),
-            {
-              type: 'bar',
-              data: {
-                labels: hasData ? top.map((t) => t.chave) : ['Sem dados'],
-                datasets: [
-                  {
-                    label: '% de interrupções',
-                    data: hasData ? top.map((t) => t.pct) : [0],
-                    backgroundColor: '#fb923c',
-                  },
-                ],
-              },
-              options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: { padding: { right: 12 } },
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: {
-                      label: (ctx) => {
-                        const e = top[ctx.dataIndex];
-                        if (!e) return '';
-                        return `${formatPct(e.pct)} — ${formatQtd(
-                          e.interrupcoes
-                        )} interrupções em ${formatQtd(e.producoes)} produções`;
-                      },
-                    },
-                  },
-                  datalabels: {
-                    anchor: 'end',
-                    align: 'end',
-                    color: corTema('--chart-text-strong'),
-                    font: { weight: 'bold', size: 11 },
-                    formatter: (v) => (v > 0 ? formatPct(v) : ''),
-                  },
-                  title: hasData
-                    ? { display: false }
-                    : {
-                        display: true,
-                        text: 'Sem interrupções registadas no período',
-                        color: corTema('--chart-empty'),
-                        font: { size: 13, weight: 'normal' },
-                        padding: { top: 80 },
-                      },
-                },
-                scales: {
-                  x: {
-                    beginAtZero: true,
-                    // Folga à direita para o valor da maior barra não ficar
-                    // colado ao limite do gráfico.
-                    grace: '12%',
-                    ticks: {
-                      color: corTema('--chart-text'),
-                      callback: (v) => `${v}%`,
-                    },
-                    grid: { color: corTema('--chart-grid') },
-                  },
-                  y: {
-                    ticks: { color: corTema('--chart-text'), font: { size: 10 } },
-                    grid: { display: false },
-                  },
-                },
-              },
-            }
-          );
+          // Todos os grupos com interrupções, com scroll — como nos gráficos
+          // Nº Produções e Média Bobines
+          const charts = renderHistChartBarrasScroll({
+            map: pcts,
+            innerId: 'opt-interrupcoesInner',
+            canvasId: 'hist-chartInterrupcoes',
+            axisCanvasId: 'hist-chartInterrupcoesAxis',
+            label: '% de interrupções',
+            color: '#fb923c',
+            formatValor: formatPct,
+            minHeight: 214,
+            tooltipLabel: (t) => {
+              const e = detalhe[t.ka];
+              return `${formatPct(t.valor)} — ${formatQtd(
+                e.interrupcoes
+              )} interrupções em ${formatQtd(e.producoes)} produções`;
+            },
+            emptyText: 'Sem interrupções registadas no período',
+            prevChart: histChartInterrupcoes,
+            prevAxisChart: histChartInterrupcoesAxis,
+          });
+          histChartInterrupcoes = charts.chart;
+          histChartInterrupcoesAxis = charts.axisChart;
         }
 
         function renderHistChartPrazo(items) {
@@ -8776,7 +8816,7 @@
           // (responsive), enquanto o wrapper exterior (altura fixa +
           // overflow-y: auto) faz o scroll ficar visível.
           const barHeight = 28;
-          const minHeight = 280;
+          const minHeight = cfg.minHeight || 280;
           const neededHeight = Math.max(minHeight, all.length * barHeight);
           const innerEl = document.getElementById(cfg.innerId);
           if (innerEl) {
@@ -8819,7 +8859,10 @@
                 legend: { display: false },
                 tooltip: {
                   callbacks: {
-                    label: (ctx) => `${cfg.label}: ${formatValor(ctx.parsed.x)}`,
+                    label: (ctx) =>
+                      cfg.tooltipLabel
+                        ? cfg.tooltipLabel(all[ctx.dataIndex])
+                        : `${cfg.label}: ${formatValor(ctx.parsed.x)}`,
                   },
                 },
                 datalabels: {
