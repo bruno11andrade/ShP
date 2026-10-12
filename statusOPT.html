@@ -2601,7 +2601,34 @@
         /* Linhas eliminadas à mão no modo de edição. Vão com a ordem para o
            ficheiro partilhado, logo valem para todos os utilizadores. */
         const RISK_REMOVIDAS_STORAGE_KEY = 'opt_risk_removidas_v1';
+        /* Linhas do MD07 eliminadas no modo de edição: { chave, em }, com
+           "em" = quando foram eliminadas. Só valem para o ficheiro MD07 em
+           que foram eliminadas — quando entra um MD07 mais recente voltam
+           todas a aparecer. */
         let riskRemovidas = [];
+        // Folga para diferenças de relógio entre o browser e o SharePoint
+        // (a data do MD07 partilhado é a de "Modificado" no servidor).
+        const RISK_REMOVIDAS_FOLGA_MS = 2 * 60 * 1000;
+
+        /* Aceita só o formato atual; as eliminações antigas (só a chave,
+           sem data) não se sabe a que ficheiro pertencem e caem. */
+        function normalizarRemovidas(lista) {
+          return (Array.isArray(lista) ? lista : []).filter(
+            (r) =>
+              r &&
+              typeof r === 'object' &&
+              typeof r.chave === 'string' &&
+              typeof r.em === 'number'
+          );
+        }
+
+        /* Chaves eliminadas que ainda valem para o MD07 em uso: as que foram
+           eliminadas depois de esse ficheiro ter entrado. */
+        function removidasAtivas() {
+          if (!md07Data || !md07Data.uploadedAtTs) return [];
+          const desde = md07Data.uploadedAtTs - RISK_REMOVIDAS_FOLGA_MS;
+          return riskRemovidas.filter((r) => r.em >= desde).map((r) => r.chave);
+        }
         /* Linha à espera da segunda confirmação para ser eliminada */
         let riskLinhaArmada = null;
         let riskOrderAplicada = true;
@@ -6307,7 +6334,7 @@
               RISK_REMOVIDAS_STORAGE_KEY
             );
             if (savedRemovidas) {
-              riskRemovidas = JSON.parse(savedRemovidas) || [];
+              riskRemovidas = normalizarRemovidas(JSON.parse(savedRemovidas));
             }
             riskOrderAplicada =
               localStorage.getItem(RISK_ORDER_APLICADA_KEY) !== '0';
@@ -6722,6 +6749,9 @@
               // sempre removidas quando um novo ficheiro MD07 é carregado.
               // Como são partilhadas, a limpeza também tem de o ser.
               manualRiskRows = [];
+              // As linhas eliminadas no ficheiro anterior voltam a aparecer
+              riskRemovidas = [];
+              riskLinhaArmada = null;
               gravarOrdemRisco();
 
               localStorage.setItem(MD07_STORAGE_KEY, JSON.stringify(md07Data));
@@ -7070,10 +7100,11 @@
             activeCCs.some((cc) => areCCsEqual(cc, r.CC))
           );
 
-          // As linhas eliminadas à mão no modo de edição não voltam a
-          // aparecer, mesmo que o MD07 as continue a assinalar.
+          // As linhas eliminadas no modo de edição ficam escondidas enquanto
+          // o MD07 for o mesmo em que foram eliminadas.
+          const chavesRemovidas = removidasAtivas();
           const filtered = [...riskMaterials, ...manualRiskRowsForArea].filter(
-            (item) => riskRemovidas.indexOf(riskRowKey(item)) === -1
+            (item) => chavesRemovidas.indexOf(riskRowKey(item)) === -1
           );
 
           filtered.sort((a, b) => {
@@ -7191,6 +7222,7 @@
           });
 
           if (riskEditMode) bindRiskDragAndDrop();
+          updateRiskOrderUI();
         }
 
         /* Eliminar uma linha exige duas ações: o primeiro clique no caixote
@@ -7218,7 +7250,8 @@
             removeManualRiskRow(chave.slice(2));
             return;
           }
-          if (riskRemovidas.indexOf(chave) === -1) riskRemovidas.push(chave);
+          riskRemovidas = riskRemovidas.filter((r) => r.chave !== chave);
+          riskRemovidas.push({ chave: chave, em: Date.now() });
           // Sai também da ordem personalizada, para não deixar lá um lugar
           // guardado a uma linha que já não existe.
           riskCustomOrder = riskCustomOrder.filter((k) => k !== chave);
@@ -7228,7 +7261,7 @@
         }
 
         function reporLinhasRemovidas() {
-          if (riskRemovidas.length === 0) return;
+          if (removidasAtivas().length === 0) return;
           riskRemovidas = [];
           riskLinhaArmada = null;
           gravarOrdemRisco();
@@ -7312,7 +7345,7 @@
           // O "Repor ordem" só faz sentido enquanto se está a editar
           $('#opt-btnRiskResetOrder').toggle(riskEditMode);
           // O mesmo para trazer de volta as linhas eliminadas
-          const removidas = riskRemovidas.length;
+          const removidas = removidasAtivas().length;
           $('#opt-btnRiskRestoreRemovidas')
             .toggle(riskEditMode && removidas > 0)
             .html(
@@ -7402,6 +7435,12 @@
            SharePoint) e deixa uma cópia neste browser, que serve de reserva
            quando não se consegue chegar ao SharePoint. */
         function gravarOrdemRisco() {
+          if (md07Data && md07Data.uploadedAtTs) {
+            const ativas = removidasAtivas();
+            riskRemovidas = riskRemovidas.filter(
+              (r) => ativas.indexOf(r.chave) !== -1
+            );
+          }
           try {
             localStorage.setItem(
               RISK_ORDER_STORAGE_KEY,
@@ -7474,10 +7513,9 @@
             const guardado = JSON.parse(conteudo);
             const ordem = Array.isArray(guardado) ? guardado : guardado.ordem;
             if (!Array.isArray(ordem)) return null;
-            const removidas =
-              !Array.isArray(guardado) && Array.isArray(guardado.removidas)
-                ? guardado.removidas
-                : [];
+            const removidas = !Array.isArray(guardado)
+              ? normalizarRemovidas(guardado.removidas)
+              : [];
             // null = o ficheiro é anterior às linhas manuais partilhadas;
             // nesse caso não se apaga o que cada um tem guardado.
             const manuais =
