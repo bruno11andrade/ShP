@@ -4804,6 +4804,56 @@
           atualizarKpiTotalDelta();
         }
 
+        /* Linhas da tabela do cartão do C.C.: as datas planeadas, com o
+           Produzido Plano (horas produzidas na data planeada), mais o
+           Produzido Dia — as horas produzidas efetivamente em cada dia,
+           pela Data Produção. O Produzido Dia é só para ver: não entra no
+           avanço/atraso nem em nenhum cartão. Conta apenas o que é do
+           período — itens planeados no período, produzidos numa data dentro
+           dele (que ganha linha própria se nesse dia não houver nada
+           planeado). Os ensaios contam igual nas duas colunas. */
+        function linhasDoCartaoCC(resumo) {
+          const inicioVal = $('#opt-startDate').val();
+          const fimVal = $('#opt-endDate').val();
+          const inicio = inicioVal ? new Date(inicioVal + 'T00:00:00') : null;
+          const fim = fimVal ? new Date(fimVal + 'T23:59:59') : null;
+
+          const linhas = {};
+          resumo.rows.forEach((r) => {
+            if (r.IsBacklog) return; // aparece na faixa, acima da tabela
+            linhas[r.Data] = Object.assign({}, r, { ProduzidoDia: 0 });
+          });
+          function linha(dataObj) {
+            const chave = formatDateShort(dataObj);
+            if (!linhas[chave]) {
+              linhas[chave] = {
+                Data: chave,
+                RawDate: dataObj,
+                Planeado: 0,
+                Produzido: 0,
+                Ensaios: 0,
+                ProduzidoDia: 0,
+              };
+            }
+            return linhas[chave];
+          }
+
+          resumo.ccItems.forEach((i) => {
+            const dia = i.RawDataProducaoObj;
+            if (i.Status !== 'Produzido' || !dia) return;
+            if ((inicio && dia < inicio) || (fim && dia > fim)) return;
+            linha(dia).ProduzidoDia += i.HorasPlaneadas || 0;
+          });
+          resumo.ccEnsaios.forEach((e) => {
+            if (!e.RawDateObj) return;
+            linha(e.RawDateObj).ProduzidoDia += getHorasEnsaioProduzidas(e);
+          });
+
+          return Object.values(linhas).sort(
+            (a, b) => (a.RawDate || 0) - (b.RawDate || 0)
+          );
+        }
+
         /* RENDERIZAR CARTÕES DE CC COMO ACCORDION DINÂMICO */
         function renderCCTables(displayCCs, selectedArea) {
           const container = $('#opt-ccAccordionContainer');
@@ -4824,11 +4874,10 @@
           displayCCs.forEach((cc, index) => {
             const resumo = calcularResumoCC(cc, selAreaClean);
             const dateGroups = resumo.dateGroups;
-            const rows = resumo.rows;
+            const rows = linhasDoCartaoCC(resumo);
 
             let tableRowsHtml = '';
             rows.forEach((r) => {
-              if (r.IsBacklog) return; // aparece na faixa, acima da tabela
               const rowDate = r.RawDate
                 ? new Date(
                     r.RawDate.getFullYear(),
@@ -4868,12 +4917,13 @@
                         }${hojeBadge}${ensaioBadge}${futureBadge}</td>
                         <td>${formatHoursToHHMM(r.Planeado)}</td>
                         <td>${formatHoursToHHMM(r.Produzido)}</td>
+                        <td>${formatHoursToHHMM(r.ProduzidoDia)}</td>
                     </tr>
                 `;
             });
 
             if (rows.length === 0) {
-              tableRowsHtml = `<tr><td colspan="3" class="text-muted">Sem registos</td></tr>`;
+              tableRowsHtml = `<tr><td colspan="4" class="text-muted">Sem registos</td></tr>`;
             }
 
             // O backlog sai da tabela para uma faixa própria: não é uma data,
@@ -4945,9 +4995,10 @@
                             <table class="table table-bordered table-striped table-opt opt-cc-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 45%; text-align: left">Data</th>
+                                        <th style="width: 42%; text-align: left">Data</th>
                                         <th>Planeado</th>
-                                        <th>Produzido</th>
+                                        <th>Produzido Plano</th>
+                                        <th title="Horas produzidas efetivamente neste dia (pela Data Produção). Só informativo: não entra no avanço/atraso.">Produzido Dia</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbody_${cc}">
