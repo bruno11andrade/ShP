@@ -4808,11 +4808,11 @@
            Produzido Plano (horas produzidas na data planeada), mais o
            Produzido Dia — as horas produzidas efetivamente em cada dia,
            pela Data Produção. O Produzido Dia é só para ver: não entra no
-           avanço/atraso nem em nenhum cartão. Conta apenas o que é do
-           período — itens planeados no período, produzidos numa data dentro
-           dele (que ganha linha própria se nesse dia não houver nada
-           planeado). Os ensaios contam igual nas duas colunas. */
-        function linhasDoCartaoCC(resumo) {
+           avanço/atraso nem em nenhum cartão. Conta tudo o que o C.C.
+           produziu em dias do período, seja qual for a data planeada do
+           item (mesmo fora do período); o dia ganha linha própria se não
+           houver nada planeado. Os ensaios contam igual nas duas colunas. */
+        function linhasDoCartaoCC(resumo, cc, selAreaClean) {
           const inicioVal = $('#opt-startDate').val();
           const fimVal = $('#opt-endDate').val();
           const inicio = inicioVal ? new Date(inicioVal + 'T00:00:00') : null;
@@ -4838,9 +4838,17 @@
             return linhas[chave];
           }
 
-          resumo.ccItems.forEach((i) => {
+          // Todos os itens da lista (não só os do período), com o mesmo
+          // recorte de C.C. e área dos cartões
+          rawListItems.forEach((i) => {
             const dia = i.RawDataProducaoObj;
             if (i.Status !== 'Produzido' || !dia) return;
+            if (!areCCsEqual(i.CC, cc)) return;
+            if (
+              selAreaClean &&
+              !(i.Area && String(i.Area).trim().toLowerCase() === selAreaClean)
+            )
+              return;
             if ((inicio && dia < inicio) || (fim && dia > fim)) return;
             linha(dia).ProduzidoDia += i.HorasPlaneadas || 0;
           });
@@ -4874,7 +4882,7 @@
           displayCCs.forEach((cc, index) => {
             const resumo = calcularResumoCC(cc, selAreaClean);
             const dateGroups = resumo.dateGroups;
-            const rows = linhasDoCartaoCC(resumo);
+            const rows = linhasDoCartaoCC(resumo, cc, selAreaClean);
 
             let tableRowsHtml = '';
             rows.forEach((r) => {
