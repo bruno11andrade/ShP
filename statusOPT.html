@@ -735,6 +735,33 @@
         text-align: left;
         padding-left: 10px;
       }
+      /* Cabeçalho em dois níveis: "Produzido" por cima de "do plano" e
+         "no dia" — as duas colunas são produção, vista de dois lados. */
+      .opt-cc-table th.opt-cc-th-alto {
+        vertical-align: bottom;
+      }
+      .opt-cc-table th.opt-cc-th-grupo {
+        text-align: center;
+        padding-right: 4px;
+        border-bottom: 1px solid var(--border-color) !important;
+      }
+      .opt-cc-table th.opt-cc-th-sub {
+        text-align: right;
+        padding-right: 10px;
+        font-weight: 600;
+        font-size: 0.74rem;
+      }
+      /* Dia em que "do plano" e "no dia" não batem: o ⓘ e a dica explicam
+         de onde vem a diferença. */
+      .opt-cc-table td.opt-cc-com-dica {
+        cursor: help;
+      }
+      .opt-cc-info {
+        color: var(--text-muted);
+        font-size: 0.68rem;
+        margin-right: 4px;
+        vertical-align: 1px;
+      }
       .opt-hoje-row td {
         font-weight: 700;
       }
@@ -4805,38 +4832,72 @@
         }
 
         /* Linhas da tabela do cartão do C.C.: as datas planeadas, com o
-           Produzido Plano (horas produzidas na data planeada), mais o
-           Produzido Dia — as horas produzidas efetivamente em cada dia,
-           pela Data Produção. O Produzido Dia é só para ver: não entra no
-           avanço/atraso nem em nenhum cartão. Conta tudo o que o C.C.
-           produziu em dias do período, seja qual for a data planeada do
-           item (mesmo fora do período); o dia ganha linha própria se não
-           houver nada planeado. Os ensaios contam igual nas duas colunas. */
+           Produzido "do plano" (do que estava planeado para o dia, quanto
+           já está feito, seja em que dia for), mais o Produzido "no dia" —
+           as horas produzidas efetivamente em cada dia, pela Data Produção.
+           O "no dia" é só para ver: não entra no avanço/atraso nem em
+           nenhum cartão. Conta tudo o que o C.C. produziu em dias do
+           período, seja qual for a data planeada do item (mesmo fora do
+           período); o dia ganha linha própria se não houver nada planeado.
+           Os ensaios contam igual nas duas colunas.
+
+           Cada coluna leva também a decomposição que explica porque é que
+           as duas podem não bater: comparando a data planeada com a de
+           produção, uma hora é do próprio dia, adiantada ou em atraso. */
         function linhasDoCartaoCC(resumo, cc, selAreaClean) {
           const inicioVal = $('#opt-startDate').val();
           const fimVal = $('#opt-endDate').val();
           const inicio = inicioVal ? new Date(inicioVal + 'T00:00:00') : null;
           const fim = fimVal ? new Date(fimVal + 'T23:59:59') : null;
 
+          const DECOMPOSICAO = {
+            ProduzidoDia: 0,
+            // "do plano": em que dia foi feito o plano deste dia
+            PlanoNoDia: 0,
+            PlanoAntes: 0, // adiantado: feito antes da data planeada
+            PlanoDepois: 0, // feito depois, com atraso
+            // "no dia": de que plano é o que se fez neste dia
+            DiaDoPlano: 0,
+            DiaRecuperado: 0, // planeado para antes (atraso ou backlog)
+            DiaAdiantado: 0, // planeado para depois
+          };
           const linhas = {};
           resumo.rows.forEach((r) => {
             if (r.IsBacklog) return; // aparece na faixa, acima da tabela
-            linhas[r.Data] = Object.assign({}, r, { ProduzidoDia: 0 });
+            linhas[r.Data] = Object.assign({}, r, DECOMPOSICAO);
           });
           function linha(dataObj) {
             const chave = formatDateShort(dataObj);
             if (!linhas[chave]) {
-              linhas[chave] = {
-                Data: chave,
-                RawDate: dataObj,
-                Planeado: 0,
-                Produzido: 0,
-                Ensaios: 0,
-                ProduzidoDia: 0,
-              };
+              linhas[chave] = Object.assign(
+                {
+                  Data: chave,
+                  RawDate: dataObj,
+                  Planeado: 0,
+                  Produzido: 0,
+                  Ensaios: 0,
+                },
+                DECOMPOSICAO
+              );
             }
             return linhas[chave];
           }
+          function soDia(d) {
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+          }
+
+          // "do plano": os itens planeados no período já produzidos, pela
+          // data de produção face à planeada
+          resumo.ccItems.forEach((i) => {
+            if (i.Status !== 'Produzido' || !i.RawDateObj) return;
+            const g = linhas[i.DataFormatted];
+            if (!g) return;
+            const horas = i.HorasPlaneadas || 0;
+            const prod = i.RawDataProducaoObj;
+            if (!prod || soDia(prod) === soDia(i.RawDateObj)) g.PlanoNoDia += horas;
+            else if (soDia(prod) < soDia(i.RawDateObj)) g.PlanoAntes += horas;
+            else g.PlanoDepois += horas;
+          });
 
           // Todos os itens da lista (não só os do período), com o mesmo
           // recorte de C.C. e área dos cartões
@@ -4850,16 +4911,62 @@
             )
               return;
             if ((inicio && dia < inicio) || (fim && dia > fim)) return;
-            linha(dia).ProduzidoDia += i.HorasPlaneadas || 0;
+            const g = linha(dia);
+            const horas = i.HorasPlaneadas || 0;
+            g.ProduzidoDia += horas;
+            if (!i.RawDateObj || soDia(i.RawDateObj) === soDia(dia)) g.DiaDoPlano += horas;
+            else if (soDia(i.RawDateObj) < soDia(dia)) g.DiaRecuperado += horas;
+            else g.DiaAdiantado += horas;
           });
           resumo.ccEnsaios.forEach((e) => {
             if (!e.RawDateObj) return;
-            linha(e.RawDateObj).ProduzidoDia += getHorasEnsaioProduzidas(e);
+            const g = linha(e.RawDateObj);
+            const horas = getHorasEnsaioProduzidas(e);
+            g.ProduzidoDia += horas;
+            g.DiaDoPlano += horas;
+            g.PlanoNoDia += horas;
           });
 
           return Object.values(linhas).sort(
             (a, b) => (a.RawDate || 0) - (b.RawDate || 0)
           );
+        }
+
+        /* Dica do dia em que "do plano" e "no dia" não batem; '' quando
+           tudo o que se fez foi do próprio dia. */
+        function dicaProduzidoCC(r) {
+          const minimo = 1 / 120; // menos de 30 s não conta
+          const diferenca =
+            r.PlanoAntes + r.PlanoDepois + r.DiaRecuperado + r.DiaAdiantado;
+          if (diferenca < minimo) return '';
+          const h = (v) => formatHoursToHHMM(v);
+          const partes = (lista) =>
+            lista
+              .filter(([v]) => v >= minimo)
+              .map(([v, texto]) => `  • ${h(v)} ${texto}`)
+              .join('\n');
+          const linhas = [];
+          if (r.Planeado > 0) {
+            linhas.push(
+              `Produzido do plano de ${r.Data}: ${h(r.Produzido)} de ${h(
+                r.Planeado
+              )} planeadas`
+            );
+            const p = partes([
+              [r.PlanoNoDia, 'feitas neste dia'],
+              [r.PlanoAntes, 'adiantadas (feitas antes)'],
+              [r.PlanoDepois, 'feitas depois (com atraso)'],
+            ]);
+            if (p) linhas.push(p);
+          }
+          linhas.push(`Produzido no dia ${r.Data}: ${h(r.ProduzidoDia)}`);
+          const d = partes([
+            [r.DiaDoPlano, 'do plano do dia'],
+            [r.DiaRecuperado, 'recuperação de dias anteriores / backlog'],
+            [r.DiaAdiantado, 'adiantado de dias seguintes'],
+          ]);
+          if (d) linhas.push(d);
+          return linhas.join('\n');
         }
 
         /* RENDERIZAR CARTÕES DE CC COMO ACCORDION DINÂMICO */
@@ -4918,14 +5025,20 @@
               const hojeBadge = isHoje
                 ? ' <span class="opt-hoje-badge">Hoje</span>'
                 : '';
+              const dica = dicaProduzidoCC(r);
+              const atributosDica = dica
+                ? ` class="opt-cc-com-dica" title="${escapeHtml(dica)}"`
+                : '';
               tableRowsHtml += `
                     <tr class="${rowClass}" data-date="${r.Data}">
                         <td class="opt-cc-col-data">${
                           r.Data
                         }${hojeBadge}${ensaioBadge}${futureBadge}</td>
                         <td>${formatHoursToHHMM(r.Planeado)}</td>
-                        <td>${formatHoursToHHMM(r.Produzido)}</td>
-                        <td>${formatHoursToHHMM(r.ProduzidoDia)}</td>
+                        <td${atributosDica}>${formatHoursToHHMM(r.Produzido)}</td>
+                        <td${atributosDica}>${
+                          dica ? '<i class="fa-solid fa-circle-info opt-cc-info"></i>' : ''
+                        }${formatHoursToHHMM(r.ProduzidoDia)}</td>
                     </tr>
                 `;
             });
@@ -5003,10 +5116,13 @@
                             <table class="table table-bordered table-striped table-opt opt-cc-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 42%; text-align: left">Data</th>
-                                        <th>Planeado</th>
-                                        <th>Produzido Plano</th>
-                                        <th title="Horas produzidas efetivamente neste dia (pela Data Produção). Só informativo: não entra no avanço/atraso.">Produzido Dia</th>
+                                        <th rowspan="2" class="opt-cc-th-alto" style="width: 42%; text-align: left">Data</th>
+                                        <th rowspan="2" class="opt-cc-th-alto">Planeado</th>
+                                        <th colspan="2" class="opt-cc-th-grupo">Produzido</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="opt-cc-th-sub" title="Do que estava planeado para este dia, quanto já está feito (seja em que dia for). É o que conta para o avanço/atraso.">do plano</th>
+                                        <th class="opt-cc-th-sub" title="Tudo o que se produziu efetivamente neste dia (pela Data Produção), seja de que plano for. Só informativo: não entra no avanço/atraso.">no dia</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbody_${cc}">
