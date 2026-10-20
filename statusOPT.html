@@ -751,16 +751,10 @@
         font-weight: 600;
         font-size: 0.74rem;
       }
-      /* Dia em que "do plano" e "no dia" não batem: o ⓘ e a dica explicam
-         de onde vem a diferença. */
+      /* "do plano" e "no dia" explicam-se ao passar o rato: cada uma
+         mostra os KAs que a compõem. */
       .opt-cc-table td.opt-cc-com-dica {
         cursor: help;
-      }
-      .opt-cc-info {
-        color: var(--text-muted);
-        font-size: 0.68rem;
-        margin-right: 4px;
-        vertical-align: 1px;
       }
       .opt-hoje-row td {
         font-weight: 700;
@@ -4841,44 +4835,40 @@
            período); o dia ganha linha própria se não houver nada planeado.
            Os ensaios contam igual nas duas colunas.
 
-           Cada coluna leva também a decomposição que explica porque é que
-           as duas podem não bater: comparando a data planeada com a de
-           produção, uma hora é do próprio dia, adiantada ou em atraso. */
+           Cada linha guarda também os KAs de cada coluna, para as dicas:
+           comparando a data planeada com a de produção, uma hora é do
+           próprio dia, adiantada ou com atraso. */
         function linhasDoCartaoCC(resumo, cc, selAreaClean) {
           const inicioVal = $('#opt-startDate').val();
           const fimVal = $('#opt-endDate').val();
           const inicio = inicioVal ? new Date(inicioVal + 'T00:00:00') : null;
           const fim = fimVal ? new Date(fimVal + 'T23:59:59') : null;
 
-          const DECOMPOSICAO = {
-            ProduzidoDia: 0,
-            // "do plano": em que dia foi feito o plano deste dia
-            PlanoNoDia: 0,
-            PlanoAntes: 0, // adiantado: feito antes da data planeada
-            PlanoDepois: 0, // feito depois, com atraso
-            // "no dia": de que plano é o que se fez neste dia
-            DiaDoPlano: 0,
-            DiaRecuperado: 0, // planeado para antes (atraso ou backlog)
-            DiaAdiantado: 0, // planeado para depois
-          };
           const linhas = {};
+          function novaLinha(base) {
+            return Object.assign({}, base, {
+              ProduzidoDia: 0,
+              // KAs do plano do dia: { ka, horas, grupo, outraData }
+              // grupo: 'dia' | 'antes' | 'depois' | 'pendente'
+              ItensPlano: [],
+              // KAs produzidos no dia: grupo 'plano' | 'recuperado' | 'adiantado'
+              ItensDia: [],
+            });
+          }
           resumo.rows.forEach((r) => {
             if (r.IsBacklog) return; // aparece na faixa, acima da tabela
-            linhas[r.Data] = Object.assign({}, r, DECOMPOSICAO);
+            linhas[r.Data] = novaLinha(r);
           });
           function linha(dataObj) {
             const chave = formatDateShort(dataObj);
             if (!linhas[chave]) {
-              linhas[chave] = Object.assign(
-                {
-                  Data: chave,
-                  RawDate: dataObj,
-                  Planeado: 0,
-                  Produzido: 0,
-                  Ensaios: 0,
-                },
-                DECOMPOSICAO
-              );
+              linhas[chave] = novaLinha({
+                Data: chave,
+                RawDate: dataObj,
+                Planeado: 0,
+                Produzido: 0,
+                Ensaios: 0,
+              });
             }
             return linhas[chave];
           }
@@ -4886,17 +4876,26 @@
             return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
           }
 
-          // "do plano": os itens planeados no período já produzidos, pela
-          // data de produção face à planeada
+          // "do plano": os itens planeados no período para cada dia — os
+          // produzidos pela data de produção face à planeada, e os que
+          // ainda faltam
           resumo.ccItems.forEach((i) => {
-            if (i.Status !== 'Produzido' || !i.RawDateObj) return;
             const g = linhas[i.DataFormatted];
-            if (!g) return;
+            if (!g || !i.RawDateObj) return;
             const horas = i.HorasPlaneadas || 0;
             const prod = i.RawDataProducaoObj;
-            if (!prod || soDia(prod) === soDia(i.RawDateObj)) g.PlanoNoDia += horas;
-            else if (soDia(prod) < soDia(i.RawDateObj)) g.PlanoAntes += horas;
-            else g.PlanoDepois += horas;
+            let grupo = 'pendente';
+            if (i.Status === 'Produzido') {
+              if (!prod || soDia(prod) === soDia(i.RawDateObj)) grupo = 'dia';
+              else if (soDia(prod) < soDia(i.RawDateObj)) grupo = 'antes';
+              else grupo = 'depois';
+            }
+            g.ItensPlano.push({
+              ka: i.KA,
+              horas: horas,
+              grupo: grupo,
+              outraData: grupo === 'antes' || grupo === 'depois' ? prod : null,
+            });
           });
 
           // Todos os itens da lista (não só os do período), com o mesmo
@@ -4914,17 +4913,32 @@
             const g = linha(dia);
             const horas = i.HorasPlaneadas || 0;
             g.ProduzidoDia += horas;
-            if (!i.RawDateObj || soDia(i.RawDateObj) === soDia(dia)) g.DiaDoPlano += horas;
-            else if (soDia(i.RawDateObj) < soDia(dia)) g.DiaRecuperado += horas;
-            else g.DiaAdiantado += horas;
+            let grupo = 'plano';
+            if (i.RawDateObj && soDia(i.RawDateObj) < soDia(dia)) grupo = 'recuperado';
+            else if (i.RawDateObj && soDia(i.RawDateObj) > soDia(dia)) grupo = 'adiantado';
+            g.ItensDia.push({
+              ka: i.KA,
+              horas: horas,
+              grupo: grupo,
+              outraData: grupo === 'plano' ? null : i.RawDateObj,
+            });
           });
+
+          // Ensaios: feitos no próprio dia, iguais nas duas colunas
           resumo.ccEnsaios.forEach((e) => {
             if (!e.RawDateObj) return;
             const g = linha(e.RawDateObj);
-            const horas = getHorasEnsaioProduzidas(e);
-            g.ProduzidoDia += horas;
-            g.DiaDoPlano += horas;
-            g.PlanoNoDia += horas;
+            const feitas = getHorasEnsaioProduzidas(e);
+            const faltam = Math.max(0, getHorasEnsaioPlaneadas(e) - feitas);
+            const ka = `${e.KA || ''} (ensaio)`;
+            g.ProduzidoDia += feitas;
+            if (feitas > 0) {
+              g.ItensPlano.push({ ka: ka, horas: feitas, grupo: 'dia' });
+              g.ItensDia.push({ ka: ka, horas: feitas, grupo: 'plano' });
+            }
+            if (faltam > 0) {
+              g.ItensPlano.push({ ka: ka, horas: faltam, grupo: 'pendente' });
+            }
           });
 
           return Object.values(linhas).sort(
@@ -4932,41 +4946,59 @@
           );
         }
 
-        /* Dica do dia em que "do plano" e "no dia" não batem; '' quando
-           tudo o que se fez foi do próprio dia. */
-        function dicaProduzidoCC(r) {
+        /* Monta a dica de uma coluna: um título e, por grupo, os KAs com as
+           horas (e a outra data, quando a há). */
+        function textoDicaCC(titulo, itens, grupos) {
           const minimo = 1 / 120; // menos de 30 s não conta
-          const diferenca =
-            r.PlanoAntes + r.PlanoDepois + r.DiaRecuperado + r.DiaAdiantado;
-          if (diferenca < minimo) return '';
-          const h = (v) => formatHoursToHHMM(v);
-          const partes = (lista) =>
-            lista
-              .filter(([v]) => v >= minimo)
-              .map(([v, texto]) => `  • ${h(v)} ${texto}`)
-              .join('\n');
-          const linhas = [];
-          if (r.Planeado > 0) {
-            linhas.push(
-              `Produzido do plano de ${r.Data}: ${h(r.Produzido)} de ${h(
-                r.Planeado
-              )} planeadas`
-            );
-            const p = partes([
-              [r.PlanoNoDia, 'feitas neste dia'],
-              [r.PlanoAntes, 'adiantadas (feitas antes)'],
-              [r.PlanoDepois, 'feitas depois (com atraso)'],
-            ]);
-            if (p) linhas.push(p);
-          }
-          linhas.push(`Produzido no dia ${r.Data}: ${h(r.ProduzidoDia)}`);
-          const d = partes([
-            [r.DiaDoPlano, 'do plano do dia'],
-            [r.DiaRecuperado, 'recuperação de dias anteriores / backlog'],
-            [r.DiaAdiantado, 'adiantado de dias seguintes'],
-          ]);
-          if (d) linhas.push(d);
-          return linhas.join('\n');
+          const blocos = [titulo];
+          grupos.forEach(([grupo, nome, prefixoData]) => {
+            const doGrupo = itens
+              .filter((i) => i.grupo === grupo && i.horas >= minimo)
+              .sort((a, b) =>
+                String(a.ka).localeCompare(String(b.ka), 'pt', { numeric: true })
+              );
+            if (doGrupo.length === 0) return;
+            const total = doGrupo.reduce((s, i) => s + i.horas, 0);
+            blocos.push(`${nome} (${formatHoursToHHMM(total)}):`);
+            doGrupo.forEach((i) => {
+              const data = i.outraData
+                ? ` (${prefixoData} ${formatDateShort(i.outraData).slice(0, 5)})`
+                : '';
+              blocos.push(`  • ${i.ka || 'N/D'}: ${formatHoursToHHMM(i.horas)}${data}`);
+            });
+          });
+          return blocos.length > 1 ? blocos.join('\n') : '';
+        }
+
+        /* Dica de "do plano": o que estava planeado para o dia e em que
+           dia foi feito; o que falta. */
+        function dicaDoPlanoCC(r) {
+          return textoDicaCC(
+            `Plano de ${r.Data}: ${formatHoursToHHMM(r.Produzido)} feitas de ${formatHoursToHHMM(
+              r.Planeado
+            )} planeadas`,
+            r.ItensPlano,
+            [
+              ['dia', 'Feitas neste dia'],
+              ['antes', 'Adiantadas, feitas antes', 'feito a'],
+              ['depois', 'Com atraso, feitas depois', 'feito a'],
+              ['pendente', 'Por produzir'],
+            ]
+          );
+        }
+
+        /* Dica de "no dia": tudo o que se produziu nesse dia e de que
+           plano era. */
+        function dicaNoDiaCC(r) {
+          return textoDicaCC(
+            `Produzido no dia ${r.Data}: ${formatHoursToHHMM(r.ProduzidoDia)}`,
+            r.ItensDia,
+            [
+              ['plano', 'Do plano deste dia'],
+              ['recuperado', 'Recuperação de dias anteriores / backlog', 'planeado a'],
+              ['adiantado', 'Adiantado de dias seguintes', 'planeado a'],
+            ]
+          );
         }
 
         /* RENDERIZAR CARTÕES DE CC COMO ACCORDION DINÂMICO */
@@ -5025,20 +5057,20 @@
               const hojeBadge = isHoje
                 ? ' <span class="opt-hoje-badge">Hoje</span>'
                 : '';
-              const dica = dicaProduzidoCC(r);
-              const atributosDica = dica
-                ? ` class="opt-cc-com-dica" title="${escapeHtml(dica)}"`
-                : '';
+              const atributosDica = (dica) =>
+                dica ? ` class="opt-cc-com-dica" title="${escapeHtml(dica)}"` : '';
               tableRowsHtml += `
                     <tr class="${rowClass}" data-date="${r.Data}">
                         <td class="opt-cc-col-data">${
                           r.Data
                         }${hojeBadge}${ensaioBadge}${futureBadge}</td>
                         <td>${formatHoursToHHMM(r.Planeado)}</td>
-                        <td${atributosDica}>${formatHoursToHHMM(r.Produzido)}</td>
-                        <td${atributosDica}>${
-                          dica ? '<i class="fa-solid fa-circle-info opt-cc-info"></i>' : ''
-                        }${formatHoursToHHMM(r.ProduzidoDia)}</td>
+                        <td${atributosDica(dicaDoPlanoCC(r))}>${formatHoursToHHMM(
+                          r.Produzido
+                        )}</td>
+                        <td${atributosDica(dicaNoDiaCC(r))}>${formatHoursToHHMM(
+                          r.ProduzidoDia
+                        )}</td>
                     </tr>
                 `;
             });
