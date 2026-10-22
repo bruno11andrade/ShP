@@ -259,6 +259,44 @@
         font-weight: 700;
         font-size: 1.3rem;
         letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+      }
+      /* Bolinha "ao vivo" antes do título: verde quando o total dá avanço,
+         vermelha quando dá atraso, cinzenta enquanto não há dados. */
+      .opt-live-dot {
+        position: relative;
+        display: inline-block;
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        margin-right: 12px;
+        flex: 0 0 auto;
+        background: var(--live-cor, #64748b);
+        box-shadow: 0 0 6px var(--live-cor, #64748b);
+      }
+      .opt-live-dot::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: var(--live-cor, #64748b);
+        animation: opt-live-pulso 1.8s ease-out infinite;
+      }
+      @keyframes opt-live-pulso {
+        0% {
+          transform: scale(1);
+          opacity: 0.6;
+        }
+        100% {
+          transform: scale(2.6);
+          opacity: 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .opt-live-dot::after {
+          animation: none;
+        }
       }
       .opt-header-status {
         font-size: 0.85rem;
@@ -379,6 +417,12 @@
       .opt-kpi-dot-plan {
         background: #38bdf8;
         box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+      }
+      /* Linha de contexto por baixo do valor de cada indicador */
+      .opt-kpi-sub {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        margin-top: 2px;
       }
       .opt-summary-card-main {
         border: 1px solid var(--cyan-accent) !important;
@@ -1455,7 +1499,12 @@
         class="opt-header-bar d-flex justify-content-between align-items-center"
       >
         <div class="opt-header-title">
-          <i class="fa-solid fa-industry me-2"></i>Status - Plano Produção
+          <span
+            class="opt-live-dot"
+            id="opt-liveDot"
+            title="A carregar..."
+          ></span
+          >Live Status | Plano Produção
         </div>
         <div class="d-flex align-items-center gap-3">
           <button
@@ -1572,6 +1621,7 @@
                   TOTAL EM ATRASO
                 </div>
                 <div class="value" id="opt-kpiTotalDelta">0:00</div>
+                <div class="opt-kpi-sub">soma dos C.C.</div>
               </div>
             </div>
 
@@ -1592,6 +1642,7 @@
                 >
                   0%
                 </div>
+                <div class="opt-kpi-sub" id="opt-kpiCcAtraso8hSub"></div>
               </div>
             </div>
 
@@ -1608,6 +1659,7 @@
                 <div class="value" id="opt-kpiQtdRatio" style="color: var(--text-muted)">
                   0%
                 </div>
+                <div class="opt-kpi-sub">até hoje</div>
               </div>
             </div>
 
@@ -1622,6 +1674,7 @@
                   Disponibilidade Matéria&#8209;Prima
                 </div>
                 <div class="value" id="opt-kpiDispMP">0%</div>
+                <div class="opt-kpi-sub">por produzir até amanhã</div>
               </div>
             </div>
 
@@ -1636,6 +1689,7 @@
                   Disponibilidade Ferramenta
                 </div>
                 <div class="value" id="opt-kpiDispFRT">0%</div>
+                <div class="opt-kpi-sub">por produzir até amanhã</div>
               </div>
             </div>
           </div>
@@ -1650,106 +1704,10 @@
             </div>
           </div>
 
-          <!-- CAIXA 2: Tabela MOD Planeada, Previsão de Trabalho Extra e Material em risco -->
+          <!-- CAIXA 2: Material em risco, MOD Planeada e Previsão de Trabalho Extra -->
           <div class="col-lg-6">
-            <!-- Gráfico/Matriz MOD Planeada (Colapsada por defeito) -->
-            <div class="opt-mod-container mt-0">
-              <div
-                class="opt-mod-title d-flex align-items-center justify-content-between"
-                style="cursor: pointer"
-                data-bs-toggle="collapse"
-                data-bs-target="#collapseMOD"
-                aria-expanded="false"
-                aria-controls="collapseMOD"
-              >
-                <span class="d-flex align-items-center gap-2">
-                  <i class="fa-solid fa-users text-primary"></i>
-                  <span>MOD Planeada</span>
-                </span>
-                <i class="fa-solid fa-chevron-down text-muted"></i>
-              </div>
-              <div class="collapse" id="collapseMOD">
-                <div class="table-responsive pt-2" style="overflow-x: auto">
-                  <table class="table table-mod" id="opt-tableMOD">
-                    <!-- Gerado via JS -->
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <!-- TABELA: Previsão de Trabalho Extra (Colapsada por defeito) -->
-            <div class="opt-mod-container mt-3">
-              <div
-                class="opt-mod-title d-flex align-items-center justify-content-between"
-                style="cursor: pointer"
-                data-bs-toggle="collapse"
-                data-bs-target="#collapseTrabalhoExtra"
-                aria-expanded="true"
-                aria-controls="collapseTrabalhoExtra"
-              >
-                <span class="d-flex align-items-center gap-2">
-                  <i class="fa-solid fa-clock-rotate-left text-primary"></i>
-                  <span>Previsão de Trabalho Extra</span>
-                </span>
-                <i class="fa-solid fa-chevron-down text-muted"></i>
-              </div>
-              <div class="collapse" id="collapseTrabalhoExtra">
-                <div class="table-responsive pt-2">
-                  <table
-                    class="table table-bordered"
-                    id="opt-tableTrabalhoExtra"
-                  >
-                    <thead>
-                      <tr>
-                        <th
-                          style="
-                            text-align: left;
-                            padding-left: 12px;
-                            width: 28%;
-                          "
-                        >
-                          Centro de Custo
-                        </th>
-                        <th style="width: 18%; text-align: center">
-                          MOD
-                          <span
-                            class="opt-te-total"
-                            id="opt-teTotalMod"
-                          ></span>
-                        </th>
-                        <th style="width: 18%; text-align: center">
-                          Previsão
-                          <span
-                            class="opt-te-total"
-                            id="opt-teTotalPrevisao"
-                          ></span>
-                        </th>
-                        <th style="width: 18%; text-align: center">
-                          Pedido TE
-                          <span
-                            class="opt-te-total"
-                            id="opt-teTotalPedido"
-                          ></span>
-                        </th>
-                        <th style="width: 18%; text-align: center">
-                          Real TE
-                          <span
-                            class="opt-te-total"
-                            id="opt-teTotalReal"
-                          ></span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody id="opt-tbodyTrabalhoExtra">
-                      <!-- Gerado via JS -->
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
             <!-- Material em risco de falha -->
-            <div class="opt-risk-container">
+            <div class="opt-risk-container mt-0">
               <div
                 class="opt-risk-title d-flex align-items-center justify-content-between mb-2"
               >
@@ -1968,6 +1926,102 @@
                   style="font-size: 0.78rem"
                   >0 registos</span
                 >
+              </div>
+            </div>
+
+            <!-- Gráfico/Matriz MOD Planeada (Colapsada por defeito) -->
+            <div class="opt-mod-container">
+              <div
+                class="opt-mod-title d-flex align-items-center justify-content-between"
+                style="cursor: pointer"
+                data-bs-toggle="collapse"
+                data-bs-target="#collapseMOD"
+                aria-expanded="false"
+                aria-controls="collapseMOD"
+              >
+                <span class="d-flex align-items-center gap-2">
+                  <i class="fa-solid fa-users text-primary"></i>
+                  <span>MOD Planeada</span>
+                </span>
+                <i class="fa-solid fa-chevron-down text-muted"></i>
+              </div>
+              <div class="collapse" id="collapseMOD">
+                <div class="table-responsive pt-2" style="overflow-x: auto">
+                  <table class="table table-mod" id="opt-tableMOD">
+                    <!-- Gerado via JS -->
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- TABELA: Previsão de Trabalho Extra (Colapsada por defeito) -->
+            <div class="opt-mod-container mt-3">
+              <div
+                class="opt-mod-title d-flex align-items-center justify-content-between"
+                style="cursor: pointer"
+                data-bs-toggle="collapse"
+                data-bs-target="#collapseTrabalhoExtra"
+                aria-expanded="true"
+                aria-controls="collapseTrabalhoExtra"
+              >
+                <span class="d-flex align-items-center gap-2">
+                  <i class="fa-solid fa-clock-rotate-left text-primary"></i>
+                  <span>Previsão de Trabalho Extra</span>
+                </span>
+                <i class="fa-solid fa-chevron-down text-muted"></i>
+              </div>
+              <div class="collapse" id="collapseTrabalhoExtra">
+                <div class="table-responsive pt-2">
+                  <table
+                    class="table table-bordered"
+                    id="opt-tableTrabalhoExtra"
+                  >
+                    <thead>
+                      <tr>
+                        <th
+                          style="
+                            text-align: left;
+                            padding-left: 12px;
+                            width: 28%;
+                          "
+                        >
+                          Centro de Custo
+                        </th>
+                        <th style="width: 18%; text-align: center">
+                          MOD
+                          <span
+                            class="opt-te-total"
+                            id="opt-teTotalMod"
+                          ></span>
+                        </th>
+                        <th style="width: 18%; text-align: center">
+                          Previsão
+                          <span
+                            class="opt-te-total"
+                            id="opt-teTotalPrevisao"
+                          ></span>
+                        </th>
+                        <th style="width: 18%; text-align: center">
+                          Pedido TE
+                          <span
+                            class="opt-te-total"
+                            id="opt-teTotalPedido"
+                          ></span>
+                        </th>
+                        <th style="width: 18%; text-align: center">
+                          Real TE
+                          <span
+                            class="opt-te-total"
+                            id="opt-teTotalReal"
+                          ></span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody id="opt-tbodyTrabalhoExtra">
+                      <!-- Gerado via JS -->
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -4789,6 +4843,13 @@
           $('#opt-kpiTotalDeltaTitulo').text(
             (total >= 0 ? 'TOTAL AVANÇO' : 'TOTAL EM ATRASO') + sufixoArea
           );
+          // A bolinha "ao vivo" do título acompanha o total
+          const liveDot = document.getElementById('opt-liveDot');
+          if (liveDot) {
+            liveDot.style.setProperty('--live-cor', total >= 0 ? '#34d399' : '#f87171');
+            liveDot.title =
+              (total >= 0 ? 'Total em avanço' : 'Total em atraso') + ` (${cfg.valueText})`;
+          }
           $('#opt-kpiTotalDelta')
             .css('color', cfg.color)
             .html(
@@ -5621,6 +5682,9 @@
             $('#opt-kpiCcAtraso8h')
               .text('0%')
               .css('color', getAtraso8hColor(0));
+            $('#opt-kpiCcAtraso8hSub').text(
+              `0 de ${getCCsParaAtraso8h(selectedArea).length} C.C.`
+            );
             $('#opt-kpiQtdRatio').text('0%').css('color', corTema('--text-muted'));
             return;
           }
@@ -5674,6 +5738,9 @@
           $('#opt-kpiCcAtraso8h')
             .text(`${pctCcAtraso8h}%`)
             .css('color', getAtraso8hColor(pctCcAtraso8h));
+          $('#opt-kpiCcAtraso8hSub').text(
+            `${ccAtrasoMaior8Count} de ${ccsParaAtraso8h.length} C.C.`
+          );
           $('#opt-kpiQtdRatio')
             .text(`${ratioQtdPct}%`)
             .css('color', ratioColor);
