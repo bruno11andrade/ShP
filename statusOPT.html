@@ -212,12 +212,17 @@
         border-radius: 50%;
         background: var(--bg-card);
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-        /* Por omissão (tema escuro) o puxador está do lado da lua */
-        transform: translateX(30px);
+        /* Por omissão (tema escuro) o puxador está do lado da lua: 60px
+           de interior menos 3px de folga de cada lado e 22px do puxador */
+        transform: translateX(32px);
         transition: transform 0.22s ease, background-color 0.2s ease;
       }
       .opt-tema-switch.opt-tema-claro .opt-tema-knob {
         transform: translateX(0);
+      }
+      /* No escuro o puxador tinha a cor do fundo e quase não se via */
+      .opt-tema-switch:not(.opt-tema-claro) .opt-tema-knob {
+        background: var(--border-color);
       }
       .opt-tema-icones {
         position: absolute;
@@ -836,9 +841,20 @@
         background-color: var(--bg-card) !important;
         color: var(--cyan-accent) !important;
       }
+      /* A seta usa a forma do ícone do Bootstrap como máscara, pintada
+         com a mesma cor do número do C.C. — acompanha o tema. */
       .accordion-btn-cc::after {
-        filter: invert(75%) sepia(50%) saturate(1000%) hue-rotate(140deg);
         margin-left: 10px;
+        background-image: none !important;
+        background-color: var(--cyan-accent);
+        -webkit-mask-image: var(--bs-accordion-btn-icon);
+        mask-image: var(--bs-accordion-btn-icon);
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        -webkit-mask-size: var(--bs-accordion-btn-icon-width);
+        mask-size: var(--bs-accordion-btn-icon-width);
       }
       .opt-area-btn-group {
         display: flex;
@@ -6933,45 +6949,30 @@
            tabela logo às 00:00. A partir das 8:59 do dia seguinte já conta
            como desatualizado e o aviso aparece. Dois ou mais dias depois do
            carregamento, está sempre desatualizado, a qualquer hora. */
+        /* Um MD07 vale até às 9:00 do dia útil (segunda a sexta) seguinte ao
+           dia em que foi carregado: o de quinta vale até sexta às 9:00, e o
+           de sexta (ou do fim de semana) até segunda-feira às 9:00. */
+        const MD07_HORA_LIMITE = 9;
+
+        function prazoDoMd07(carregadoEm) {
+          const prazo = new Date(
+            carregadoEm.getFullYear(),
+            carregadoEm.getMonth(),
+            carregadoEm.getDate() + 1,
+            MD07_HORA_LIMITE,
+            0,
+            0,
+            0
+          );
+          while (prazo.getDay() === 0 || prazo.getDay() === 6) {
+            prazo.setDate(prazo.getDate() + 1);
+          }
+          return prazo;
+        }
+
         function isMd07Stale() {
           if (!md07Data || !md07Data.uploadedAtTs) return true;
-
-          const uploaded = new Date(md07Data.uploadedAtTs);
-          const now = new Date();
-
-          const uploadedDay = new Date(
-            uploaded.getFullYear(),
-            uploaded.getMonth(),
-            uploaded.getDate()
-          );
-          const today = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate()
-          );
-          const diffDays = Math.round(
-            (today - uploadedDay) / (24 * 60 * 60 * 1000)
-          );
-
-          if (diffDays <= 0) {
-            // Carregado hoje (ou timestamp futuro/relógio dessincronizado)
-            return false;
-          }
-          if (diffDays === 1) {
-            // Carregado ontem: ainda válido até às 8:59 de hoje
-            const cutoff = new Date(
-              now.getFullYear(),
-              now.getMonth(),
-              now.getDate(),
-              8,
-              59,
-              0,
-              0
-            );
-            return now >= cutoff;
-          }
-          // Carregado há 2 ou mais dias: sempre desatualizado
-          return true;
+          return new Date() >= prazoDoMd07(new Date(md07Data.uploadedAtTs));
         }
 
         function updateMd07StaleAlert() {
