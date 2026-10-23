@@ -6967,19 +6967,25 @@
 
         function updateCoKaStatusUI(daCopiaLocal) {
           if (cokaData && cokaData.pairCount > 0) {
-            $('#opt-cokaFileInfo').html(
-              `<i class="fa-solid fa-link ${
-                daCopiaLocal ? 'text-warning' : 'text-success'
-              } me-1"></i>CO KA (lista SharePoint${
-                daCopiaLocal ? ', cópia guardada' : ''
-              }) — lido a ${cokaData.uploadedAt} · <strong>${
-                cokaData.pairCount
-              } pares ativos</strong>`
-            );
+            // Só o essencial à vista; o resto ao passar o rato
+            $('#opt-cokaFileInfo')
+              .html(
+                `<i class="fa-solid fa-link ${
+                  daCopiaLocal ? 'text-warning' : 'text-success'
+                } me-1"></i>CO KA <strong>${cokaData.pairCount} pares ativos</strong>`
+              )
+              .attr(
+                'title',
+                `CO KA (lista SharePoint${
+                  daCopiaLocal ? ', cópia guardada' : ''
+                }) — lido a ${cokaData.uploadedAt} · ${cokaData.pairCount} pares ativos`
+              );
           } else {
-            $('#opt-cokaFileInfo').html(
-              `<i class="fa-solid fa-link text-muted me-1"></i>CO KA: Sem mapeamentos carregados`
-            );
+            $('#opt-cokaFileInfo')
+              .html(
+                `<i class="fa-solid fa-link text-muted me-1"></i>CO KA: Sem mapeamentos carregados`
+              )
+              .removeAttr('title');
           }
         }
 
