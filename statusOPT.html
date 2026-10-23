@@ -6913,7 +6913,7 @@
         function updateMd07StatusUI() {
           if (md07Data && md07Data.rows) {
             $('#opt-riskFileInfo').html(
-              `<i class="fa-solid fa-file-excel text-danger me-1"></i>MD07: <strong>${escapeHtml(
+              `<i class="fa-solid fa-file-excel text-danger me-1"></i><strong>${escapeHtml(
                 md07Data.fileName
               )}</strong> — ${md07Data.uploadedAt}`
             );
@@ -6972,9 +6972,9 @@
                 daCopiaLocal ? 'text-warning' : 'text-success'
               } me-1"></i>CO KA (lista SharePoint${
                 daCopiaLocal ? ', cópia guardada' : ''
-              }): <strong>${cokaData.pairCount} pares ativos</strong> — lido a ${
-                cokaData.uploadedAt
-              }`
+              }) — lido a ${cokaData.uploadedAt} · <strong>${
+                cokaData.pairCount
+              } pares ativos</strong>`
             );
           } else {
             $('#opt-cokaFileInfo').html(
