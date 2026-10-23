@@ -6912,15 +6912,18 @@
 
         function updateMd07StatusUI() {
           if (md07Data && md07Data.rows) {
-            $('#opt-riskFileInfo').html(
-              `<i class="fa-solid fa-file-excel text-danger me-1"></i><strong>${escapeHtml(
-                md07Data.fileName
-              )}</strong> — ${md07Data.uploadedAt}`
-            );
+            // Só a data à vista; o ficheiro aparece ao passar o rato
+            $('#opt-riskFileInfo')
+              .html(
+                `<i class="fa-solid fa-file-excel text-danger me-1"></i>Último carregamento: ${md07Data.uploadedAt}`
+              )
+              .attr('title', `${md07Data.fileName} — ${md07Data.uploadedAt}`);
           } else {
-            $('#opt-riskFileInfo').html(
-              `<i class="fa-solid fa-file-excel text-muted me-1"></i>MD07: Nenhum ficheiro guardado`
-            );
+            $('#opt-riskFileInfo')
+              .html(
+                `<i class="fa-solid fa-file-excel text-muted me-1"></i>MD07: Nenhum ficheiro guardado`
+              )
+              .removeAttr('title');
           }
           updateMd07StaleAlert();
         }
