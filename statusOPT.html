@@ -1890,13 +1890,13 @@
                 <!-- Direita: CO KA -->
                 <div class="d-flex flex-column gap-1 align-items-end text-end">
                   <a
-                    href="https://pt.sps.automotive.local/departments/logistica/Documentos%20Planeamento/Forms/AllItems.aspx?RootFolder=%2Fdepartments%2Flogistica%2FDocumentos%20Planeamento%2FZZ_Arquivo"
+                    href="https://pt.sps.automotive.local/departments/logistica/Lists/KA%20CO/Update%20CO%20KA.aspx"
                     target="_blank"
                     class="btn btn-outline-primary btn-sm fw-bold text-decoration-none"
                     style="width: fit-content"
-                    title="Abrir a biblioteca ZZ_Arquivo no SharePoint"
+                    title="Abrir a lista KA CO (vista em grelha) no SharePoint"
                   >
-                    <i class="fa-solid fa-folder-open me-1"></i>Atualizar CO KA
+                    <i class="fa-solid fa-table-list me-1"></i>Atualizar CO KA
                   </a>
                   <div
                     id="opt-cokaFileInfo"
@@ -1904,7 +1904,7 @@
                     style="font-size: 0.75rem"
                   >
                     <i class="fa-solid fa-link me-1 text-secondary"></i>CO KA: A
-                    verificar ficheiro no SharePoint...
+                    ler a lista no SharePoint...
                   </div>
                 </div>
               </div>
@@ -2530,8 +2530,9 @@
           'ID,Ano,Semana,OData__x00c1_rea,C_x002e_C_x002e_0,' +
           'Turnos_x0020_Necess_x002e_0,Turnos_x0020_Preench_x002e_';
 
-        const COKA_SHAREPOINT_URL =
-          'https://pt.sps.automotive.local/departments/logistica/Documentos%20Planeamento/ZZ_Arquivo/KA%20CO.xlsx';
+        // Pares KA ↔ CO KA: lista "KA CO" do SharePoint (substitui o antigo
+        // ficheiro KA CO.xlsx). Colunas: KA e CO KA (CO_x0020_KA).
+        const COKA_LIST_GUID = '{2899E514-21DA-4FDC-AF87-ABDE11F3F9A6}';
 
         // Pasta partilhada onde o MD07 fica gravado para TODOS os
         // utilizadores (substitui sempre o ficheiro existente - overwrite).
@@ -2671,7 +2672,8 @@
 
         // --- Estado do módulo "Material em risco de falha" ---
         const MD07_STORAGE_KEY = 'opt_md07_raw_rows_v2';
-        const COKA_STORAGE_KEY = 'opt_coka_mapping_v2';
+        // v3: cada KA guarda a lista de todos os seus pares
+        const COKA_STORAGE_KEY = 'opt_coka_mapping_v3';
         const MANUAL_RISK_STORAGE_KEY = 'opt_manual_risk_rows_v1';
 
         let md07Data = null;
@@ -6831,96 +6833,78 @@
             });
         }
 
+        /* Lê os pares KA ↔ CO KA da lista "KA CO". Cada par é guardado nos
+           dois sentidos (o KA aponta para o CO KA e vice-versa) e um KA pode
+           ter mais do que um par. Linhas sem CO KA não contam, e um KA ou
+           CO KA com asterisco (*) é ignorado de propósito. Se a lista não
+           responder, usa os pares guardados da última leitura. */
         function fetchCoKaFromSharePoint(isManualClick) {
           $('#opt-cokaFileInfo').html(
-            '<i class="fa-solid fa-spinner fa-spin me-1 text-primary"></i>CO KA: A carregar do SharePoint...'
+            '<i class="fa-solid fa-spinner fa-spin me-1 text-primary"></i>CO KA: A ler a lista no SharePoint...'
           );
 
-          $.ajax({
-            url: COKA_SHAREPOINT_URL,
-            type: 'GET',
-            xhrFields: { responseType: 'arraybuffer' },
-            cache: false,
-          })
-            .done(function (data) {
-              try {
-                const workbook = XLSX.read(new Uint8Array(data), {
-                  type: 'array',
-                });
-                const sheetName = workbook.SheetNames.includes('Sheet1')
-                  ? 'Sheet1'
-                  : workbook.SheetNames[0];
-                const sheet = workbook.Sheets[sheetName];
-                const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+          lerListaCompleta(
+            urlLista(COKA_LIST_GUID, '$select=KA,CO_x0020_KA'),
+            'KA CO'
+          )
+            .done(function (resultado) {
+              const pairs = {};
+              const vistos = new Set();
+              let count = 0;
+              function juntar(de, para) {
+                if (!pairs[de]) pairs[de] = [];
+                if (pairs[de].indexOf(para) === -1) pairs[de].push(para);
+              }
+              resultado.itens.forEach((item) => {
+                const ka = extractValue(item.KA).toUpperCase();
+                const coka = extractValue(item.CO_x0020_KA).toUpperCase();
+                if (!ka || !coka || ka === coka) return;
+                if (ka.indexOf('*') !== -1 || coka.indexOf('*') !== -1) return;
+                const chavePar = ka + '|' + coka;
+                if (vistos.has(chavePar)) return; // linha repetida
+                vistos.add(chavePar);
+                juntar(ka, coka);
+                juntar(coka, ka);
+                count++;
+              });
 
-                const pairs = {};
-                let count = 0;
-                rows.forEach((r) => {
-                  const ka = getRowVal(r, [
-                    'KA',
-                    'Material',
-                    'KA-Material',
-                    'ka',
-                  ])
-                    .toString()
-                    .trim();
-                  const coka = getRowVal(r, [
-                    'CO KA',
-                    'Co KA',
-                    'CO_KA',
-                    'Co_KA',
-                    'COKA',
-                    'co ka',
-                  ])
-                    .toString()
-                    .trim();
-                  if (ka && coka && ka !== coka) {
-                    pairs[ka] = coka;
-                    pairs[coka] = ka;
-                    count++;
-                  }
-                });
-
-                const now = new Date();
-                const uploadedAt =
+              const now = new Date();
+              cokaData = {
+                pairs: pairs,
+                fileName: 'Lista KA CO (SharePoint)',
+                uploadedAt:
                   now.toLocaleDateString('pt-PT') +
                   ' ' +
-                  now.toLocaleTimeString('pt-PT');
-
-                cokaData = {
-                  pairs: pairs,
-                  fileName: 'KA CO.xlsx (SharePoint)',
-                  uploadedAt: uploadedAt,
-                  pairCount: count,
-                };
-
-                localStorage.setItem(
-                  COKA_STORAGE_KEY,
-                  JSON.stringify(cokaData)
-                );
-                updateCoKaStatusUI();
-                reevaluateRisk();
-              } catch (err) {
-                console.error('Erro ao ler ficheiro CO KA do SharePoint:', err);
-                $('#opt-cokaFileInfo').html(
-                  '<i class="fa-solid fa-triangle-exclamation text-danger me-1"></i>CO KA: Erro ao processar ficheiro do SharePoint.'
-                );
+                  now.toLocaleTimeString('pt-PT'),
+                pairCount: count,
+              };
+              try {
+                localStorage.setItem(COKA_STORAGE_KEY, JSON.stringify(cokaData));
+              } catch (e) {
+                /* a cópia local é só reserva */
               }
+              updateCoKaStatusUI();
+              reevaluateRisk();
             })
             .fail(function (xhr, status, error) {
               console.warn(
-                'Não foi possível descarregar CO KA do SharePoint:',
+                'Não foi possível ler a lista KA CO do SharePoint:',
                 status,
                 error
               );
-              const savedCoKa = localStorage.getItem(COKA_STORAGE_KEY);
+              let savedCoKa = null;
+              try {
+                savedCoKa = localStorage.getItem(COKA_STORAGE_KEY);
+              } catch (e) {
+                savedCoKa = null;
+              }
               if (savedCoKa) {
                 cokaData = JSON.parse(savedCoKa);
-                updateCoKaStatusUI();
+                updateCoKaStatusUI(true);
                 reevaluateRisk();
               } else {
                 $('#opt-cokaFileInfo').html(
-                  '<i class="fa-solid fa-circle-xmark text-danger me-1"></i>CO KA: Ficheiro não encontrado no SharePoint.'
+                  '<i class="fa-solid fa-circle-xmark text-danger me-1"></i>CO KA: Não foi possível ler a lista KA CO no SharePoint.'
                 );
               }
             });
@@ -6981,10 +6965,16 @@
           }
         }
 
-        function updateCoKaStatusUI() {
+        function updateCoKaStatusUI(daCopiaLocal) {
           if (cokaData && cokaData.pairCount > 0) {
             $('#opt-cokaFileInfo').html(
-              `<i class="fa-solid fa-link text-success me-1"></i>CO KA (SharePoint): <strong>${cokaData.pairCount} pares ativos</strong> — ${cokaData.uploadedAt}`
+              `<i class="fa-solid fa-link ${
+                daCopiaLocal ? 'text-warning' : 'text-success'
+              } me-1"></i>CO KA (lista SharePoint${
+                daCopiaLocal ? ', cópia guardada' : ''
+              }): <strong>${cokaData.pairCount} pares ativos</strong> — lido a ${
+                cokaData.uploadedAt
+              }`
             );
           } else {
             $('#opt-cokaFileInfo').html(
@@ -7199,10 +7189,12 @@
               }
             }
 
-            // 2) Risco do CO KA associado — linha individual e independente,
-            // mesmo que o material planeado (1) não esteja em risco.
-            const coKaMaterial = pairs[matKey] || pairs[kaUpper];
-            if (coKaMaterial) {
+            // 2) Risco do(s) CO KA associado(s) — linha individual e
+            // independente, mesmo que o material planeado (1) não esteja em
+            // risco. Um KA pode ter mais do que um par.
+            const coKaMateriais =
+              pairs[kaUpper] || pairs[String(matKey).toUpperCase()] || [];
+            coKaMateriais.forEach((coKaMaterial) => {
               const coKey = findMaterialKey(coKaMaterial);
               if (coKey) {
                 const coInfo = materialInfo[coKey];
@@ -7224,7 +7216,7 @@
                   }
                 }
               }
-            }
+            });
           });
 
           // Quando um material e o seu CO KA estão os dois em risco, a linha
