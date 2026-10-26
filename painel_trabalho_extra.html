@@ -1037,7 +1037,7 @@
                 aria-labelledby="headingMetrics"
               >
                 <div class="accordion-body">
-                  <!-- LINHA SUPERIOR: PLANEAMENTO, CUMPRIMENTO DE PRAZOS E OPERADORES -->
+                  <!-- LINHA SUPERIOR: PLANEAMENTO, CUMPRIMENTO DE PRAZOS E HC -->
                   <div class="row g-3 mb-3 align-items-stretch">
                     <div class="col-xxl-3 col-xl-3 col-lg-4">
                       <div
@@ -1176,7 +1176,7 @@
                           </div>
                         </div>
 
-                        <!-- LINHA 2: Produzidas + Operadores -->
+                        <!-- LINHA 2: Produzidas + HC -->
                         <div class="row g-2 flex-grow-1 align-items-stretch">
                           <!-- Peças Produzidas -->
                           <div class="col-md-4 d-flex flex-column">
@@ -1204,13 +1204,13 @@
                             </div>
                           </div>
 
-                          <!-- Operadores (Agrupados) -->
+                          <!-- HC (Agrupados) -->
                           <div class="col-md-8 d-flex flex-column">
                             <span
                               class="section-tag mb-1 align-self-start"
                               style="font-size: 0.68rem"
                             >
-                              <i class="fa-solid fa-users me-1"></i>Operadores
+                              <i class="fa-solid fa-users me-1"></i>HC
                             </span>
                             <div
                               class="row g-2 flex-grow-1 align-items-stretch"
@@ -1224,7 +1224,7 @@
                                     class="kpi-title"
                                     style="font-size: 0.65rem"
                                   >
-                                    Nº OPERADORES LOGÍSTICA
+                                    Nº HC LOGÍSTICA
                                   </div>
                                   <div
                                     class="fw-bold text-dark mt-1"
@@ -1244,7 +1244,7 @@
                                     class="kpi-title"
                                     style="font-size: 0.65rem"
                                   >
-                                    Nº OPERADORES PRODUÇÃO
+                                    Nº HC PRODUÇÃO
                                   </div>
                                   <div
                                     class="fw-bold text-dark mt-1"
@@ -1733,7 +1733,7 @@
               </div>
             </div>
 
-            <!-- ABA 3: OPERADORES -->
+            <!-- ABA 3: HC -->
             <div class="accordion-item">
               <h2 class="accordion-header" id="headingOps">
                 <button
@@ -1745,7 +1745,7 @@
                   aria-controls="collapseOps"
                 >
                   <i class="fa-solid fa-user-gear me-2"></i>Análise de
-                  Operadores
+                  HC
                 </button>
               </h2>
               <div
@@ -1778,7 +1778,7 @@
                         >
                           <h5 class="card-title text-dark m-0">
                             <i class="fa-solid fa-sitemap me-2 text-area"></i
-                            >Operadores Produção por Área
+                            >HC Produção por Área
                           </h5>
                           <small class="text-muted" style="font-size: 0.72rem"
                             ><i
@@ -1804,7 +1804,7 @@
                         >
                           <h5 class="card-title text-dark m-0">
                             <i class="fa-solid fa-coins me-2 text-cc"></i
-                            >Operadores Produção por C.C.<span
+                            >HC Produção por C.C.<span
                               id="lblSelectedOpsArea"
                               class="text-cc fw-bold"
                             ></span>
@@ -4076,7 +4076,7 @@
                     labels: opsAreaLabelsSorted,
                     datasets: [
                       {
-                        label: 'Nº Operadores',
+                        label: 'Nº HC',
                         data: sortedOpsArea.map((item) => item[1]),
                         backgroundColor: opsAreaLabelsSorted.map((a) =>
                           a === selectedOpsAreaFilter ? '#003d6b' : COLOR_AREA
@@ -4147,7 +4147,7 @@
                     labels: sortedOpsCC.map((item) => item[0]),
                     datasets: [
                       {
-                        label: 'Nº Operadores',
+                        label: 'Nº HC',
                         data: sortedOpsCC.map((item) => item[1]),
                         backgroundColor: COLOR_CC,
                       },
@@ -4893,7 +4893,7 @@
               }, 0);
             }
 
-            // RENDERIZAÇÃO DA TABELA DE REGISTOS COM O NÚMERO DE OPS
+            // RENDERIZAÇÃO DA TABELA DE REGISTOS COM O NÚMERO DE HC
             function renderTable(data) {
               closeColFilterPanel();
               if (dataTableInstance) {
@@ -4913,12 +4913,10 @@
                     : 'text-success';
                 const difText = dif > 0 ? `+${dif}` : `${dif}`;
 
-                // Função auxiliar para exibir contagem de operadores
+                // Função auxiliar para exibir contagem de HC
                 const formatShiftCell = (ops) => {
                   if (ops > 0) {
-                    return `<span class="badge bg-info text-dark">${ops} OP${
-                      ops > 1 ? 'S' : ''
-                    }</span>`;
+                    return `<span class="badge bg-info text-dark">${ops} HC</span>`;
                   }
                   return '<span class="text-muted">-</span>';
                 };
