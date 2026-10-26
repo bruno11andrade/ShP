@@ -1087,7 +1087,7 @@
                                 class="kpi-title fw-bold text-dark"
                                 style="font-size: 0.65rem"
                               >
-                                PEÇAS PLANEADAS
+                                PC PLANEADAS
                               </div>
                               <div
                                 class="fw-bold text-dark mt-1"
@@ -1211,7 +1211,7 @@
                               class="section-tag mb-1 align-self-start"
                               style="font-size: 0.68rem"
                             >
-                              <i class="fa-solid fa-users me-1"></i>HC
+                              <i class="fa-solid fa-users me-1"></i>#HC
                             </span>
                             <div
                               class="row g-2 flex-grow-1 align-items-stretch"
@@ -1225,7 +1225,7 @@
                                     class="kpi-title"
                                     style="font-size: 0.65rem"
                                   >
-                                    Nº HC LOGÍSTICA
+                                    #HC LOGÍSTICA
                                   </div>
                                   <div
                                     class="fw-bold text-dark mt-1"
@@ -1245,7 +1245,7 @@
                                     class="kpi-title"
                                     style="font-size: 0.65rem"
                                   >
-                                    Nº HC PRODUÇÃO
+                                    #HC PRODUÇÃO
                                   </div>
                                   <div
                                     class="fw-bold text-dark mt-1"
@@ -1746,7 +1746,7 @@
                   aria-controls="collapseOps"
                 >
                   <i class="fa-solid fa-user-gear me-2"></i>Análise de
-                  HC
+                  #HC
                 </button>
               </h2>
               <div
@@ -1760,7 +1760,7 @@
                       <div class="chart-card">
                         <h5 class="card-title text-secondary mb-3">
                           <i class="fa-solid fa-clock-rotate-left me-2"></i
-                          >HC por Semana
+                          >#HC por Semana
                         </h5>
                         <div class="scrollable-chart-container">
                           <div
@@ -1779,7 +1779,7 @@
                         >
                           <h5 class="card-title text-dark m-0">
                             <i class="fa-solid fa-sitemap me-2 text-area"></i
-                            >HC Produção por Área
+                            >#HC Produção por Área
                           </h5>
                           <small class="text-muted" style="font-size: 0.72rem"
                             ><i
@@ -1805,7 +1805,7 @@
                         >
                           <h5 class="card-title text-dark m-0">
                             <i class="fa-solid fa-coins me-2 text-cc"></i
-                            >HC Produção por C.C.<span
+                            >#HC Produção por C.C.<span
                               id="lblSelectedOpsArea"
                               class="text-cc fw-bold"
                             ></span>
@@ -3942,7 +3942,7 @@
                     datasets: [
                       {
                         type: 'line',
-                        label: 'Peças Planeadas',
+                        label: 'PC Planeadas',
                         data: opsSemanas.map((s) => s.plan),
                         yAxisID: 'y1',
                         borderColor: '#475569',
@@ -3954,14 +3954,14 @@
                         datalabels: { display: false },
                       },
                       {
-                        label: 'HC Logística',
+                        label: '#HC Logística',
                         data: opsSemanas.map((s) => s.log),
                         backgroundColor: '#0284c7',
                         stack: 'ops',
                         order: 1,
                       },
                       {
-                        label: 'HC Produção',
+                        label: '#HC Produção',
                         data: opsSemanas.map((s) => s.prod),
                         backgroundColor: '#fd7e14',
                         stack: 'ops',
@@ -3991,7 +3991,7 @@
                             const total = items
                               .filter((i) => i.dataset.stack === 'ops')
                               .reduce((a, i) => a + i.parsed.y, 0);
-                            return `Total HC: ${total}`;
+                            return `Total #HC: ${total}`;
                           },
                         },
                       },
@@ -4043,13 +4043,13 @@
                         suggestedMax: Math.ceil(
                           Math.max(0, ...opsSemanas.map((s) => s.prod + s.log)) * 1.3
                         ),
-                        title: { display: true, text: 'Nº HC' },
+                        title: { display: true, text: '#HC' },
                       },
                       y1: {
                         position: 'right',
                         beginAtZero: true,
                         grid: { drawOnChartArea: false },
-                        title: { display: true, text: 'Peças Planeadas' },
+                        title: { display: true, text: 'PC Planeadas' },
                         ticks: {
                           callback: (v) => v.toLocaleString('pt-PT'),
                         },
@@ -4085,7 +4085,7 @@
                     labels: opsAreaLabelsSorted,
                     datasets: [
                       {
-                        label: 'Nº HC',
+                        label: '#HC',
                         data: sortedOpsArea.map((item) => item[1]),
                         backgroundColor: opsAreaLabelsSorted.map((a) =>
                           a === selectedOpsAreaFilter ? '#003d6b' : COLOR_AREA
@@ -4156,7 +4156,7 @@
                     labels: sortedOpsCC.map((item) => item[0]),
                     datasets: [
                       {
-                        label: 'Nº HC',
+                        label: '#HC',
                         data: sortedOpsCC.map((item) => item[1]),
                         backgroundColor: COLOR_CC,
                       },
