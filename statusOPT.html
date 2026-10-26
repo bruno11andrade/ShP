@@ -56,6 +56,29 @@
         --btn-warning: #fbbf24;
         --btn-success: #34d399;
         --btn-danger: #f87171;
+        /* Página Fábrica: estado dos C.C. na planta e mapa de 10 dias */
+        --st-ok: #34d399;
+        --st-y: #fbbf24;
+        --st-o: #fb923c;
+        --st-r: #f87171;
+        --st-mf: #a78bfa;
+        --fab-ok-borda: #2f8f7a;
+        --fab-y-borda: #a68a2c;
+        --fab-o-borda: #c2703a;
+        --fab-o-fundo: #2a2124;
+        --fab-r-borda: #c25454;
+        --fab-r-fundo: #3a2129;
+        --fab-r-tinta: rgba(248, 113, 113, 0.05);
+        --fab-pulso: rgba(248, 113, 113, 0.28);
+        --fab-tile: #16213a;
+        --fab-planta: #111a2e;
+        --fab-grelha: rgba(148, 163, 184, 0.06);
+        --fab-parede: #475569;
+        --fab-sel-fundo: #164e63;
+        --fab-h-g: #2f9e6f;
+        --fab-h-o: #c98a2c;
+        --fab-h-r: #b84444;
+        --fab-h-vazio: #273449;
       }
 
       :root[data-theme='light'] {
@@ -87,6 +110,28 @@
         --btn-warning: #b45309;
         --btn-success: #15803d;
         --btn-danger: #b91c1c;
+        --st-ok: #15803d;
+        --st-y: #a16207;
+        --st-o: #c2410c;
+        --st-r: #b91c1c;
+        --st-mf: #7c3aed;
+        --fab-ok-borda: #6fbf98;
+        --fab-y-borda: #d6b54a;
+        --fab-o-borda: #e3955c;
+        --fab-o-fundo: #fff4ea;
+        --fab-r-borda: #df7777;
+        --fab-r-fundo: #fdecec;
+        --fab-r-tinta: rgba(185, 28, 28, 0.04);
+        --fab-pulso: rgba(185, 28, 28, 0.22);
+        --fab-tile: #f8fafc;
+        --fab-planta: #f1f5f9;
+        --fab-grelha: rgba(15, 23, 42, 0.05);
+        --fab-parede: #94a3b8;
+        --fab-sel-fundo: #cffafe;
+        --fab-h-g: #3fae7c;
+        --fab-h-o: #e0a23e;
+        --fab-h-r: #d45454;
+        --fab-h-vazio: #e2e8f0;
       }
 
       /* OCULTAR NAVEGAÇÃO LATERAL, RIBBON, TÍTULOS E PESQUISA DO SHAREPOINT */
@@ -1497,13 +1542,480 @@
       .modal-kpi .modal-footer {
         border-top: 1px solid var(--border-color);
       }
+
+      /* ===================== PÁGINA FÁBRICA E NAVEGAÇÃO ===================== */
+      .fab-escondido {
+        display: none !important;
+      }
+      .fab-pg {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        color: var(--text-main);
+      }
+      .fab-mut {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+      }
+      .fab-neg {
+        color: var(--st-r);
+      }
+      .fab-pos {
+        color: var(--st-ok);
+      }
+      .fab-amb {
+        color: var(--st-o);
+      }
+      .fab-cy {
+        color: var(--cyan-accent);
+      }
+      .fab-pur {
+        color: var(--st-mf);
+      }
+      /* Botões segmentados: armazém, período e separadores */
+      .fab-seg {
+        display: inline-flex;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .fab-seg button {
+        font: inherit;
+        font-size: 0.82rem;
+        font-weight: 700;
+        padding: 6px 14px;
+        color: var(--text-muted);
+        background: transparent;
+        border: 0;
+        cursor: pointer;
+      }
+      .fab-seg button + button {
+        border-left: 1px solid var(--border-color);
+      }
+      .fab-seg button.on {
+        background: var(--fab-sel-fundo);
+        color: var(--cyan-accent);
+      }
+      .fab-seg button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .fab-seg button:focus-visible,
+      .fab-tile:focus-visible,
+      .fab-btn:focus-visible,
+      .fab-voltar:focus-visible,
+      .fab-wh-nome:focus-visible {
+        outline: 2px solid var(--cyan-accent);
+        outline-offset: 2px;
+      }
+      .fab-nav {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        /* o cabeçalho sobe 8px por baixo desta linha */
+        padding-bottom: 8px;
+      }
+      #fab-aviso:empty {
+        display: none;
+      }
+      .fab-voltar {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--cyan-accent);
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 5px 12px;
+        cursor: pointer;
+      }
+      .fab-voltar:hover {
+        border-color: var(--cyan-accent);
+      }
+      .fab-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 14px;
+        min-width: 0;
+        box-shadow: var(--card-shadow);
+      }
+      .fab-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+      }
+      .fab-lbl {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-label);
+      }
+      .fab-big {
+        font-size: 1.75rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.15;
+        margin: 6px 0 4px;
+      }
+      .fab-meio {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: stretch;
+      }
+      .fab-planta-col {
+        flex: 999 1 720px;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .fab-planta {
+        background-color: var(--fab-planta);
+        background-image: linear-gradient(var(--fab-grelha) 1px, transparent 1px),
+          linear-gradient(90deg, var(--fab-grelha) 1px, transparent 1px);
+        background-size: 24px 24px;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 34px 16px 16px;
+        position: relative;
+        min-width: 0;
+      }
+      .fab-planta-lbl,
+      .fab-al {
+        font-family: Consolas, ui-monospace, monospace;
+      }
+      .fab-planta-lbl {
+        position: absolute;
+        top: 10px;
+        left: 14px;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        color: var(--text-muted);
+      }
+      .fab-edificios {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+        gap: 22px;
+        margin-top: 8px;
+      }
+      .fab-wh {
+        border: 2px solid var(--fab-parede);
+        border-radius: 6px;
+        padding: 34px 12px 12px;
+        position: relative;
+        min-width: 0;
+      }
+      .fab-wh-off {
+        border-style: dashed;
+        opacity: 0.7;
+      }
+      .fab-whl {
+        position: absolute;
+        top: -17px;
+        left: 12px;
+        background: var(--bg-card);
+        border: 2px solid var(--fab-parede);
+        border-radius: 6px;
+        padding: 4px 10px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 13px;
+      }
+      .fab-wh-nome {
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text-main);
+        background: transparent;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+      }
+      .fab-wh-nome:hover {
+        color: var(--cyan-accent);
+        text-decoration: underline;
+      }
+      .fab-whs-r {
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .fab-wh-vazio {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        padding: 18px 4px;
+        text-align: center;
+      }
+      .fab-areas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+      }
+      .fab-area {
+        border: 1px dashed var(--fab-parede);
+        border-radius: 4px;
+        padding: 8px;
+        min-width: 0;
+      }
+      .fab-a-r {
+        border-color: var(--fab-r-borda);
+        background: var(--fab-r-tinta);
+      }
+      .fab-a-o {
+        border-color: var(--fab-o-borda);
+      }
+      .fab-al {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-label);
+        margin-bottom: 8px;
+      }
+      .fab-tiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+        gap: 8px;
+      }
+      .fab-tile {
+        position: relative;
+        font: inherit;
+        width: 100%;
+        border-radius: 6px;
+        border: 1px solid var(--fab-parede);
+        padding: 8px 4px;
+        background: var(--fab-tile);
+        color: var(--text-main);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        min-height: 52px;
+      }
+      .fab-tile b {
+        font-size: 13px;
+      }
+      .fab-tile .v {
+        font-size: 12px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .fab-t-ok {
+        border-color: var(--fab-ok-borda);
+      }
+      .fab-t-ok .v {
+        color: var(--st-ok);
+      }
+      .fab-t-y {
+        border-color: var(--fab-y-borda);
+      }
+      .fab-t-y .v {
+        color: var(--st-y);
+      }
+      .fab-t-o {
+        border-color: var(--fab-o-borda);
+        background: var(--fab-o-fundo);
+      }
+      .fab-t-o .v {
+        color: var(--st-o);
+      }
+      .fab-t-r {
+        border-color: var(--fab-r-borda);
+        background: var(--fab-r-fundo);
+      }
+      .fab-t-r .v {
+        color: var(--st-r);
+      }
+      .fab-sel {
+        outline: 2px solid var(--cyan-accent);
+        outline-offset: 2px;
+      }
+      .fab-dot {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--st-mf);
+      }
+      @keyframes fab-pulso {
+        50% {
+          box-shadow: 0 0 0 4px var(--fab-pulso);
+        }
+      }
+      /* Só pisca para quem não pediu ao sistema para reduzir o movimento */
+      @media (prefers-reduced-motion: no-preference) {
+        .fab-t-r {
+          animation: fab-pulso 1.6s ease-in-out infinite;
+        }
+      }
+      .fab-legenda {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--text-muted);
+        align-items: center;
+      }
+      .fab-sw {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        border: 1px solid;
+        vertical-align: -2px;
+        margin-right: 6px;
+      }
+      .fab-detalhe {
+        flex: 1 1 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .fab-det-cc {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--cyan-accent);
+      }
+      .fab-det-delta {
+        font-size: 2.5rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+      }
+      .fab-barra {
+        height: 8px;
+        border-radius: 4px;
+        background: var(--border-color);
+        overflow: hidden;
+        margin: 10px 0;
+      }
+      .fab-barra i {
+        display: block;
+        height: 100%;
+        background: var(--cyan-accent);
+      }
+      .fab-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.85rem;
+        padding: 6px 0;
+      }
+      .fab-alerta {
+        border: 1px solid;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 0.85rem;
+      }
+      .fab-alerta-mf {
+        border-color: var(--st-mf);
+        color: var(--st-mf);
+      }
+      .fab-alerta-te {
+        border-color: var(--st-r);
+        color: var(--st-r);
+      }
+      .fab-btn {
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 700;
+        border-radius: 8px;
+        padding: 10px 14px;
+        border: 1px solid var(--cyan-accent);
+        background: transparent;
+        color: var(--cyan-accent);
+        text-align: center;
+        cursor: pointer;
+        margin-top: auto;
+      }
+      .fab-btn:hover {
+        background: var(--fab-sel-fundo);
+      }
+      .fab-baixo {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
+        gap: 14px;
+      }
+      .fab-h2 {
+        margin: 0 0 10px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-main);
+      }
+      .fab-tbl-wrap {
+        overflow-x: auto;
+      }
+      .fab-tbl {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-main);
+      }
+      .fab-tbl th {
+        text-align: left;
+        font-size: 0.7rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 700;
+        padding: 7px 8px;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .fab-tbl td {
+        padding: 8px;
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
+      }
+      .fab-tbl tr.fab-tr-link {
+        cursor: pointer;
+      }
+      .fab-tbl tr.fab-tr-link:hover td {
+        background: var(--bg-stripe);
+      }
+      .fab-mapa {
+        display: grid;
+        grid-template-columns: 52px repeat(10, minmax(0, 1fr));
+        gap: 4px;
+        font-size: 11px;
+        align-items: center;
+      }
+      .fab-hc {
+        height: 18px;
+        border-radius: 3px;
+      }
+      .fab-h-g {
+        background: var(--fab-h-g);
+      }
+      .fab-h-o {
+        background: var(--fab-h-o);
+      }
+      .fab-h-r {
+        background: var(--fab-h-r);
+      }
+      .fab-h-vazio {
+        background: var(--fab-h-vazio);
+      }
     </style>
   </head>
   <body>
     <div class="container-fluid" id="opt-dashboard-wrapper">
-      <!-- Hora da última atualização, por cima do cabeçalho -->
-      <div class="d-flex justify-content-end mb-1">
-        <div class="opt-header-status">
+      <!-- Linha de cima: voltar à Fábrica e escolher o armazém (só na
+           vista do armazém) e a hora da última atualização -->
+      <div class="d-flex justify-content-between align-items-center mb-1 gap-2 flex-wrap">
+        <div class="fab-nav fab-escondido" id="opt-navArmazem">
+          <button type="button" class="fab-voltar" data-ir-fabrica="1">
+            <i class="fa-solid fa-arrow-left me-1"></i>Fábrica
+          </button>
+          <div class="fab-seg" id="opt-segArmazem" role="group" aria-label="Armazém"></div>
+        </div>
+        <div class="opt-header-status ms-auto">
           <i class="fa-regular fa-clock me-1"></i>Atualizado a
           <span id="opt-lblTimestamp">--/--/---- --:--:--</span>
           <span id="opt-lblIdadeDados"></span>
@@ -1513,6 +2025,7 @@
       <!-- Cabeçalho -->
       <div
         class="opt-header-bar d-flex justify-content-between align-items-center"
+        id="opt-headerArmazem"
       >
         <div class="opt-header-title">
           <span
@@ -1522,7 +2035,7 @@
           ></span
           >Live Status | Plano Produção
         </div>
-        <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-3" id="opt-headerDireita">
           <button
             type="button"
             id="opt-btnTema"
@@ -1555,7 +2068,10 @@
             <i class="fa-solid fa-flask me-1"></i>Ensaios:
             <span id="opt-lblEnsaiosValor">--</span>
           </div>
-          <div class="opt-week-badge d-flex align-items-center gap-1">
+          <div
+            class="opt-week-badge d-flex align-items-center gap-1"
+            id="opt-periodoPlano"
+          >
             <i class="fa-regular fa-calendar-days me-1"></i>
             <span>Período:</span>
             <input
@@ -1578,14 +2094,26 @@
           >
             <i class="fa-solid fa-rotate me-1"></i> Atualizar Dados
           </button>
-          <button
-            type="button"
-            id="opt-btnHistorico"
-            class="btn btn-outline-info btn-sm fw-bold"
-            title="Ver histórico dos Planos de Produção"
-          >
-            <i class="fa-solid fa-clock-rotate-left me-1"></i> Histórico
-          </button>
+          <div class="fab-seg" role="tablist" aria-label="Vista">
+            <button
+              type="button"
+              role="tab"
+              id="opt-tabPlano"
+              class="on"
+              aria-selected="true"
+            >
+              Plano atual
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="opt-tabHistorico"
+              aria-selected="false"
+              title="Ver histórico dos Planos de Produção"
+            >
+              <i class="fa-solid fa-clock-rotate-left me-1"></i>Histórico
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1603,6 +2131,86 @@
 
       <!-- Aviso de dados incompletos (lista cortada) -->
       <div id="opt-avisoDados" style="display: none" class="mb-2"></div>
+
+      <!-- ======================= PÁGINA FÁBRICA ======================= -->
+      <div id="opt-fabricaContent" style="display: none">
+        <div class="fab-pg">
+          <div
+            class="opt-header-bar d-flex justify-content-between align-items-center flex-wrap gap-2"
+          >
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+              <div class="opt-header-title">
+                <span
+                  class="opt-live-dot"
+                  id="fab-liveDot"
+                  title="A carregar..."
+                ></span
+                >Live Status | Fábrica
+              </div>
+              <nav class="fab-seg" id="fab-navArmazens" aria-label="Âmbito"></nav>
+            </div>
+            <div
+              class="d-flex align-items-center gap-3 flex-wrap"
+              id="fab-headerDireita"
+            >
+              <div class="fab-seg" role="group" aria-label="Período">
+                <button type="button" data-fab-periodo="hoje">Hoje</button>
+                <button type="button" data-fab-periodo="semana" class="on">
+                  Semana
+                </button>
+              </div>
+              <span class="fab-mut" id="fab-lblPeriodo"></span>
+              <button
+                type="button"
+                id="fab-btnRefresh"
+                class="btn btn-outline-primary btn-sm fw-bold"
+              >
+                <i class="fa-solid fa-rotate me-1"></i> Atualizar Dados
+              </button>
+            </div>
+          </div>
+
+          <div id="fab-aviso"></div>
+
+          <section class="fab-kpis" id="fab-kpis" aria-label="Indicadores da fábrica"></section>
+
+          <section class="fab-meio">
+            <div class="fab-planta-col">
+              <div class="fab-planta">
+                <div class="fab-planta-lbl">PLANTA · OVAR</div>
+                <div class="fab-edificios" id="fab-edificios"></div>
+              </div>
+              <div class="fab-legenda">
+                <span><span class="fab-sw" style="border-color: var(--fab-ok-borda)"></span>Em avanço</span>
+                <span><span class="fab-sw" style="border-color: var(--fab-y-borda)"></span>Atraso &lt; 4 h</span>
+                <span><span class="fab-sw" style="border-color: var(--fab-o-borda); background: var(--fab-o-fundo)"></span>4 – 8 h</span>
+                <span><span class="fab-sw" style="border-color: var(--fab-r-borda); background: var(--fab-r-fundo)"></span>&gt; 8 h (pisca)</span>
+                <span><span class="fab-sw" style="border-color: var(--st-mf); background: var(--st-mf); border-radius: 50%"></span>Material em falha</span>
+              </div>
+            </div>
+            <aside class="fab-card fab-detalhe" id="fab-detalhe" aria-live="polite"></aside>
+          </section>
+
+          <section class="fab-baixo">
+            <div class="fab-card">
+              <h2 class="fab-h2">Os 5 C.C. com mais atraso</h2>
+              <div class="fab-tbl-wrap">
+                <table class="fab-tbl" id="fab-top"></table>
+              </div>
+            </div>
+            <div class="fab-card">
+              <h2 class="fab-h2">Cumprimento do plano · últimos 10 dias úteis</h2>
+              <div class="fab-mapa" id="fab-mapa"></div>
+              <div class="fab-legenda" style="margin-top: 10px">
+                <span><span class="fab-sw fab-h-g" style="border-color: var(--fab-h-g)"></span>≥ 95%</span>
+                <span><span class="fab-sw fab-h-o" style="border-color: var(--fab-h-o)"></span>85–95%</span>
+                <span><span class="fab-sw fab-h-r" style="border-color: var(--fab-h-r)"></span>&lt; 85%</span>
+                <span><span class="fab-sw fab-h-vazio" style="border-color: var(--fab-h-vazio)"></span>Sem plano</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
 
       <!-- Dashboard Content -->
       <div id="opt-dashboardContent" style="display: none">
@@ -2549,6 +3157,47 @@
         const MD07_FOLDER_SERVER_RELATIVE =
           '/departments/logistica/Documentos Planeamento/ZZ_Arquivo/MD07';
 
+        // =====================================================================
+        // FÁBRICA E ARMAZÉNS
+        // =====================================================================
+        /* Armazéns da fábrica e as áreas de cada um. É aqui, e só aqui, que
+           se diz a que armazém pertence cada área. Um armazém ainda por
+           ligar (ativo: false) aparece na página Fábrica como "em
+           preparação" e não se pode abrir. */
+        const ARMAZENS = [
+          { id: 'OV2', tipo: 'Prensas', areas: ['OPA', 'OPT'], ativo: true },
+          {
+            id: 'OV9',
+            tipo: 'Hot forming',
+            areas: ['OHF1', 'OHF2', 'OHF3'],
+            ativo: false,
+          },
+        ];
+        // Horas de um turno: base dos "turnos" da página Fábrica e da
+        // previsão de trabalho extra.
+        const HORAS_POR_TURNO = 7.5;
+        // Cores dos C.C. na planta: em atraso até 4 h amarelo, até 8 h
+        // laranja, acima disso vermelho.
+        const FAB_LIMITE_LARANJA = 4;
+        const FAB_LIMITE_VERMELHO = 8;
+        const FAB_DIAS_MAPA = 10;
+        // A causa principal de um C.C. vê-se nos registos deste nº de dias
+        const FAB_DIAS_CAUSA = 30;
+
+        let armazemAtual = null; // null = página Fábrica
+        let separadorAtual = 'plano'; // 'plano' ou 'historico'
+        let areaPendente = null; // área a escolher quando o armazém abrir
+        let fabPeriodo = 'semana'; // 'hoje' ou 'semana'
+        let fabSelecionado = null; // { cc, area } escolhido na planta
+        let fabUltimosDados = null;
+        let fabTicks = 0;
+        // Enquanto se calcula a página Fábrica, a semana em análise é a do
+        // período da Fábrica e não a do período escolhido no armazém.
+        let periodoForcado = null;
+        // C.C. -> armazéns onde aparece (pelas áreas do plano e dos ensaios)
+        let mapaCCArmazens = {};
+        let histArmazem = null;
+
         // --- Tema (escuro por defeito / claro) ---
         const THEME_STORAGE_KEY = 'opt_tema_v1';
 
@@ -2966,8 +3615,10 @@
             setTimeout(colarDashboardAoTopo, 1200);
           });
           setDefaultDateRange();
+          lerRota();
           bindEvents();
           initPaineis();
+          aplicarVista();
           loadData();
           startLiveTimer();
           agendarRefrescoAutomatico();
@@ -2978,6 +3629,12 @@
           document.addEventListener('visibilitychange', function () {
             if (document.hidden) return;
             refrescarSeVelho();
+          });
+
+          // Botões Retroceder/Avançar do browser entre Fábrica e armazéns
+          window.addEventListener('popstate', function () {
+            lerRota();
+            aplicarVista();
           });
         });
 
@@ -3032,12 +3689,63 @@
               aplicarTema(getTemaAtual() === 'light' ? 'dark' : 'light', true);
             });
 
-          $('#opt-btnHistorico')
+          $('#opt-tabPlano')
             .off('click')
-            .on('click', function (e) {
-              e.preventDefault();
-              e.stopPropagation();
-              toggleHistorico();
+            .on('click', function () {
+              abrirSeparador('plano');
+            });
+          $('#opt-tabHistorico')
+            .off('click')
+            .on('click', function () {
+              abrirSeparador('historico');
+            });
+
+          // Navegação entre a Fábrica e os armazéns
+          $(document)
+            .off('click.fab')
+            .on('click.fab', '[data-ir-fabrica]', function () {
+              irParaFabrica();
+            })
+            .on('click.fab', '[data-ir-armazem]', function () {
+              irParaArmazem(String($(this).data('ir-armazem')));
+            });
+
+          $('[data-fab-periodo]')
+            .off('click')
+            .on('click', function () {
+              fabPeriodo = $(this).data('fab-periodo') === 'hoje' ? 'hoje' : 'semana';
+              $('[data-fab-periodo]').each(function () {
+                $(this).toggleClass('on', $(this).data('fab-periodo') === fabPeriodo);
+              });
+              renderFabrica();
+            });
+
+          $('#fab-btnRefresh')
+            .off('click')
+            .on('click', function () {
+              $('#opt-btnRefresh').trigger('click');
+            });
+
+          $('#fab-edificios')
+            .off('click', '.fab-tile')
+            .on('click', '.fab-tile', function () {
+              fabSelecionado = {
+                cc: String($(this).data('fab-cc')),
+                area: String($(this).data('fab-area')),
+              };
+              if (fabUltimosDados) {
+                renderFabPlanta(fabUltimosDados);
+                renderFabDetalhe(fabUltimosDados);
+              }
+            });
+
+          $('#fab-detalhe, #fab-top')
+            .off('click', '[data-fab-abrir-cc]')
+            .on('click', '[data-fab-abrir-cc]', function () {
+              irParaArmazem(String($(this).data('armazem')), {
+                area: String($(this).data('fab-area')),
+                cc: String($(this).data('fab-abrir-cc')),
+              });
             });
 
           // Multi-select event binding
@@ -3379,6 +4087,8 @@
             renderSummaryKPIs();
             updateMd07StaleAlert();
             atualizarFrescuraDados();
+            fabTicks++;
+            if (!armazemAtual && fabTicks % 6 === 0) renderFabrica();
           }, 10000);
         }
 
@@ -3839,7 +4549,11 @@
         /* Segunda-feira da semana do início do período em análise. */
         function getSegundaDoPeriodo() {
           const startVal = $('#opt-startDate').val();
-          const base = startVal ? new Date(startVal + 'T00:00:00') : new Date();
+          const base = periodoForcado
+            ? new Date(periodoForcado)
+            : startVal
+            ? new Date(startVal + 'T00:00:00')
+            : new Date();
           const diaIso = base.getDay() === 0 ? 7 : base.getDay();
           const segunda = new Date(
             base.getFullYear(),
@@ -3969,7 +4683,7 @@
         function loadData(silencioso) {
           if (!silencioso) {
             $('#opt-loadingSpinner').show();
-            $('#opt-dashboardContent').hide();
+            $('#opt-dashboardContent, #opt-fabricaContent').hide();
           }
 
           const reqOpt = lerListaCompleta(
@@ -4316,6 +5030,7 @@
             };
           });
 
+          construirMapaCCArmazens();
           applyDateFilter();
           reevaluateRisk();
 
@@ -4327,7 +5042,11 @@
           );
           atualizarFrescuraDados();
           $('#opt-loadingSpinner').hide();
-          $('#opt-dashboardContent').fadeIn();
+          mostrarConteudo();
+          if (!armazemAtual) renderFabrica();
+          else if (separadorAtual === 'historico' && histInitialized) {
+            prepararHistorico();
+          }
         }
 
         /* Idade dos dados no ecrã: até 15 minutos passa despercebida, a
@@ -4399,30 +5118,18 @@
           if (!startVal || !endVal) return;
           const startDate = new Date(startVal + 'T00:00:00');
           const endDate = new Date(endVal + 'T23:59:59');
-          currentFilteredItems = rawListItems.filter((item) => {
-            if (!item.RawDateObj) return false;
-            return item.RawDateObj >= startDate && item.RawDateObj <= endDate;
-          });
-          // Os ensaios seguem exatamente o mesmo filtro de datas do plano
-          currentFilteredEnsaios = rawEnsaioItems.filter((item) => {
-            if (!item.RawDateObj) return false;
-            return item.RawDateObj >= startDate && item.RawDateObj <= endDate;
-          });
+          const periodo = filtrarPeriodo(startDate, endDate, true);
+          currentFilteredItems = periodo.itens;
+          currentFilteredEnsaios = periodo.ensaios;
           ensaiosDiag.noPeriodo = currentFilteredEnsaios.length;
-
-          // Backlog: tudo o que ficou por produzir antes do início do
-          // período. Não entra em currentFilteredItems (que é só o período),
-          // por isso anda à parte, mas conta nas horas planeadas dos C.C.
-          // Os ensaios não entram: os de dias passados dão-se por feitos.
-          currentBacklogItems = rawListItems.filter(
-            (item) =>
-              item.RawDateObj &&
-              item.RawDateObj < startDate &&
-              !estaProduzido(item)
-          );
+          currentBacklogItems = periodo.backlog;
 
           const optCCs = currentFilteredItems.map((i) => i.CC);
-          const modCCs = rawModItems.map((i) => i.CC);
+          // A MOD não tem área: um C.C. que se sabe ser de outro armazém
+          // fica de fora.
+          const modCCs = rawModItems
+            .map((i) => i.CC)
+            .filter((cc) => ccNoArmazemAtual(cc));
           const ensaioCCs = currentFilteredEnsaios.map((i) => i.CC);
           availableCCs = [...new Set([...optCCs, ...modCCs, ...ensaioCCs])]
             .filter((x) => x && x !== 'N/A')
@@ -4438,9 +5145,10 @@
 
           // Inclui as áreas dos ensaios, para que uma área que só tenha
           // ensaios (sem plano de produção) continue a poder ser filtrada.
+          // Só as do armazém em vista.
           const areas = [
             ...new Set(
-              [...rawListItems, ...rawEnsaioItems]
+              itensDoArmazem([...rawListItems, ...rawEnsaioItems])
                 .map((i) => i.Area)
                 .filter(Boolean)
             ),
@@ -4458,9 +5166,15 @@
 
           // Por defeito não fica nenhuma área selecionada (mostra todas);
           // só mantém o valor anterior se já tinha sido escolhida uma área.
-          const activeArea = currentVal && areas.includes(currentVal)
+          let activeArea = currentVal && areas.includes(currentVal)
             ? currentVal
             : '';
+          // Área pedida ao abrir o armazém (a partir da Fábrica ou do link)
+          if (areaPendente) {
+            activeArea =
+              areas.find((a) => String(a).toUpperCase() === areaPendente) || '';
+            areaPendente = null;
+          }
           selArea.val(activeArea);
 
           renderAreaButtons(areas, activeArea);
@@ -4565,9 +5279,9 @@
           let ajusteTurnos = 0;
           if (deltaHoras < 0) {
             const horasAtraso = Math.abs(deltaHoras);
-            ajusteTurnos = Math.floor(horasAtraso / 7.5);
+            ajusteTurnos = Math.floor(horasAtraso / HORAS_POR_TURNO);
           } else if (deltaHoras > 0) {
-            ajusteTurnos = -Math.floor(deltaHoras / 7.5);
+            ajusteTurnos = -Math.floor(deltaHoras / HORAS_POR_TURNO);
           }
 
           const totalPrevisto = turnosExtraMod + ajusteTurnos;
@@ -7075,6 +7789,16 @@
           const displayCCs = getCCsForArea(selectedArea);
           const activeCCs = getActiveCCs(displayCCs);
 
+          riskMaterials = calcularRiscos(activeCCs);
+          renderRiskTable();
+          // O MD07 e o CO KA chegam depois do plano: a Fábrica acompanha
+          if (!armazemAtual) renderFabrica();
+        }
+
+        /* Materiais em risco (MD07 + CO KA) para uma lista de C.C. — a mesma
+           conta da tabela "Material em risco de falha", também usada pela
+           página Fábrica para todos os C.C. */
+        function calcularRiscos(activeCCs) {
           const rows = md07Data.rows;
           const pairs = cokaData && cokaData.pairs ? cokaData.pairs : {};
 
@@ -7237,12 +7961,10 @@
               .filter((r) => r.CoKaDe)
               .map((r) => `${r.CC}|${r.CoKaDe.toUpperCase()}`)
           );
-          riskMaterials = results.filter(
+          return results.filter(
             (r) =>
               r.CoKaDe || !referidosPorCoKa.has(`${r.CC}|${r.KA.toUpperCase()}`)
           );
-
-          renderRiskTable();
         }
 
         /* Janela de deteção: mostram-se os materiais que faltam dentro de
@@ -7901,55 +8623,55 @@
         // ======================= MÓDULO "HISTÓRICO" (Planos de Produção) =======================
         // Reutiliza rawListItems (já obtido da mesma lista LIST_GUID), sem nova chamada REST.
 
-        function toggleHistorico() {
-          const $hist = $('#opt-historicoContent');
-          const $main = $('#opt-dashboardContent');
-          const isHistVisible = $hist.is(':visible');
+        /* Separadores Plano atual | Histórico da vista do armazém. No
+           Histórico não se aplicam o backlog, os ensaios nem o período do
+           plano, por isso saem do cabeçalho. */
+        function abrirSeparador(nome) {
+          separadorAtual = nome === 'historico' ? 'historico' : 'plano';
+          const hist = separadorAtual === 'historico';
+          $('#opt-tabPlano').toggleClass('on', !hist).attr('aria-selected', String(!hist));
+          $('#opt-tabHistorico').toggleClass('on', hist).attr('aria-selected', String(hist));
+          $('#opt-lblBacklog, #opt-lblEnsaios, #opt-periodoPlano').toggleClass(
+            'fab-escondido',
+            hist
+          );
+          mostrarConteudo();
+          if (!hist) return;
 
-          if (isHistVisible) {
-            $hist.hide();
-            $main.show();
-            $('#opt-btnHistorico').html(
-              '<i class="fa-solid fa-clock-rotate-left me-1"></i> Histórico'
+          // Se os dados ainda não foram carregados, tenta carregar agora
+          if (rawListItems.length === 0) {
+            if ($('#opt-histLoadingMsg').length) return;
+            $('#opt-historicoContent').prepend(
+              '<div id="opt-histLoadingMsg" class="alert alert-warning text-center"><i class="fa-solid fa-spinner fa-spin me-2"></i>A carregar dados do SharePoint...</div>'
             );
-          } else {
-            $main.hide();
-            $hist.show();
-            $('#opt-btnHistorico').html(
-              '<i class="fa-solid fa-arrow-left me-1"></i> Voltar ao Dashboard'
-            );
-            // Se os dados ainda não foram carregados, tenta carregar agora
-            if (rawListItems.length === 0) {
-              const $histContent = $('#opt-historicoContent');
-              $histContent.prepend(
-                '<div id="opt-histLoadingMsg" class="alert alert-warning text-center"><i class="fa-solid fa-spinner fa-spin me-2"></i>A carregar dados do SharePoint...</div>'
-              );
-              loadData();
-              // Verifica periodicamente se os dados chegaram
-              const retryInterval = setInterval(function () {
-                if (rawListItems.length > 0) {
-                  clearInterval(retryInterval);
-                  $('#opt-histLoadingMsg').remove();
-                  if (!histInitialized) {
-                    initHistorico();
-                    histInitialized = true;
-                  } else {
-                    applyHistFilters();
-                  }
-                }
-              }, 1000);
-              // Timeout de segurança após 15 segundos
-              setTimeout(function () {
+            loadData();
+            // Verifica periodicamente se os dados chegaram
+            const retryInterval = setInterval(function () {
+              if (rawListItems.length > 0) {
                 clearInterval(retryInterval);
-              }, 15000);
-              return;
-            }
-            if (!histInitialized) {
-              initHistorico();
-              histInitialized = true;
-            } else {
-              applyHistFilters();
-            }
+                $('#opt-histLoadingMsg').remove();
+                prepararHistorico();
+              }
+            }, 1000);
+            // Timeout de segurança após 15 segundos
+            setTimeout(function () {
+              clearInterval(retryInterval);
+              $('#opt-histLoadingMsg').remove();
+            }, 15000);
+            return;
+          }
+          prepararHistorico();
+        }
+
+        /* O Histórico é do armazém em vista: ao mudar de armazém os filtros
+           voltam ao início, com as áreas, C.C. e KA desse armazém. */
+        function prepararHistorico() {
+          if (!histInitialized || histArmazem !== armazemAtual) {
+            histArmazem = armazemAtual;
+            histInitialized = true;
+            initHistorico();
+          } else {
+            applyHistFilters();
           }
         }
 
@@ -8161,7 +8883,7 @@
 
         function populateHistAreaSelect() {
           const areas = Array.from(
-            new Set(rawListItems.map((i) => i.Area).filter(Boolean))
+            new Set(itensDoArmazem(rawListItems).map((i) => i.Area).filter(Boolean))
           ).sort();
           const items = areas.map((a) => ({ value: a, label: a }));
           populateMultiSelect('hist-ms-area', items, 'Todas');
@@ -8171,7 +8893,7 @@
           const selAreas = getMultiSelectValues('hist-ms-area');
           const ccs = Array.from(
             new Set(
-              rawListItems
+              itensDoArmazem(rawListItems)
                 .filter(
                   (i) => selAreas.length === 0 || selAreas.includes(i.Area)
                 )
@@ -8188,7 +8910,7 @@
           const selCCs = getMultiSelectValues('hist-ms-cc');
           const kas = Array.from(
             new Set(
-              rawListItems
+              itensDoArmazem(rawListItems)
                 .filter(
                   (i) =>
                     (selAreas.length === 0 || selAreas.includes(i.Area)) &&
@@ -8404,7 +9126,7 @@
             }
           }
 
-          return rawListItems.filter((item) => {
+          return itensDoArmazem(rawListItems).filter((item) => {
             if (selAreas.length > 0 && !selAreas.includes(item.Area))
               return false;
             if (
@@ -9423,6 +10145,737 @@
               },
             }
           );
+        }
+
+        // =====================================================================
+        // NAVEGAÇÃO FÁBRICA / ARMAZÉM E PÁGINA FÁBRICA
+        // =====================================================================
+        function armazemPorId(id) {
+          return ARMAZENS.find((a) => a.id === id) || null;
+        }
+
+        function armazemDaArea(area) {
+          const a = String(area || '').trim().toUpperCase();
+          return ARMAZENS.find((w) => w.areas.indexOf(a) !== -1) || null;
+        }
+
+        /* Uma área sem armazém conhecido continua à vista dentro do
+           armazém (é como o dashboard sempre funcionou); só sai quando se
+           sabe que é de outro armazém. */
+        function areaNoArmazemAtual(area) {
+          if (!armazemAtual) return true;
+          const w = armazemDaArea(area);
+          return !w || w.id === armazemAtual;
+        }
+
+        function itensDoArmazem(lista) {
+          return lista.filter((i) => areaNoArmazemAtual(i.Area));
+        }
+
+        function construirMapaCCArmazens() {
+          mapaCCArmazens = {};
+          [...rawListItems, ...rawEnsaioItems].forEach((i) => {
+            const w = armazemDaArea(i.Area);
+            if (!w || !i.CC || i.CC === 'N/A') return;
+            const chave = normalizeCC(i.CC);
+            if (!mapaCCArmazens[chave]) mapaCCArmazens[chave] = new Set();
+            mapaCCArmazens[chave].add(w.id);
+          });
+        }
+
+        function ccNoArmazemAtual(cc) {
+          if (!armazemAtual) return true;
+          const ids = mapaCCArmazens[normalizeCC(cc)];
+          return !ids || ids.has(armazemAtual);
+        }
+
+        /* Linhas do plano, ensaios e backlog de um período. O backlog é tudo
+           o que ficou por produzir antes do início do período; os ensaios
+           não entram nele (os de dias passados dão-se por feitos). */
+        function filtrarPeriodo(startDate, endDate, soDoArmazem) {
+          const noPeriodo = (i) =>
+            i.RawDateObj && i.RawDateObj >= startDate && i.RawDateObj <= endDate;
+          const doArmazem = (i) => !soDoArmazem || areaNoArmazemAtual(i.Area);
+          return {
+            itens: rawListItems.filter((i) => noPeriodo(i) && doArmazem(i)),
+            ensaios: rawEnsaioItems.filter((i) => noPeriodo(i) && doArmazem(i)),
+            backlog: rawListItems.filter(
+              (i) =>
+                i.RawDateObj &&
+                i.RawDateObj < startDate &&
+                !estaProduzido(i) &&
+                doArmazem(i)
+            ),
+          };
+        }
+
+        /* Corre uma conta noutro período (o da Fábrica) com as mesmas
+           funções da vista do armazém, e repõe tudo no fim. */
+        function comPeriodo(inicio, fim, fn) {
+          const guardado = {
+            itens: currentFilteredItems,
+            ensaios: currentFilteredEnsaios,
+            backlog: currentBacklogItems,
+            forcado: periodoForcado,
+          };
+          const p = filtrarPeriodo(inicio, fim, false);
+          currentFilteredItems = p.itens;
+          currentFilteredEnsaios = p.ensaios;
+          currentBacklogItems = p.backlog;
+          periodoForcado = inicio;
+          try {
+            return fn();
+          } finally {
+            currentFilteredItems = guardado.itens;
+            currentFilteredEnsaios = guardado.ensaios;
+            currentBacklogItems = guardado.backlog;
+            periodoForcado = guardado.forcado;
+          }
+        }
+
+        // ---------------------------------------------------------------- rota
+        /* ?armazem=OV2 abre a vista do armazém; sem nada abre a Fábrica.
+           &area=OPA escolhe logo a área (útil para os ecrãs de cada zona). */
+        function lerRota() {
+          let params;
+          try {
+            params = new URLSearchParams(window.location.search);
+          } catch (e) {
+            params = null;
+          }
+          const id = params ? String(params.get('armazem') || '').trim().toUpperCase() : '';
+          const w = armazemPorId(id);
+          armazemAtual = w && w.ativo ? w.id : null;
+          const area = params ? String(params.get('area') || '').trim().toUpperCase() : '';
+          areaPendente = armazemAtual && area ? area : null;
+        }
+
+        function escreverRota() {
+          try {
+            const url = new URL(window.location.href);
+            if (armazemAtual) url.searchParams.set('armazem', armazemAtual);
+            else url.searchParams.delete('armazem');
+            url.searchParams.delete('area');
+            if (url.toString() !== window.location.href) {
+              history.pushState({ armazem: armazemAtual }, '', url.toString());
+            }
+          } catch (e) {
+            /* sem histórico do browser a navegação funciona à mesma */
+          }
+        }
+
+        function irParaFabrica() {
+          if (!armazemAtual) return;
+          armazemAtual = null;
+          escreverRota();
+          aplicarVista();
+          window.scrollTo(0, 0);
+        }
+
+        /* Abre um armazém. Com opcoes.area escolhe a área; com opcoes.cc
+           abre esse C.C. já expandido e leva o ecrã até ele. */
+        function irParaArmazem(id, opcoes) {
+          const w = armazemPorId(id);
+          if (!w || !w.ativo) return;
+          opcoes = opcoes || {};
+          const vinhaDaFabrica = !armazemAtual;
+          if (armazemAtual !== w.id || opcoes.area) {
+            expandedCCs.clear();
+            $('#opt-selArea').val('');
+          }
+          armazemAtual = w.id;
+          areaPendente = opcoes.area ? String(opcoes.area).toUpperCase() : null;
+          if (opcoes.cc) expandedCCs.add(opcoes.cc);
+          if (vinhaDaFabrica || opcoes.cc) {
+            separadorAtual = 'plano';
+            abrirSeparador('plano');
+          }
+          escreverRota();
+          aplicarVista();
+          if (opcoes.cc) {
+            setTimeout(function () {
+              const el = document.getElementById('heading_' + opcoes.cc);
+              if (el) el.scrollIntoView({ block: 'center' });
+            }, 60);
+          } else if (vinhaDaFabrica) {
+            window.scrollTo(0, 0);
+          }
+        }
+
+        function desenharSeletoresArmazem() {
+          const botao = (w, ligado) =>
+            `<button type="button" ${
+              w.ativo ? `data-ir-armazem="${w.id}"` : 'disabled'
+            } class="${ligado ? 'on' : ''}" title="${
+              w.ativo ? `${w.id} · ${w.tipo}` : `${w.id} · em preparação`
+            }"${ligado ? ' aria-current="page"' : ''}>${w.id}</button>`;
+          $('#fab-navArmazens').html(
+            '<button type="button" class="on" aria-current="page">Fábrica</button>' +
+              ARMAZENS.map((w) => botao(w, false)).join('')
+          );
+          $('#opt-segArmazem').html(
+            ARMAZENS.map((w) => botao(w, w.id === armazemAtual)).join('')
+          );
+        }
+
+        /* Mostra a Fábrica ou o armazém (plano atual ou histórico). Antes de
+           haver dados fica tudo escondido atrás do spinner. */
+        function mostrarConteudo() {
+          const fabrica = !armazemAtual;
+          $('#opt-headerArmazem, #opt-navArmazem').toggleClass('fab-escondido', fabrica);
+          $('#opt-btnTema').prependTo(fabrica ? '#fab-headerDireita' : '#opt-headerDireita');
+          if (!ultimaAtualizacao) {
+            $('#opt-fabricaContent, #opt-dashboardContent').hide();
+            if (fabrica) $('#opt-historicoContent').hide();
+            return;
+          }
+          $('#opt-fabricaContent').toggle(fabrica);
+          $('#opt-dashboardContent').toggle(!fabrica && separadorAtual === 'plano');
+          $('#opt-historicoContent').toggle(!fabrica && separadorAtual === 'historico');
+        }
+
+        function aplicarVista() {
+          desenharSeletoresArmazem();
+          document.title = armazemAtual
+            ? `Status OPT - ${armazemAtual} - Plano Produção`
+            : 'Status OPT - Fábrica';
+          mostrarConteudo();
+          if (!ultimaAtualizacao) return;
+          if (!armazemAtual) {
+            renderFabrica();
+            return;
+          }
+          applyDateFilter();
+          if (separadorAtual === 'historico') prepararHistorico();
+        }
+
+        // ---------------------------------------------------------------- contas
+        function periodoDaFabrica() {
+          const hoje = getTodayZero();
+          if (fabPeriodo === 'hoje') {
+            const fim = new Date(hoje);
+            fim.setHours(23, 59, 59, 999);
+            return { inicio: hoje, fim: fim };
+          }
+          const diaIso = hoje.getDay() === 0 ? 7 : hoje.getDay();
+          const inicio = new Date(
+            hoje.getFullYear(),
+            hoje.getMonth(),
+            hoje.getDate() - (diaIso - 1)
+          );
+          const fim = new Date(inicio);
+          fim.setDate(inicio.getDate() + 6);
+          fim.setHours(23, 59, 59, 999);
+          return { inicio: inicio, fim: fim };
+        }
+
+        /* Nome da área tal como vem nas listas (pode diferir em maiúsculas
+           do nome configurado). */
+        function nomeDaAreaNosDados(area) {
+          const alvo = String(area).toUpperCase();
+          const item = [...rawListItems, ...rawEnsaioItems].find(
+            (i) => String(i.Area || '').trim().toUpperCase() === alvo
+          );
+          return item ? String(item.Area).trim() : area;
+        }
+
+        function resumoDisponibilidade(itens) {
+          return {
+            n: itens.length,
+            mp: itens.filter((i) => i.DispMP === 'OK').length,
+            frt: itens.filter((i) => i.DispFRT === 'OK').length,
+          };
+        }
+
+        /* Causa mais registada nas linhas do C.C. dos últimos dias. */
+        function causaPrincipal(cc) {
+          const desde = getTodayZero();
+          desde.setDate(desde.getDate() - FAB_DIAS_CAUSA);
+          const conta = {};
+          rawListItems.forEach((i) => {
+            if (!i.CausaRaizDesvio || !i.RawDateObj || i.RawDateObj < desde) return;
+            if (!areCCsEqual(i.CC, cc)) return;
+            conta[i.CausaRaizDesvio] = (conta[i.CausaRaizDesvio] || 0) + 1;
+          });
+          const lista = Object.keys(conta).sort((a, b) => conta[b] - conta[a]);
+          return lista.length ? lista[0] : '—';
+        }
+
+        /* Últimos dias úteis antes de hoje (hoje ainda vai a meio). */
+        function ultimosDiasUteis(n) {
+          const dias = [];
+          const d = getTodayZero();
+          while (dias.length < n) {
+            d.setDate(d.getDate() - 1);
+            if (d.getDay() !== 0 && d.getDay() !== 6) dias.unshift(new Date(d));
+          }
+          return dias;
+        }
+
+        function dadosDaFabrica() {
+          const periodo = periodoDaFabrica();
+          return comPeriodo(periodo.inicio, periodo.fim, function () {
+            const hoje = getTodayZero();
+            const todos = [];
+            const armazens = ARMAZENS.map((w) => {
+              if (!w.ativo) return { w: w, ativo: false, areas: [], ccs: [], saldo: 0 };
+              const areas = w.areas.map((areaCfg) => {
+                const area = nomeDaAreaNosDados(areaCfg);
+                const areaClean = area.toLowerCase();
+                const ccs = getCCsForArea(area).map((cc) => {
+                  const r = calcularResumoCC(cc, areaClean);
+                  let plan = 0;
+                  let prod = 0;
+                  r.rows.forEach((g) => {
+                    const dia = g.RawDate
+                      ? new Date(g.RawDate.getFullYear(), g.RawDate.getMonth(), g.RawDate.getDate())
+                      : null;
+                    if (!dia || dia <= hoje) plan += g.Planeado;
+                    prod += g.Produzido;
+                  });
+                  const disp = resumoDisponibilidade(getItensDisponibilidade(area, [cc]));
+                  const o = {
+                    cc: cc,
+                    area: area,
+                    armazem: w.id,
+                    delta: r.delta,
+                    plan: plan,
+                    prod: prod,
+                    disp: disp,
+                    mf: false,
+                  };
+                  todos.push(o);
+                  return o;
+                });
+                return {
+                  area: area,
+                  ccs: ccs,
+                  saldo: ccs.reduce((s, c) => s + c.delta, 0),
+                  pior: ccs.reduce((m, c) => Math.min(m, c.delta), 0),
+                };
+              });
+              const ccs = areas.reduce((l, a) => l.concat(a.ccs), []);
+              return {
+                w: w,
+                ativo: true,
+                areas: areas,
+                ccs: ccs,
+                saldo: ccs.reduce((s, c) => s + c.delta, 0),
+              };
+            });
+
+            // C.C. distintos (um C.C. em duas áreas conta uma vez nos totais
+            // por C.C.)
+            const unicos = [];
+            todos.forEach((c) => {
+              if (!unicos.some((u) => areCCsEqual(u, c.cc))) unicos.push(c.cc);
+            });
+
+            // Material em falha: linhas do MD07 (e manuais) dos C.C. da
+            // fábrica que faltam hoje ou no próximo dia de produção
+            const falhas = { ativo: false, n: 0, ccs: new Set() };
+            if (md07Data && md07Data.rows && !isMd07Stale()) {
+              falhas.ativo = true;
+              const removidas = removidasAtivas();
+              const linhas = calcularRiscos(unicos)
+                .concat(manualRiskRows.filter((r) => unicos.some((cc) => areCCsEqual(cc, r.CC))))
+                .filter((r) => removidas.indexOf(riskRowKey(r)) === -1);
+              const limite = somarDiasDeProducao(hoje, 1);
+              linhas.forEach((r) => {
+                const cob = parseFloat(r.Cobertura);
+                if (!isNaN(cob) && diaDaFalhaRisco(cob) > limite) return;
+                falhas.n++;
+                String(r.CC || '')
+                  .split(',')
+                  .forEach((cc) => {
+                    if (cc.trim()) falhas.ccs.add(normalizeCC(cc));
+                  });
+              });
+            }
+            todos.forEach((c) => {
+              c.mf = falhas.ccs.has(normalizeCC(c.cc));
+            });
+
+            // Cumprimento do plano: peças até hoje das áreas dos armazéns
+            const areasAtivas = new Set();
+            ARMAZENS.filter((w) => w.ativo).forEach((w) =>
+              w.areas.forEach((a) => areasAtivas.add(a))
+            );
+            const fimDeHoje = new Date(hoje);
+            fimDeHoje.setHours(23, 59, 59, 999);
+            let qPlan = 0;
+            let qProd = 0;
+            currentFilteredItems.forEach((i) => {
+              if (!areasAtivas.has(String(i.Area || '').trim().toUpperCase())) return;
+              if (!i.RawDateObj || i.RawDateObj > fimDeHoje) return;
+              qPlan += i.QtdPlaneada || 0;
+              qProd += i.QtdProduzida || 0;
+            });
+
+            // Trabalho extra: previsão calculada e o que está na lista
+            const te = { previsto: 0, pedidos: 0, preenchidos: 0 };
+            unicos.forEach((cc) => {
+              te.previsto += calculateTrabalhoExtra(cc);
+            });
+            const semana = getSemanaIso(getSegundaDoPeriodo());
+            rawTrabalhoExtraItems.forEach((r) => {
+              if (r.Ano !== semana.ano || r.Semana !== semana.semana) return;
+              if (!areasAtivas.has(r.Area)) return;
+              te.pedidos += r.TurnosNec || 0;
+              te.preenchidos += r.TurnosPreench || 0;
+            });
+
+            // Mapa dos últimos dias úteis: peças produzidas ÷ planeadas das
+            // linhas planeadas para cada dia, por área
+            const dias = ultimosDiasUteis(FAB_DIAS_MAPA);
+            const mapa = [];
+            armazens
+              .filter((a) => a.ativo)
+              .forEach((a) =>
+                a.areas.forEach((ar) => {
+                  const alvo = ar.area.toUpperCase();
+                  mapa.push({
+                    area: ar.area,
+                    dias: dias.map((d) => {
+                      let p = 0;
+                      let q = 0;
+                      rawListItems.forEach((i) => {
+                        if (!i.RawDateObj || String(i.Area || '').trim().toUpperCase() !== alvo) return;
+                        if (
+                          i.RawDateObj.getFullYear() !== d.getFullYear() ||
+                          i.RawDateObj.getMonth() !== d.getMonth() ||
+                          i.RawDateObj.getDate() !== d.getDate()
+                        )
+                          return;
+                        p += i.QtdPlaneada || 0;
+                        q += i.QtdProduzida || 0;
+                      });
+                      return { dia: d, plan: p, prod: q };
+                    }),
+                  });
+                })
+              );
+
+            // Áreas nas listas que não pertencem a nenhum armazém
+            const semArmazem = [
+              ...new Set(
+                currentFilteredItems
+                  .map((i) => String(i.Area || '').trim())
+                  .filter((a) => a && !armazemDaArea(a))
+              ),
+            ];
+
+            const negativos = todos.filter((c) => c.delta < 0);
+            return {
+              periodo: periodo,
+              armazens: armazens,
+              todos: todos,
+              nCC: unicos.length,
+              bruto: negativos.reduce((s, c) => s + c.delta, 0),
+              saldo: todos.reduce((s, c) => s + c.delta, 0),
+              cc1t: todos.filter((c) => c.delta < -HORAS_POR_TURNO).length,
+              cumprimento: { plan: qPlan, prod: qProd },
+              falhas: falhas,
+              te: te,
+              dias: dias,
+              mapa: mapa,
+              top: negativos
+                .slice()
+                .sort((a, b) => a.delta - b.delta)
+                .slice(0, 5)
+                .map((c) => Object.assign({ causa: causaPrincipal(c.cc) }, c)),
+              semArmazem: semArmazem,
+            };
+          });
+        }
+
+        // ---------------------------------------------------------------- desenho
+        function fabHoras(h) {
+          const min = Math.round(Math.abs(h) * 60);
+          const sinal = h < 0 && min > 0 ? '−' : '+';
+          return sinal + Math.floor(min / 60) + ':' + String(min % 60).padStart(2, '0');
+        }
+
+        function fabTurnos(h) {
+          return (Math.abs(h) / HORAS_POR_TURNO).toLocaleString('pt-PT', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          });
+        }
+
+        function fabTurnosComSinal(h) {
+          const t = fabTurnos(h);
+          return (h < 0 && t !== '0,0' ? '−' : '+') + t;
+        }
+
+        // Menos de meio minuto conta como zero
+        function fabNivel(h) {
+          if (h > -1 / 120) return 'ok';
+          if (h > -FAB_LIMITE_LARANJA) return 'y';
+          if (h > -FAB_LIMITE_VERMELHO) return 'o';
+          return 'r';
+        }
+
+        function fabDataCurta(d) {
+          return String(d.getDate()).padStart(2, '0') + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        }
+
+        function renderFabrica() {
+          if (!ultimaAtualizacao || armazemAtual) return;
+          let d;
+          try {
+            d = dadosDaFabrica();
+          } catch (e) {
+            console.error('Erro ao calcular a página Fábrica:', e);
+            return;
+          }
+          fabUltimosDados = d;
+          $('#fab-lblPeriodo').text(
+            fabPeriodo === 'hoje'
+              ? `Hoje, ${fabDataCurta(d.periodo.inicio)}`
+              : `${fabDataCurta(d.periodo.inicio)} a ${fabDataCurta(d.periodo.fim)}`
+          );
+          const dot = document.getElementById('fab-liveDot');
+          if (dot) {
+            dot.style.setProperty('--live-cor', d.saldo >= 0 ? 'var(--st-ok)' : 'var(--st-r)');
+            dot.title = `Saldo da fábrica: ${fabTurnosComSinal(d.saldo)} turnos`;
+          }
+          renderFabAviso(d);
+          renderFabKpis(d);
+          renderFabPlanta(d);
+          renderFabDetalhe(d);
+          renderFabTop(d);
+          renderFabMapa(d);
+        }
+
+        function renderFabAviso(d) {
+          $('#fab-aviso').html(
+            d.semArmazem.length
+              ? `<div class="alert alert-warning py-2 mb-0 fab-mut"><i class="fa-solid fa-triangle-exclamation me-1"></i>Há linhas do plano com área sem armazém configurado (${escapeHtml(
+                  d.semArmazem.join(', ')
+                )}): não entram na Fábrica.</div>`
+              : ''
+          );
+        }
+
+        function renderFabKpis(d) {
+          const c = d.cumprimento;
+          const pct = c.plan > 0 ? Math.round((c.prod / c.plan) * 100) : null;
+          const tePedidos = trabalhoExtraDisponivel
+            ? `pedidos ${formatarTurnos(d.te.pedidos)} · preenchidos ${formatarTurnos(d.te.preenchidos)}`
+            : 'lista de registos indisponível';
+          const cartoes = [
+            [
+              'Atraso bruto',
+              `${fabTurnos(d.bruto)} turnos`,
+              d.bruto < 0 ? 'fab-neg' : 'fab-pos',
+              `${fabHoras(d.bruto)} h · só C.C. atrasados`,
+            ],
+            [
+              'Saldo líquido',
+              `${fabTurnosComSinal(d.saldo)} turnos`,
+              d.saldo < 0 ? 'fab-amb' : 'fab-pos',
+              `${fabHoras(d.saldo)} h · avanços descontados`,
+            ],
+            [
+              'Cumprimento do plano',
+              pct === null ? '—' : `${pct}%`,
+              '',
+              pct === null ? 'sem peças planeadas até hoje' : 'peças até hoje',
+              pct === null ? 'var(--text-muted)' : getCumprimentoColor(pct),
+            ],
+            [
+              'C.C. em atraso > 1 turno',
+              `${d.cc1t} de ${d.nCC}`,
+              d.cc1t > 0 ? 'fab-neg' : 'fab-pos',
+              `mais de ${String(HORAS_POR_TURNO).replace('.', ',')} h de atraso`,
+            ],
+            d.falhas.ativo
+              ? ['Material em falha', String(d.falhas.n), d.falhas.n > 0 ? 'fab-pur' : 'fab-pos', 'linhas MD07 · hoje / próximo dia']
+              : ['Material em falha', '—', 'fab-mut', 'carregar o MD07 de hoje'],
+            ['TE previsto', `${formatarTurnos(d.te.previsto)} turnos`, 'fab-cy', tePedidos],
+          ];
+          $('#fab-kpis').html(
+            cartoes
+              .map(
+                ([t, v, cls, sub, cor]) =>
+                  `<div class="fab-card"><div class="fab-lbl">${t}</div><div class="fab-big ${cls}"${
+                    cor ? ` style="color: ${cor}"` : ''
+                  }>${v}</div><div class="fab-mut">${sub}</div></div>`
+              )
+              .join('')
+          );
+        }
+
+        function renderFabPlanta(d) {
+          const sel = fabSelecionado;
+          const html = d.armazens
+            .map((a) => {
+              if (!a.ativo) {
+                return `<div class="fab-wh fab-wh-off"><div class="fab-whl"><span class="fab-mut">●</span><b style="font-size: 15px">${escapeHtml(
+                  a.w.id
+                )}</b><span class="fab-mut">${escapeHtml(a.w.tipo)}</span></div><div class="fab-wh-vazio">Em preparação: falta ligar a lista do ${escapeHtml(
+                  a.w.id
+                )}</div></div>`;
+              }
+              const corPonto = a.ccs.some((c) => fabNivel(c.delta) === 'r')
+                ? 'fab-neg'
+                : a.saldo < 0
+                ? 'fab-amb'
+                : 'fab-pos';
+              const areas = a.areas
+                .map((ar) => {
+                  const moldura =
+                    ar.pior <= -FAB_LIMITE_VERMELHO
+                      ? ' fab-a-r'
+                      : ar.pior <= -FAB_LIMITE_LARANJA
+                      ? ' fab-a-o'
+                      : '';
+                  const tiles = ar.ccs
+                    .map((c) => {
+                      const ligado = !!sel && areCCsEqual(sel.cc, c.cc) && sel.area === c.area;
+                      return `<button type="button" class="fab-tile fab-t-${fabNivel(c.delta)}${
+                        ligado ? ' fab-sel' : ''
+                      }" data-fab-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
+                        c.area
+                      )}" aria-pressed="${ligado}" aria-label="C.C. ${escapeHtml(c.cc)}, ${fabHoras(
+                        c.delta
+                      )} horas${c.mf ? ', material em falha' : ''}"><b>${escapeHtml(
+                        c.cc
+                      )}</b><span class="v">${fabHoras(c.delta)}</span>${
+                        c.mf ? '<span class="fab-dot" aria-hidden="true" title="Material em falha"></span>' : ''
+                      }</button>`;
+                    })
+                    .join('');
+                  return `<div class="fab-area${moldura}"><div class="fab-al">${escapeHtml(
+                    ar.area
+                  )} · <span class="${ar.saldo < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(
+                    ar.saldo
+                  )}</span></div><div class="fab-tiles">${
+                    tiles || '<span class="fab-mut">Sem C.C. no período</span>'
+                  }</div></div>`;
+                })
+                .join('');
+              return `<div class="fab-wh"><div class="fab-whl"><span class="${corPonto}">●</span><button type="button" class="fab-wh-nome" data-ir-armazem="${escapeHtml(
+                a.w.id
+              )}" title="Abrir o ${escapeHtml(a.w.id)}">${escapeHtml(
+                a.w.id
+              )}</button><span class="fab-mut">${escapeHtml(
+                a.w.tipo
+              )}</span></div><div class="fab-whs-r">saldo <b class="${
+                a.saldo < 0 ? 'fab-neg' : 'fab-pos'
+              }">${fabTurnosComSinal(a.saldo)} t</b> · ${a.ccs.length} C.C.</div><div class="fab-areas">${areas}</div></div>`;
+            })
+            .join('');
+          $('#fab-edificios').html(html);
+        }
+
+        function textoDisponibilidade(n, ok) {
+          if (n === 0) return ['Nada até amanhã', 'fab-mut'];
+          if (ok === n) return ['OK', 'fab-pos'];
+          return [`${n - ok} de ${n} não OK`, ok / n >= 0.8 ? 'fab-amb' : 'fab-neg'];
+        }
+
+        function renderFabDetalhe(d) {
+          const $det = $('#fab-detalhe');
+          if (d.todos.length === 0) {
+            fabSelecionado = null;
+            $det.html('<div class="fab-mut">Sem C.C. com plano no período.</div>');
+            return;
+          }
+          let c = fabSelecionado
+            ? d.todos.find((x) => areCCsEqual(x.cc, fabSelecionado.cc) && x.area === fabSelecionado.area)
+            : null;
+          if (!c) {
+            // Por defeito, o C.C. com mais atraso
+            c = d.todos.slice().sort((a, b) => a.delta - b.delta)[0];
+            fabSelecionado = { cc: c.cc, area: c.area };
+            renderFabPlanta(d);
+          }
+          const pct = c.plan > 0 ? Math.min(100, Math.round((c.prod / c.plan) * 100)) : c.prod > 0 ? 100 : 0;
+          const [mpTxt, mpCls] = textoDisponibilidade(c.disp.n, c.disp.mp);
+          const [frtTxt, frtCls] = textoDisponibilidade(c.disp.n, c.disp.frt);
+          const alertas = [];
+          if (c.mf) alertas.push('<div class="fab-alerta fab-alerta-mf">Material em falha (MD07)</div>');
+          if (c.delta < -HORAS_POR_TURNO) {
+            alertas.push('<div class="fab-alerta fab-alerta-te">Mais de 1 turno de atraso: avaliar TE</div>');
+          }
+          $det.html(`
+            <div style="display: flex; align-items: baseline; gap: 10px">
+              <span class="fab-det-cc">${escapeHtml(c.cc)}</span>
+              <span class="fab-mut">${escapeHtml(c.armazem)} · ${escapeHtml(c.area)}</span>
+            </div>
+            <div class="fab-mut" style="margin-top: 8px">${c.delta < 0 ? 'Em atraso' : 'Em avanço'}</div>
+            <div class="fab-det-delta ${c.delta < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(c.delta)}</div>
+            <div class="fab-mut">${fabTurnos(c.delta)} turnos</div>
+            <div class="fab-barra" title="Produzido ÷ planeado até hoje: ${pct}%"><i style="width: ${pct}%"></i></div>
+            <div class="fab-row"><span>Planeado até hoje</span><b>${formatHoursToHHMM(c.plan)}</b></div>
+            <div class="fab-row"><span>Produzido</span><b>${formatHoursToHHMM(c.prod)}</b></div>
+            <div class="fab-row"><span>Matéria-prima</span><b class="${mpCls}">${mpTxt}</b></div>
+            <div class="fab-row"><span>Ferramenta</span><b class="${frtCls}">${frtTxt}</b></div>
+            ${alertas.join('')}
+            <button type="button" class="fab-btn" data-fab-abrir-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
+              c.area
+            )}" data-armazem="${escapeHtml(c.armazem)}">Abrir detalhe do C.C. →</button>
+          `);
+        }
+
+        function renderFabTop(d) {
+          const cab =
+            '<thead><tr><th>C.C.</th><th>Armazém · área</th><th>Atraso</th><th>Turnos</th><th>Causa principal</th></tr></thead>';
+          if (d.top.length === 0) {
+            $('#fab-top').html(cab + '<tbody><tr><td colspan="5" class="fab-mut">Nenhum C.C. em atraso.</td></tr></tbody>');
+            return;
+          }
+          $('#fab-top').html(
+            cab +
+              '<tbody>' +
+              d.top
+                .map(
+                  (t) =>
+                    `<tr class="fab-tr-link" data-fab-abrir-cc="${escapeHtml(t.cc)}" data-fab-area="${escapeHtml(
+                      t.area
+                    )}" data-armazem="${escapeHtml(t.armazem)}" title="Abrir o C.C. ${escapeHtml(
+                      t.cc
+                    )}"><td><b>${escapeHtml(t.cc)}</b></td><td>${escapeHtml(t.armazem)} · ${escapeHtml(
+                      t.area
+                    )}</td><td class="fab-neg">${fabHoras(t.delta)}</td><td>${fabTurnos(
+                      t.delta
+                    )}</td><td class="fab-mut">${escapeHtml(t.causa)}</td></tr>`
+                )
+                .join('') +
+              '</tbody>'
+          );
+        }
+
+        function renderFabMapa(d) {
+          let html = '<span></span>';
+          html += d.dias
+            .map(
+              (dia) =>
+                `<span class="fab-mut" style="text-align: center" title="${DIAS_SEMANA_PT[dia.getDay()]} ${fabDataCurta(
+                  dia
+                )}">${String(dia.getDate()).padStart(2, '0')}</span>`
+            )
+            .join('');
+          d.mapa.forEach((linha) => {
+            html += `<span class="fab-mut">${escapeHtml(linha.area)}</span>`;
+            html += linha.dias
+              .map((x) => {
+                if (x.plan <= 0) {
+                  return `<span class="fab-hc fab-h-vazio" title="${escapeHtml(linha.area)} · ${fabDataCurta(
+                    x.dia
+                  )}: sem plano"></span>`;
+                }
+                const pct = Math.round((x.prod / x.plan) * 100);
+                const k = pct >= 95 ? 'g' : pct >= 85 ? 'o' : 'r';
+                return `<span class="fab-hc fab-h-${k}" title="${escapeHtml(linha.area)} · ${fabDataCurta(
+                  x.dia
+                )}: ${pct}% (${formatQtd(x.prod)} de ${formatQtd(x.plan)} peças)"></span>`;
+              })
+              .join('');
+          });
+          $('#fab-mapa').html(html);
         }
 
         function escapeHtml(str) {
