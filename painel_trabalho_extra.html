@@ -361,7 +361,7 @@
       #tableRegistos thead th,
       #tablePlano thead th {
         position: relative;
-        cursor: pointer;
+        cursor: default;
         user-select: none;
         white-space: nowrap;
         vertical-align: middle;
@@ -400,6 +400,49 @@
         z-index: 3050;
         color: #1e293b;
         font-size: 0.82rem;
+      }
+      /* Sem setas de ordenação no cabeçalho: ordena-se dentro do filtro */
+      #tableRegistos thead th:before,
+      #tableRegistos thead th:after,
+      #tablePlano thead th:before,
+      #tablePlano thead th:after {
+        display: none !important;
+      }
+      #tableRegistos thead th.sorting,
+      #tablePlano thead th.sorting,
+      #tableRegistos thead th.sorting_asc,
+      #tablePlano thead th.sorting_asc,
+      #tableRegistos thead th.sorting_desc,
+      #tablePlano thead th.sorting_desc {
+        padding-right: 0.5rem !important;
+        cursor: default;
+      }
+      .col-filter-sort {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 6px;
+        margin-bottom: 6px;
+      }
+      .col-filter-sort button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: none;
+        border: 0;
+        border-radius: 4px;
+        padding: 4px 6px;
+        text-align: left;
+        color: inherit;
+      }
+      .col-filter-sort button:hover {
+        background: #f1f5f9;
+      }
+      .col-filter-sort button.active {
+        background: #e0f2fe;
+        color: #005a9e;
+        font-weight: 600;
       }
       .col-filter-panel input[type='text'] {
         margin-bottom: 6px;
@@ -4613,6 +4656,8 @@
 
             // Texto visível de uma célula (sem HTML), igual para lista e filtro
             function cellFilterText(html) {
+              // Células com data-order chegam como { display, '@data-order' }
+              if (html && typeof html === 'object') html = html.display;
               const text = $('<div>')
                 .html(html == null ? '' : String(html))
                 .text()
@@ -4671,6 +4716,8 @@
                       )}</span><i class="fa-solid fa-filter th-filter-btn" title="Filtrar"></i></div>`
                     );
                   }
+                  // Ordenação só pelo painel do filtro, não pelo clique no cabeçalho
+                  $th.off('click.DT keypress.DT').removeAttr('tabindex');
                   $th
                     .find('.th-filter-btn')
                     .toggleClass('active', !!filters[colIndex])
@@ -4694,8 +4741,17 @@
               const values = getColumnValues(colIndex);
               const current = filters[colIndex] || new Set(values);
 
+              const sortDir = (dt.order().find((o) => o[0] === colIndex) || [])[1];
               const $panel = $(`
                 <div class="col-filter-panel">
+                  <div class="col-filter-sort">
+                    <button type="button" data-dir="asc" class="${sortDir === 'asc' ? 'active' : ''}">
+                      <i class="fa-solid fa-arrow-down-a-z"></i>Ordenar A a Z
+                    </button>
+                    <button type="button" data-dir="desc" class="${sortDir === 'desc' ? 'active' : ''}">
+                      <i class="fa-solid fa-arrow-down-z-a"></i>Ordenar Z a A
+                    </button>
+                  </div>
                   <input type="text" class="form-control form-control-sm col-filter-search" placeholder="Pesquisar..." />
                   <div class="col-filter-selectall">
                     <label class="col-filter-item fw-bold">
@@ -4779,6 +4835,10 @@
               };
 
               $panel.find('.col-filter-apply').on('click', apply);
+              $panel.find('.col-filter-sort button').on('click', function () {
+                dt.order([colIndex, $(this).data('dir')]);
+                apply();
+              });
               $panel.find('.col-filter-cancel').on('click', closeColFilterPanel);
               $panel.on('keydown', function (e) {
                 if (e.key === 'Enter') apply();
@@ -4897,7 +4957,9 @@
                 const row = `
                       <tr>
                           <td>${d.Fabrica}</td>
-                          <td>${d.DataFormatada}</td>
+                          <td data-order="${
+                            d.DataRef && !isNaN(d.DataRef.getTime()) ? d.DataRef.getTime() : 0
+                          }">${d.DataFormatada}</td>
                           <td>${tipoDiaBadge}</td>
                           <td>${d.Ano}</td>
                           <td>${d.Mes}</td>
@@ -4906,9 +4968,9 @@
                           <td>${d.Area}</td>
                           <td>${d.CC}</td>
                           <td>${d.KA}</td>
-                          <td>${d.QtdPlaneada.toLocaleString('pt-PT')}</td>
-                          <td>${d.QtdProduzida.toLocaleString('pt-PT')}</td>
-                          <td><span class="badge ${badgeClass}">${pct}%</span></td>
+                          <td data-order="${d.QtdPlaneada}">${d.QtdPlaneada.toLocaleString('pt-PT')}</td>
+                          <td data-order="${d.QtdProduzida}">${d.QtdProduzida.toLocaleString('pt-PT')}</td>
+                          <td data-order="${pct}"><span class="badge ${badgeClass}">${pct}%</span></td>
                       </tr>
                   `;
                 tbody.append(row);
