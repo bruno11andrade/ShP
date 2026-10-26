@@ -592,6 +592,7 @@
               >
               <select
                 id="filterPeriodo"
+                autocomplete="off"
                 class="form-select form-select-sm shadow-none"
               >
                 <option value="semana_ano">Semana/Ano</option>
@@ -602,22 +603,25 @@
             </div>
 
             <div
-              class="col-xxl-1 col-lg-2 col-md-3 col-sm-6 periodo-field-ano"
+              class="col-xxl-1 col-lg-2 col-md-3 col-sm-6 periodo-field-semana"
             >
               <label
                 class="form-label fw-bold text-muted small mb-1 text-uppercase"
                 style="font-size: 0.75rem"
-                ><i class="fa-regular fa-calendar me-1 text-primary"></i
-                >Ano</label
+                ><i class="fa-solid fa-calendar-week me-1 text-primary"></i
+                >Semana</label
               >
-              <div class="dropdown custom-multiselect" id="filterAnoContainer">
+              <div
+                class="dropdown custom-multiselect"
+                id="filterSemanaContainer"
+              >
                 <button
                   class="btn btn-sm btn-dropdown w-100 d-flex justify-content-between align-items-center shadow-none border"
                   type="button"
                   data-bs-toggle="dropdown"
                   data-bs-auto-close="outside"
                 >
-                  <span class="dropdown-label text-truncate">Todos</span>
+                  <span class="dropdown-label text-truncate">Todas</span>
                 </button>
                 <div class="dropdown-menu p-2 shadow">
                   <div
@@ -682,25 +686,22 @@
             </div>
 
             <div
-              class="col-xxl-1 col-lg-2 col-md-3 col-sm-6 periodo-field-semana"
+              class="col-xxl-1 col-lg-2 col-md-3 col-sm-6 periodo-field-ano"
             >
               <label
                 class="form-label fw-bold text-muted small mb-1 text-uppercase"
                 style="font-size: 0.75rem"
-                ><i class="fa-solid fa-calendar-week me-1 text-primary"></i
-                >Semana</label
+                ><i class="fa-regular fa-calendar me-1 text-primary"></i
+                >Ano</label
               >
-              <div
-                class="dropdown custom-multiselect"
-                id="filterSemanaContainer"
-              >
+              <div class="dropdown custom-multiselect" id="filterAnoContainer">
                 <button
                   class="btn btn-sm btn-dropdown w-100 d-flex justify-content-between align-items-center shadow-none border"
                   type="button"
                   data-bs-toggle="dropdown"
                   data-bs-auto-close="outside"
                 >
-                  <span class="dropdown-label text-truncate">Todas</span>
+                  <span class="dropdown-label text-truncate">Todos</span>
                 </button>
                 <div class="dropdown-menu p-2 shadow">
                   <div
@@ -2219,6 +2220,9 @@
             $(document).ready(function () {
               loadData();
 
+              // Ao abrir: sempre Semana/Ano, só com Semana e Ano visíveis
+              $('#filterPeriodo').val('semana_ano');
+              updatePeriodoFields();
               $('#filterPeriodo').on('change', onPeriodoChange);
               $('#filterDataInicio, #filterDataFim').on('change', applyFilters);
 
@@ -3292,6 +3296,12 @@
 
             // Mostra/esconde os campos conforme o período escolhido
             function onPeriodoChange() {
+              updatePeriodoFields();
+              applyFilters();
+            }
+
+            // Mostra só os campos do período escolhido
+            function updatePeriodoFields() {
               const periodo = $('#filterPeriodo').val() || 'semana_ano';
               $(
                 '.periodo-field-ano, .periodo-field-mes, .periodo-field-semana, .periodo-field-data'
@@ -3303,7 +3313,6 @@
                 if (periodo === 'mes_ano') $('.periodo-field-mes').show();
                 if (periodo === 'semana_ano') $('.periodo-field-semana').show();
               }
-              applyFilters();
             }
 
             // Dia a que pertence um turno de logística (Noite começa às 23h da véspera)
