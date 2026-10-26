@@ -134,30 +134,33 @@
         --fab-h-vazio: #e2e8f0;
       }
 
-      /* OCULTAR NAVEGAÇÃO LATERAL, RIBBON, TÍTULOS E PESQUISA DO SHAREPOINT */
-      #s4-ribbonrow,
-      #RibbonContainer,
-      .ms-cui-ribbonTopBars,
-      .ms-cui-tabContainer,
-      .ms-cui-topBarMap,
-      #pageTitle,
-      #DeltaPlaceHolderPageTitleInTitleArea,
-      .ms-core-pageTitle,
-      #sideNavBox,
-      #DeltaPlaceHolderLeftNavBar,
-      .ms-quicklaunchouter,
-      .ms-core-sideNavBox,
-      #zz13_TopNavigationMenu,
-      .ms-nav-editElement,
-      #titleAreaBox,
-      #s4-titleroot,
-      .ms-titleareaframe,
-      #siteIcon,
-      #DeltaPlaceHolderSearchArea,
-      .ms-breadcrumb-box,
-      .ms-headerSearch,
-      #DeltaPlaceHolderGroupTitle,
-      #DeltaPlaceHolderPageSiteName {
+      /* OCULTAR NAVEGAÇÃO LATERAL, RIBBON, TÍTULOS E PESQUISA DO SHAREPOINT.
+         Só em modo de leitura: a classe opt-sp-oculto é posta pelo script no
+         início do <body> e retirada quando a página está em edição, para
+         que o botão Guardar do ribbon continue acessível. */
+      html.opt-sp-oculto #s4-ribbonrow,
+      html.opt-sp-oculto #RibbonContainer,
+      html.opt-sp-oculto .ms-cui-ribbonTopBars,
+      html.opt-sp-oculto .ms-cui-tabContainer,
+      html.opt-sp-oculto .ms-cui-topBarMap,
+      html.opt-sp-oculto #pageTitle,
+      html.opt-sp-oculto #DeltaPlaceHolderPageTitleInTitleArea,
+      html.opt-sp-oculto .ms-core-pageTitle,
+      html.opt-sp-oculto #sideNavBox,
+      html.opt-sp-oculto #DeltaPlaceHolderLeftNavBar,
+      html.opt-sp-oculto .ms-quicklaunchouter,
+      html.opt-sp-oculto .ms-core-sideNavBox,
+      html.opt-sp-oculto #zz13_TopNavigationMenu,
+      html.opt-sp-oculto .ms-nav-editElement,
+      html.opt-sp-oculto #titleAreaBox,
+      html.opt-sp-oculto #s4-titleroot,
+      html.opt-sp-oculto .ms-titleareaframe,
+      html.opt-sp-oculto #siteIcon,
+      html.opt-sp-oculto #DeltaPlaceHolderSearchArea,
+      html.opt-sp-oculto .ms-breadcrumb-box,
+      html.opt-sp-oculto .ms-headerSearch,
+      html.opt-sp-oculto #DeltaPlaceHolderGroupTitle,
+      html.opt-sp-oculto #DeltaPlaceHolderPageSiteName {
         display: none !important;
         height: 0 !important;
         min-height: 0 !important;
@@ -2005,6 +2008,34 @@
     </style>
   </head>
   <body>
+    <script>
+      /* A barra do SharePoint (ribbon) só se esconde em modo de leitura.
+         Com a página em edição, ou com ?editar=1 no endereço, fica visível
+         para se poder Guardar / Parar edição. */
+      (function () {
+        function emEdicao() {
+          if (/[?&]editar=1(&|$)/i.test(location.search)) return true;
+          const f =
+            document.forms[window.MSOWebPartPageFormName || 'aspnetForm'] ||
+            document.forms[0];
+          if (!f) return false;
+          const valor = (nome) => (f[nome] && f[nome].value) || '';
+          return (
+            valor('MSOLayout_InDesignMode') === '1' ||
+            valor('_wikiPageMode') === 'Edit' ||
+            ['Design', 'Edit'].indexOf(
+              valor('MSOSPWebPartManager_DisplayModeName')
+            ) !== -1
+          );
+        }
+        window.optEmEdicaoSharePoint = emEdicao;
+        const html = document.documentElement;
+        html.classList.toggle('opt-sp-oculto', !emEdicao());
+        document.addEventListener('DOMContentLoaded', function () {
+          html.classList.toggle('opt-sp-oculto', !emEdicao());
+        });
+      })();
+    </script>
     <div class="container-fluid" id="opt-dashboard-wrapper">
       <!-- Linha de cima: voltar à Fábrica e escolher o armazém (só na
            vista do armazém) e a hora da última atualização -->
@@ -3165,7 +3196,7 @@
            ligar (ativo: false) aparece na página Fábrica como "em
            preparação" e não se pode abrir. */
         const ARMAZENS = [
-          { id: 'OV2', tipo: 'Prensas', areas: ['OPA', 'OPT'], ativo: true },
+          { id: 'OV2', tipo: 'Estampagem', areas: ['OPA', 'OPT'], ativo: true },
           {
             id: 'OV9',
             tipo: 'Hot forming',
@@ -3573,6 +3604,12 @@
         function colarDashboardAoTopo() {
           const wrapper = document.getElementById('opt-dashboard-wrapper');
           if (!wrapper) return 0;
+          // Em edição não se mexe no layout do SharePoint: a margem
+          // negativa punha o dashboard por cima do ribbon.
+          if (window.optEmEdicaoSharePoint && window.optEmEdicaoSharePoint()) {
+            wrapper.style.marginTop = '';
+            return 0;
+          }
 
           const antes = wrapper.getBoundingClientRect().top;
           wrapper.style.marginTop = '';
