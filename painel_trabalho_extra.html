@@ -367,6 +367,71 @@
         vertical-align: middle;
       }
 
+      /* Filtro de coluna estilo SharePoint / Excel nas tabelas de detalhe */
+      .th-filter-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        white-space: nowrap;
+      }
+      .th-filter-btn {
+        cursor: pointer;
+        opacity: 0.55;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+        padding: 2px;
+      }
+      .th-filter-btn:hover {
+        opacity: 0.9;
+      }
+      .th-filter-btn.active {
+        opacity: 1;
+        color: #38bdf8;
+      }
+      .col-filter-panel {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 8px;
+        min-width: 230px;
+        max-width: 280px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+        z-index: 3050;
+        color: #1e293b;
+        font-size: 0.82rem;
+      }
+      .col-filter-panel input[type='text'] {
+        margin-bottom: 6px;
+      }
+      .col-filter-selectall {
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 4px;
+        margin-bottom: 4px;
+      }
+      .col-filter-list {
+        max-height: 220px;
+        overflow-y: auto;
+      }
+      .col-filter-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px;
+        margin-bottom: 0;
+        cursor: pointer;
+        word-break: break-word;
+      }
+      .col-filter-item input {
+        flex-shrink: 0;
+      }
+      .col-filter-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
       .nav-tabs .nav-link {
         font-weight: 600;
         color: #495057;
@@ -4531,8 +4596,210 @@
               applyFilters();
             }
 
+            // ---- Filtro de coluna estilo cabeçalho do SharePoint / Excel nas
+            // tabelas de detalhe (igual ao do Status OPT). As seleções de cada
+            // tabela mantêm-se quando a tabela é redesenhada pelos filtros do topo.
+            const columnFiltersByTable = { tablePlano: {}, tableRegistos: {} };
+            let activeColFilterPanel = null;
+
+            function escapeHtml(str) {
+              return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            }
+
+            // Texto visível de uma célula (sem HTML), igual para lista e filtro
+            function cellFilterText(html) {
+              const text = $('<div>')
+                .html(html == null ? '' : String(html))
+                .text()
+                .replace(/\s+/g, ' ')
+                .trim();
+              return text || '(vazio)';
+            }
+
+            function closeColFilterPanel() {
+              if (activeColFilterPanel) {
+                activeColFilterPanel.remove();
+                activeColFilterPanel = null;
+              }
+              $(document).off('click.colFilter');
+            }
+
+            // Uma única função de pesquisa do DataTables serve as duas tabelas
+            $.fn.dataTable.ext.search.push(function (settings, searchData, dataIndex) {
+              const filters = columnFiltersByTable[settings.nTable.id];
+              if (!filters) return true;
+              const rowData = settings.aoData[dataIndex]._aData;
+              return Object.keys(filters).every((col) =>
+                filters[col].has(cellFilterText(rowData[col]))
+              );
+            });
+
+            function attachColumnFilters(dt, tableId) {
+              const filters = columnFiltersByTable[tableId];
+
+              const getColumnValues = (colIndex) =>
+                [
+                  ...new Set(
+                    dt
+                      .column(colIndex)
+                      .data()
+                      .toArray()
+                      .map((v) => cellFilterText(v))
+                  ),
+                ].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
+
+              // Descarta seleções que já não têm nenhum valor nos dados atuais
+              Object.keys(filters).forEach((col) => {
+                const values = getColumnValues(parseInt(col, 10));
+                if (!values.some((v) => filters[col].has(v))) delete filters[col];
+              });
+
+              $(dt.table().header())
+                .find('th')
+                .each(function (colIndex) {
+                  const $th = $(this);
+                  if (!$th.find('.th-filter-wrap').length) {
+                    const label = $th.text().trim();
+                    $th.html(
+                      `<div class="th-filter-wrap"><span>${escapeHtml(
+                        label
+                      )}</span><i class="fa-solid fa-filter th-filter-btn" title="Filtrar"></i></div>`
+                    );
+                  }
+                  $th
+                    .find('.th-filter-btn')
+                    .toggleClass('active', !!filters[colIndex])
+                    .off('click')
+                    .on('click', function (e) {
+                      // Não deixa o clique ordenar a coluna
+                      e.stopPropagation();
+                      openColFilterPanel(dt, filters, colIndex, $(this), getColumnValues);
+                    });
+                });
+
+              if (Object.keys(filters).length) dt.draw();
+            }
+
+            function openColFilterPanel(dt, filters, colIndex, $btn, getColumnValues) {
+              const alreadyOpen =
+                activeColFilterPanel && activeColFilterPanel.data('btn') === $btn[0];
+              closeColFilterPanel();
+              if (alreadyOpen) return;
+
+              const values = getColumnValues(colIndex);
+              const current = filters[colIndex] || new Set(values);
+
+              const $panel = $(`
+                <div class="col-filter-panel">
+                  <input type="text" class="form-control form-control-sm col-filter-search" placeholder="Pesquisar..." />
+                  <div class="col-filter-selectall">
+                    <label class="col-filter-item fw-bold">
+                      <input type="checkbox" class="col-filter-all" />
+                      <span>(Selecionar tudo)</span>
+                    </label>
+                  </div>
+                  <div class="col-filter-list"></div>
+                  <div class="col-filter-actions">
+                    <button type="button" class="btn btn-sm btn-outline-secondary col-filter-cancel">Cancelar</button>
+                    <button type="button" class="btn btn-sm btn-primary fw-bold col-filter-apply">OK</button>
+                  </div>
+                </div>
+              `);
+              $panel.data('btn', $btn[0]);
+
+              const $list = $panel.find('.col-filter-list');
+              values.forEach((v) => {
+                $list.append(`
+                  <label class="col-filter-item">
+                    <input type="checkbox" class="col-filter-value" value="${escapeHtml(
+                      v
+                    )}" ${current.has(v) ? 'checked' : ''} />
+                    <span>${escapeHtml(v)}</span>
+                  </label>
+                `);
+              });
+
+              const syncSelectAll = () => {
+                const $visible = $list.find('.col-filter-item:visible .col-filter-value');
+                const nChecked = $visible.filter(':checked').length;
+                $panel
+                  .find('.col-filter-all')
+                  .prop('checked', $visible.length > 0 && nChecked === $visible.length)
+                  .prop('indeterminate', nChecked > 0 && nChecked < $visible.length);
+              };
+
+              // Dentro do contentor para continuar visível em ecrã inteiro
+              const $host = $('#dashboardAppContainer');
+              ($host.length ? $host : $('body')).append($panel);
+              syncSelectAll();
+
+              const rect = $btn[0].getBoundingClientRect();
+              const left = Math.min(rect.left, window.innerWidth - $panel.outerWidth() - 10);
+              $panel.css({
+                position: 'fixed',
+                top: rect.bottom + 4 + 'px',
+                left: Math.max(10, left) + 'px',
+              });
+              activeColFilterPanel = $panel;
+              $panel.find('.col-filter-search').trigger('focus');
+
+              $panel.find('.col-filter-search').on('input', function () {
+                const q = $(this).val().toLowerCase();
+                $list.find('.col-filter-item').each(function () {
+                  $(this).toggle($(this).text().toLowerCase().includes(q));
+                });
+                syncSelectAll();
+              });
+
+              $panel.find('.col-filter-all').on('change', function () {
+                $list
+                  .find('.col-filter-item:visible .col-filter-value')
+                  .prop('checked', $(this).is(':checked'));
+              });
+              $list.on('change', '.col-filter-value', syncSelectAll);
+
+              const apply = () => {
+                const selected = new Set();
+                $list.find('.col-filter-value:checked').each(function () {
+                  selected.add($(this).val());
+                });
+                if (selected.size === values.length || selected.size === 0) {
+                  delete filters[colIndex];
+                } else {
+                  filters[colIndex] = selected;
+                }
+                $btn.toggleClass('active', !!filters[colIndex]);
+                closeColFilterPanel();
+                dt.draw();
+              };
+
+              $panel.find('.col-filter-apply').on('click', apply);
+              $panel.find('.col-filter-cancel').on('click', closeColFilterPanel);
+              $panel.on('keydown', function (e) {
+                if (e.key === 'Enter') apply();
+                if (e.key === 'Escape') closeColFilterPanel();
+              });
+
+              setTimeout(function () {
+                $(document).on('click.colFilter', function (e) {
+                  if (
+                    !$(e.target).closest('.col-filter-panel').length &&
+                    !$(e.target).closest('.th-filter-btn').length
+                  ) {
+                    closeColFilterPanel();
+                  }
+                });
+              }, 0);
+            }
+
             // RENDERIZAÇÃO DA TABELA DE REGISTOS COM O NÚMERO DE OPS
             function renderTable(data) {
+              closeColFilterPanel();
               if (dataTableInstance) {
                 dataTableInstance.destroy();
               }
@@ -4590,6 +4857,10 @@
                 language: {
                   url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/pt-PT.json',
                 },
+                // Com o idioma carregado por URL a tabela só fica pronta aqui
+                initComplete: function () {
+                  attachColumnFilters(this.api(), 'tableRegistos');
+                },
                 pageLength: 10,
                 responsive: true,
                 order: [
@@ -4600,6 +4871,7 @@
             }
 
             function renderPlanoTable(data) {
+              closeColFilterPanel();
               if (dataTablePlanoInstance) {
                 dataTablePlanoInstance.destroy();
               }
@@ -4645,6 +4917,10 @@
               dataTablePlanoInstance = $('#tablePlano').DataTable({
                 language: {
                   url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/pt-PT.json',
+                },
+                // Com o idioma carregado por URL a tabela só fica pronta aqui
+                initComplete: function () {
+                  attachColumnFilters(this.api(), 'tablePlano');
                 },
                 pageLength: 10,
                 responsive: true,
