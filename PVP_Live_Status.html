@@ -1592,6 +1592,11 @@
         border: 0;
         cursor: pointer;
       }
+      /* No cabeçalho os botões são mais estreitos, para tudo caber numa
+         linha também em ecrãs de 1600 px */
+      #opt-headerArmazem .fab-seg button {
+        padding: 5px 10px;
+      }
       .fab-seg button + button {
         border-left: 1px solid var(--border-color);
       }
@@ -1606,33 +1611,12 @@
       .fab-seg button:focus-visible,
       .fab-tile:focus-visible,
       .fab-btn:focus-visible,
-      .fab-voltar:focus-visible,
       .fab-wh-nome:focus-visible {
         outline: 2px solid var(--cyan-accent);
         outline-offset: 2px;
       }
-      .fab-nav {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        /* o cabeçalho sobe 8px por baixo desta linha */
-        padding-bottom: 8px;
-      }
       #fab-aviso:empty {
         display: none;
-      }
-      .fab-voltar {
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: var(--cyan-accent);
-        background: transparent;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 5px 12px;
-        cursor: pointer;
-      }
-      .fab-voltar:hover {
-        border-color: var(--cyan-accent);
       }
       .fab-card {
         background: var(--bg-card);
@@ -1778,9 +1762,10 @@
         color: var(--text-label);
         margin-bottom: 8px;
       }
+      /* Dois C.C. por linha em cada área */
       .fab-tiles {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
       }
       .fab-tile {
@@ -2037,16 +2022,9 @@
       })();
     </script>
     <div class="container-fluid" id="opt-dashboard-wrapper">
-      <!-- Linha de cima: voltar à Fábrica e escolher o armazém (só na
-           vista do armazém) e a hora da última atualização -->
-      <div class="d-flex justify-content-between align-items-center mb-1 gap-2 flex-wrap">
-        <div class="fab-nav fab-escondido" id="opt-navArmazem">
-          <button type="button" class="fab-voltar" data-ir-fabrica="1">
-            <i class="fa-solid fa-arrow-left me-1"></i>Fábrica
-          </button>
-          <div class="fab-seg" id="opt-segArmazem" role="group" aria-label="Armazém"></div>
-        </div>
-        <div class="opt-header-status ms-auto">
+      <!-- Hora da última atualização, por cima do cabeçalho -->
+      <div class="d-flex justify-content-end mb-1">
+        <div class="opt-header-status">
           <i class="fa-regular fa-clock me-1"></i>Atualizado a
           <span id="opt-lblTimestamp">--/--/---- --:--:--</span>
           <span id="opt-lblIdadeDados"></span>
@@ -2055,18 +2033,22 @@
 
       <!-- Cabeçalho -->
       <div
-        class="opt-header-bar d-flex justify-content-between align-items-center"
+        class="opt-header-bar d-flex justify-content-between align-items-center flex-wrap gap-2"
         id="opt-headerArmazem"
       >
-        <div class="opt-header-title">
-          <span
-            class="opt-live-dot"
-            id="opt-liveDot"
-            title="A carregar..."
-          ></span
-          >Live Status | Plano Produção
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <div class="opt-header-title me-1">
+            <span
+              class="opt-live-dot"
+              id="opt-liveDot"
+              title="A carregar..."
+            ></span
+            >Live Status | Plano Produção
+          </div>
+          <!-- Fábrica e armazéns: o mesmo seletor nas duas vistas -->
+          <nav class="fab-seg" id="opt-segArmazem" aria-label="Fábrica e armazéns"></nav>
         </div>
-        <div class="d-flex align-items-center gap-3" id="opt-headerDireita">
+        <div class="d-flex align-items-center gap-2 flex-wrap" id="opt-headerDireita">
           <button
             type="button"
             id="opt-btnTema"
@@ -2099,6 +2081,19 @@
             <i class="fa-solid fa-flask me-1"></i>Ensaios:
             <span id="opt-lblEnsaiosValor">--</span>
           </div>
+          <!-- Período da página Fábrica (só na Fábrica) -->
+          <div
+            class="d-flex align-items-center gap-2 fab-escondido"
+            id="fab-periodoSel"
+          >
+            <div class="fab-seg" role="group" aria-label="Período">
+              <button type="button" data-fab-periodo="hoje">Hoje</button>
+              <button type="button" data-fab-periodo="semana" class="on">
+                Semana
+              </button>
+            </div>
+            <span class="fab-mut" id="fab-lblPeriodo"></span>
+          </div>
           <div
             class="opt-week-badge d-flex align-items-center gap-1"
             id="opt-periodoPlano"
@@ -2125,7 +2120,7 @@
           >
             <i class="fa-solid fa-rotate me-1"></i> Atualizar Dados
           </button>
-          <div class="fab-seg" role="tablist" aria-label="Vista">
+          <div class="fab-seg" role="tablist" aria-label="Vista" id="opt-tabsArmazem">
             <button
               type="button"
               role="tab"
@@ -2166,41 +2161,6 @@
       <!-- ======================= PÁGINA FÁBRICA ======================= -->
       <div id="opt-fabricaContent" style="display: none">
         <div class="fab-pg">
-          <div
-            class="opt-header-bar d-flex justify-content-between align-items-center flex-wrap gap-2"
-          >
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-              <div class="opt-header-title">
-                <span
-                  class="opt-live-dot"
-                  id="fab-liveDot"
-                  title="A carregar..."
-                ></span
-                >Live Status | Fábrica
-              </div>
-              <nav class="fab-seg" id="fab-navArmazens" aria-label="Âmbito"></nav>
-            </div>
-            <div
-              class="d-flex align-items-center gap-3 flex-wrap"
-              id="fab-headerDireita"
-            >
-              <div class="fab-seg" role="group" aria-label="Período">
-                <button type="button" data-fab-periodo="hoje">Hoje</button>
-                <button type="button" data-fab-periodo="semana" class="on">
-                  Semana
-                </button>
-              </div>
-              <span class="fab-mut" id="fab-lblPeriodo"></span>
-              <button
-                type="button"
-                id="fab-btnRefresh"
-                class="btn btn-outline-primary btn-sm fw-bold"
-              >
-                <i class="fa-solid fa-rotate me-1"></i> Atualizar Dados
-              </button>
-            </div>
-          </div>
-
           <div id="fab-aviso"></div>
 
           <section class="fab-kpis" id="fab-kpis" aria-label="Indicadores da fábrica"></section>
@@ -3755,12 +3715,6 @@
                 $(this).toggleClass('on', $(this).data('fab-periodo') === fabPeriodo);
               });
               renderFabrica();
-            });
-
-          $('#fab-btnRefresh')
-            .off('click')
-            .on('click', function () {
-              $('#opt-btnRefresh').trigger('click');
             });
 
           $('#fab-edificios')
@@ -5612,9 +5566,10 @@
           $('#opt-kpiTotalDeltaTitulo').text(
             (total >= 0 ? 'TOTAL AVANÇO' : 'TOTAL EM ATRASO') + sufixoArea
           );
-          // A bolinha "ao vivo" do título acompanha o total
+          // A bolinha "ao vivo" do título acompanha o total (na página
+          // Fábrica acompanha o saldo da fábrica)
           const liveDot = document.getElementById('opt-liveDot');
-          if (liveDot) {
+          if (liveDot && armazemAtual) {
             liveDot.style.setProperty('--live-cor', total >= 0 ? '#34d399' : '#f87171');
             liveDot.title =
               (total >= 0 ? 'Total em avanço' : 'Total em atraso') + ` (${cfg.valueText})`;
@@ -8668,10 +8623,6 @@
           const hist = separadorAtual === 'historico';
           $('#opt-tabPlano').toggleClass('on', !hist).attr('aria-selected', String(!hist));
           $('#opt-tabHistorico').toggleClass('on', hist).attr('aria-selected', String(hist));
-          $('#opt-lblBacklog, #opt-lblEnsaios, #opt-periodoPlano').toggleClass(
-            'fab-escondido',
-            hist
-          );
           mostrarConteudo();
           if (!hist) return;
 
@@ -10346,12 +10297,11 @@
             } class="${ligado ? 'on' : ''}" title="${
               w.ativo ? `${w.id} · ${w.tipo}` : `${w.id} · em preparação`
             }"${ligado ? ' aria-current="page"' : ''}>${w.id}</button>`;
-          $('#fab-navArmazens').html(
-            '<button type="button" class="on" aria-current="page">Fábrica</button>' +
-              ARMAZENS.map((w) => botao(w, false)).join('')
-          );
           $('#opt-segArmazem').html(
-            ARMAZENS.map((w) => botao(w, w.id === armazemAtual)).join('')
+            `<button type="button" ${
+              armazemAtual ? 'data-ir-fabrica="1"' : 'aria-current="page"'
+            } class="${armazemAtual ? '' : 'on'}" title="Vista geral da fábrica">Fábrica</button>` +
+              ARMAZENS.map((w) => botao(w, w.id === armazemAtual)).join('')
           );
         }
 
@@ -10359,8 +10309,16 @@
            haver dados fica tudo escondido atrás do spinner. */
         function mostrarConteudo() {
           const fabrica = !armazemAtual;
-          $('#opt-headerArmazem, #opt-navArmazem').toggleClass('fab-escondido', fabrica);
-          $('#opt-btnTema').prependTo(fabrica ? '#fab-headerDireita' : '#opt-headerDireita');
+          // O cabeçalho é o mesmo nas duas vistas; só mudam os controlos:
+          // na Fábrica o período Hoje | Semana; no armazém o backlog, os
+          // ensaios e o período do plano (fora do Histórico) e os separadores.
+          const hist = !fabrica && separadorAtual === 'historico';
+          $('#fab-periodoSel').toggleClass('fab-escondido', !fabrica);
+          $('#opt-tabsArmazem').toggleClass('fab-escondido', fabrica);
+          $('#opt-lblBacklog, #opt-lblEnsaios, #opt-periodoPlano').toggleClass(
+            'fab-escondido',
+            fabrica || hist
+          );
           if (!ultimaAtualizacao) {
             $('#opt-fabricaContent, #opt-dashboardContent').hide();
             if (fabrica) $('#opt-historicoContent').hide();
@@ -10672,7 +10630,7 @@
               ? `Hoje, ${fabDataCurta(d.periodo.inicio)}`
               : `${fabDataCurta(d.periodo.inicio)} a ${fabDataCurta(d.periodo.fim)}`
           );
-          const dot = document.getElementById('fab-liveDot');
+          const dot = document.getElementById('opt-liveDot');
           if (dot) {
             dot.style.setProperty('--live-cor', d.saldo >= 0 ? 'var(--st-ok)' : 'var(--st-r)');
             dot.title = `Saldo da fábrica: ${fabTurnosComSinal(d.saldo)} turnos`;
