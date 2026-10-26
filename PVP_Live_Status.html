@@ -2081,21 +2081,8 @@
             <i class="fa-solid fa-flask me-1"></i>Ensaios:
             <span id="opt-lblEnsaiosValor">--</span>
           </div>
-          <!-- Período da página Fábrica (só na Fábrica) -->
           <div
-            class="d-flex align-items-center gap-2 fab-escondido"
-            id="fab-periodoSel"
-          >
-            <div class="fab-seg" role="group" aria-label="Período">
-              <button type="button" data-fab-periodo="hoje">Hoje</button>
-              <button type="button" data-fab-periodo="semana" class="on">
-                Semana
-              </button>
-            </div>
-            <span class="fab-mut" id="fab-lblPeriodo"></span>
-          </div>
-          <div
-            class="opt-week-badge d-flex align-items-center gap-1"
+            class="opt-week-badge d-flex align-items-center flex-wrap gap-1"
             id="opt-periodoPlano"
           >
             <i class="fa-regular fa-calendar-days me-1"></i>
@@ -3178,7 +3165,6 @@
         let armazemAtual = null; // null = página Fábrica
         let separadorAtual = 'plano'; // 'plano' ou 'historico'
         let areaPendente = null; // área a escolher quando o armazém abrir
-        let fabPeriodo = 'semana'; // 'hoje' ou 'semana'
         let fabSelecionado = null; // { cc, area } escolhido na planta
         let fabUltimosDados = null;
         let fabTicks = 0;
@@ -3705,16 +3691,6 @@
             })
             .on('click.fab', '[data-ir-armazem]', function () {
               irParaArmazem(String($(this).data('ir-armazem')));
-            });
-
-          $('[data-fab-periodo]')
-            .off('click')
-            .on('click', function () {
-              fabPeriodo = $(this).data('fab-periodo') === 'hoje' ? 'hoje' : 'semana';
-              $('[data-fab-periodo]').each(function () {
-                $(this).toggleClass('on', $(this).data('fab-periodo') === fabPeriodo);
-              });
-              renderFabrica();
             });
 
           $('#fab-edificios')
@@ -5035,7 +5011,7 @@
           $('#opt-loadingSpinner').hide();
           mostrarConteudo();
           if (!armazemAtual) renderFabrica();
-          else if (separadorAtual === 'historico' && histInitialized) {
+          if (separadorAtual === 'historico' && histInitialized) {
             prepararHistorico();
           }
         }
@@ -7774,6 +7750,7 @@
           if (!md07Data || !md07Data.rows) {
             riskMaterials = [];
             renderRiskTable();
+            if (!armazemAtual) renderFabrica();
             return;
           }
 
@@ -10255,6 +10232,10 @@
         function irParaFabrica() {
           if (!armazemAtual) return;
           armazemAtual = null;
+          // Na Fábrica não há área nem C.C. escolhidos: o Backlog e os
+          // Ensaios do cabeçalho são da fábrica toda
+          expandedCCs.clear();
+          $('#opt-selArea').val('');
           escreverRota();
           aplicarVista();
           window.scrollTo(0, 0);
@@ -10274,7 +10255,9 @@
           armazemAtual = w.id;
           areaPendente = opcoes.area ? String(opcoes.area).toUpperCase() : null;
           if (opcoes.cc) expandedCCs.add(opcoes.cc);
-          if (vinhaDaFabrica || opcoes.cc) {
+          // Abrir um C.C. leva sempre ao plano atual; mudar de vista mantém
+          // o separador em que se estava
+          if (opcoes.cc) {
             separadorAtual = 'plano';
             abrirSeparador('plano');
           }
@@ -10309,24 +10292,20 @@
            haver dados fica tudo escondido atrás do spinner. */
         function mostrarConteudo() {
           const fabrica = !armazemAtual;
-          // O cabeçalho é o mesmo nas duas vistas; só mudam os controlos:
-          // na Fábrica o período Hoje | Semana; no armazém o backlog, os
-          // ensaios e o período do plano (fora do Histórico) e os separadores.
-          const hist = !fabrica && separadorAtual === 'historico';
-          $('#fab-periodoSel').toggleClass('fab-escondido', !fabrica);
-          $('#opt-tabsArmazem').toggleClass('fab-escondido', fabrica);
+          // O cabeçalho é o mesmo na Fábrica e nos armazéns. No Histórico
+          // não se aplicam o backlog, os ensaios nem o período do plano.
+          const hist = separadorAtual === 'historico';
           $('#opt-lblBacklog, #opt-lblEnsaios, #opt-periodoPlano').toggleClass(
             'fab-escondido',
-            fabrica || hist
+            hist
           );
+          $('#opt-historicoContent').toggle(hist);
           if (!ultimaAtualizacao) {
             $('#opt-fabricaContent, #opt-dashboardContent').hide();
-            if (fabrica) $('#opt-historicoContent').hide();
             return;
           }
-          $('#opt-fabricaContent').toggle(fabrica);
-          $('#opt-dashboardContent').toggle(!fabrica && separadorAtual === 'plano');
-          $('#opt-historicoContent').toggle(!fabrica && separadorAtual === 'historico');
+          $('#opt-fabricaContent').toggle(fabrica && !hist);
+          $('#opt-dashboardContent').toggle(!fabrica && !hist);
         }
 
         function aplicarVista() {
@@ -10336,22 +10315,26 @@
             : 'Status OPT - Fábrica';
           mostrarConteudo();
           if (!ultimaAtualizacao) return;
-          if (!armazemAtual) {
-            renderFabrica();
-            return;
-          }
+          // Refiltra pelo armazém (na Fábrica, todos): desenha o plano do
+          // armazém ou a página Fábrica, e o Backlog/Ensaios do cabeçalho
           applyDateFilter();
+          if (!armazemAtual) renderFabrica();
           if (separadorAtual === 'historico') prepararHistorico();
         }
 
         // ---------------------------------------------------------------- contas
+        /* A Fábrica usa o mesmo período do cabeçalho que os armazéns. */
         function periodoDaFabrica() {
-          const hoje = getTodayZero();
-          if (fabPeriodo === 'hoje') {
-            const fim = new Date(hoje);
-            fim.setHours(23, 59, 59, 999);
-            return { inicio: hoje, fim: fim };
+          const startVal = $('#opt-startDate').val();
+          const endVal = $('#opt-endDate').val();
+          if (startVal && endVal) {
+            return {
+              inicio: new Date(startVal + 'T00:00:00'),
+              fim: new Date(endVal + 'T23:59:59'),
+            };
           }
+          // Sem datas no cabeçalho: a semana atual, de segunda a domingo
+          const hoje = getTodayZero();
           const diaIso = hoje.getDay() === 0 ? 7 : hoje.getDay();
           const inicio = new Date(
             hoje.getFullYear(),
@@ -10625,11 +10608,6 @@
             return;
           }
           fabUltimosDados = d;
-          $('#fab-lblPeriodo').text(
-            fabPeriodo === 'hoje'
-              ? `Hoje, ${fabDataCurta(d.periodo.inicio)}`
-              : `${fabDataCurta(d.periodo.inicio)} a ${fabDataCurta(d.periodo.fim)}`
-          );
           const dot = document.getElementById('opt-liveDot');
           if (dot) {
             dot.style.setProperty('--live-cor', d.saldo >= 0 ? 'var(--st-ok)' : 'var(--st-r)');
