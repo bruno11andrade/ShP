@@ -479,47 +479,6 @@
               <label
                 class="form-label fw-bold text-muted small mb-1 text-uppercase"
                 style="font-size: 0.75rem"
-                ><i class="fa-solid fa-building me-1 text-primary"></i
-                >Fábrica</label
-              >
-              <div
-                class="dropdown custom-multiselect"
-                id="filterFabricaContainer"
-              >
-                <button
-                  class="btn btn-sm btn-dropdown w-100 d-flex justify-content-between align-items-center shadow-none border"
-                  type="button"
-                  data-bs-toggle="dropdown"
-                  data-bs-auto-close="outside"
-                >
-                  <span class="dropdown-label text-truncate">Todas</span>
-                </button>
-                <div class="dropdown-menu p-2 shadow">
-                  <div
-                    class="d-flex justify-content-between mb-2 pb-1 border-bottom"
-                  >
-                    <button
-                      type="button"
-                      class="btn btn-link btn-xs text-decoration-none p-0 select-all-btn"
-                    >
-                      Selecionar Tudo
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-link btn-xs text-decoration-none text-danger p-0 clear-all-btn"
-                    >
-                      Limpar
-                    </button>
-                  </div>
-                  <div class="options-container"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="col-xxl-1 col-lg-2 col-md-3 col-sm-6">
-              <label
-                class="form-label fw-bold text-muted small mb-1 text-uppercase"
-                style="font-size: 0.75rem"
                 ><i class="fa-solid fa-filter me-1 text-primary"></i
                 >Período</label
               >
@@ -732,6 +691,47 @@
               </div>
             </div>
 
+            <div class="col-xxl-1 col-lg-2 col-md-3 col-sm-6">
+              <label
+                class="form-label fw-bold text-muted small mb-1 text-uppercase"
+                style="font-size: 0.75rem"
+                ><i class="fa-solid fa-building me-1 text-primary"></i
+                >Fábrica</label
+              >
+              <div
+                class="dropdown custom-multiselect"
+                id="filterFabricaContainer"
+              >
+                <button
+                  class="btn btn-sm btn-dropdown w-100 d-flex justify-content-between align-items-center shadow-none border"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  data-bs-auto-close="outside"
+                >
+                  <span class="dropdown-label text-truncate">Todas</span>
+                </button>
+                <div class="dropdown-menu p-2 shadow">
+                  <div
+                    class="d-flex justify-content-between mb-2 pb-1 border-bottom"
+                  >
+                    <button
+                      type="button"
+                      class="btn btn-link btn-xs text-decoration-none p-0 select-all-btn"
+                    >
+                      Selecionar Tudo
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-link btn-xs text-decoration-none text-danger p-0 clear-all-btn"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                  <div class="options-container"></div>
+                </div>
+              </div>
+            </div>
+
             <div class="col-xxl-1 col-lg-2 col-md-4 col-sm-6">
               <label
                 class="form-label fw-bold text-muted small mb-1 text-uppercase"
@@ -773,7 +773,7 @@
               </div>
             </div>
 
-            <div class="col-xxl-2 col-lg-3 col-md-4 col-sm-6">
+            <div class="col-xxl-1 col-lg-2 col-md-4 col-sm-6">
               <label
                 class="form-label fw-bold text-muted small mb-1 text-uppercase"
                 style="font-size: 0.75rem"
@@ -1651,7 +1651,7 @@
                       <div class="chart-card">
                         <h5 class="card-title text-secondary mb-3">
                           <i class="fa-solid fa-clock-rotate-left me-2"></i
-                          >Operadores por Turno
+                          >Operadores por Semana
                         </h5>
                         <div class="scrollable-chart-container">
                           <div
@@ -3761,80 +3761,58 @@
               renderEvolucaoTurnosChart(data);
               renderEvolucaoNecPreenchidosChart(data);
 
-              let totalOpsNSab = 0,
-                totalOpsMSab = 0,
-                totalOpsTSab = 0;
-              let totalOpsNDom = 0,
-                totalOpsMDom = 0,
-                totalOpsTDom = 0;
-              let totalOpsNFer = 0,
-                totalOpsMFer = 0,
-                totalOpsTFer = 0;
+              // Operadores por semana (barra acumulada Logística + Produção)
+              // com as peças planeadas num eixo secundário
+              const opsSemanaMap = {};
+              const getOpsSemana = (ano, semana) => {
+                const key = `${ano}|${semana}`;
+                if (!opsSemanaMap[key])
+                  opsSemanaMap[key] = { ano, semana, prod: 0, log: 0, plan: 0 };
+                return opsSemanaMap[key];
+              };
+              const semanaValida = (d) =>
+                d.Ano && d.Ano !== 'N/A' && d.Semana && d.Semana !== 'N/A';
 
               data.forEach((d) => {
-                totalOpsNSab += d.OpsNSab || 0;
-                totalOpsMSab += d.OpsMSab || 0;
-                totalOpsTSab += d.OpsTSab || 0;
-                totalOpsNDom += d.OpsNDom || 0;
-                totalOpsMDom += d.OpsMDom || 0;
-                totalOpsTDom += d.OpsTDom || 0;
-                totalOpsNFer += d.OpsNFer || 0;
-                totalOpsMFer += d.OpsMFer || 0;
-                totalOpsTFer += d.OpsTFer || 0;
+                if (!semanaValida(d)) return;
+                getOpsSemana(d.Ano, d.Semana).prod +=
+                  (d.OpsNSab || 0) +
+                  (d.OpsMSab || 0) +
+                  (d.OpsTSab || 0) +
+                  (d.OpsNDom || 0) +
+                  (d.OpsMDom || 0) +
+                  (d.OpsTDom || 0) +
+                  (d.OpsNFer || 0) +
+                  (d.OpsMFer || 0) +
+                  (d.OpsTFer || 0);
               });
 
-              const opsTurnoMapProd = {};
-              if (totalOpsNSab > 0) opsTurnoMapProd['Noite Sáb'] = totalOpsNSab;
-              if (totalOpsMSab > 0) opsTurnoMapProd['Manhã Sáb'] = totalOpsMSab;
-              if (totalOpsTSab > 0) opsTurnoMapProd['Tarde Sáb'] = totalOpsTSab;
-              if (totalOpsNDom > 0) opsTurnoMapProd['Noite Dom'] = totalOpsNDom;
-              if (totalOpsMDom > 0) opsTurnoMapProd['Manhã Dom'] = totalOpsMDom;
-              if (totalOpsTDom > 0) opsTurnoMapProd['Tarde Dom'] = totalOpsTDom;
-              if (totalOpsNFer > 0) opsTurnoMapProd['Noite Fer'] = totalOpsNFer;
-              if (totalOpsMFer > 0) opsTurnoMapProd['Manhã Fer'] = totalOpsMFer;
-              if (totalOpsTFer > 0) opsTurnoMapProd['Tarde Fer'] = totalOpsTFer;
-
-              const opsTurnoMapLog = {};
               currentLogisticaData.forEach((d) => {
-                let shiftName = d.Shift;
-                if (shiftName === 'Noite Sábado') shiftName = 'Noite Sáb';
-                else if (shiftName === 'Manhã Sábado') shiftName = 'Manhã Sáb';
-                else if (shiftName === 'Tarde Sábado') shiftName = 'Tarde Sáb';
-                else if (shiftName === 'Noite Domingo') shiftName = 'Noite Dom';
-                else if (shiftName === 'Manhã Domingo') shiftName = 'Manhã Dom';
-                else if (shiftName === 'Tarde Domingo') shiftName = 'Tarde Dom';
-                else if (shiftName === 'Noite Feriado') shiftName = 'Noite Fer';
-                else if (shiftName === 'Manhã Feriado') shiftName = 'Manhã Fer';
-                else if (shiftName === 'Tarde Feriado') shiftName = 'Tarde Fer';
-
-                if (shiftName && shiftName !== 'N/A' && shiftName !== 'Outro') {
-                  opsTurnoMapLog[shiftName] = (opsTurnoMapLog[shiftName] || 0) + 1;
+                if (!semanaValida(d)) return;
+                if (d.Shift && d.Shift !== 'N/A' && d.Shift !== 'Outro') {
+                  getOpsSemana(d.Ano, d.Semana).log += 1;
                 }
               });
 
-              const shiftOrder = [
-                'Noite Sáb',
-                'Manhã Sáb',
-                'Tarde Sáb',
-                'Noite Dom',
-                'Manhã Dom',
-                'Tarde Dom',
-                'Noite Fer',
-                'Manhã Fer',
-                'Tarde Fer',
-              ];
-              const allLabels = new Set([
-                ...Object.keys(opsTurnoMapProd),
-                ...Object.keys(opsTurnoMapLog),
-              ]);
-              const sortedLabels = Array.from(allLabels).sort(
-                (a, b) => shiftOrder.indexOf(a) - shiftOrder.indexOf(b)
+              planoData.forEach((p) => {
+                if (!semanaValida(p)) return;
+                getOpsSemana(p.Ano, p.Semana).plan += p.QtdPlaneada || 0;
+              });
+
+              const opsSemanas = Object.values(opsSemanaMap)
+                .filter((s) => s.prod > 0 || s.log > 0 || s.plan > 0)
+                .sort(
+                  (a, b) =>
+                    parseInt(a.ano, 10) - parseInt(b.ano, 10) ||
+                    parseInt(a.semana.replace('S', ''), 10) -
+                      parseInt(b.semana.replace('S', ''), 10)
+                );
+              const variosAnos = new Set(opsSemanas.map((s) => s.ano)).size > 1;
+              const opsSemanaLabels = opsSemanas.map((s) =>
+                variosAnos ? `${s.semana}/${String(s.ano).slice(-2)}` : s.semana
               );
 
-              const prodData = sortedLabels.map((l) => opsTurnoMapProd[l] || 0);
-              const logData = sortedLabels.map((l) => opsTurnoMapLog[l] || 0);
-
-              setScrollWrapperWidth('wrapperOpsProducaoTurno', sortedLabels.length);
+              setScrollWrapperWidth('wrapperOpsProducaoTurno', opsSemanas.length);
 
               if (chartOpsProducaoTurnoInstance)
                 chartOpsProducaoTurnoInstance.destroy();
@@ -3843,17 +3821,34 @@
                 {
                   type: 'bar',
                   data: {
-                    labels: sortedLabels,
+                    labels: opsSemanaLabels,
                     datasets: [
                       {
+                        type: 'line',
+                        label: 'Peças Planeadas',
+                        data: opsSemanas.map((s) => s.plan),
+                        yAxisID: 'y1',
+                        borderColor: '#475569',
+                        backgroundColor: '#475569',
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        tension: 0.3,
+                        order: 0,
+                        datalabels: { display: false },
+                      },
+                      {
                         label: 'Operadores Logística',
-                        data: logData,
+                        data: opsSemanas.map((s) => s.log),
                         backgroundColor: '#0284c7',
+                        stack: 'ops',
+                        order: 1,
                       },
                       {
                         label: 'Operadores Produção',
-                        data: prodData,
+                        data: opsSemanas.map((s) => s.prod),
                         backgroundColor: '#fd7e14',
+                        stack: 'ops',
+                        order: 1,
                       },
                     ],
                   },
@@ -3861,6 +3856,7 @@
                   options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     layout: { padding: { top: 25 } },
                     plugins: {
                       legend: {
@@ -3868,17 +3864,43 @@
                         position: 'bottom',
                         labels: { boxWidth: 12, font: { size: 11 } },
                       },
+                      tooltip: {
+                        callbacks: {
+                          label: (ctx) =>
+                            `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString(
+                              'pt-PT'
+                            )}`,
+                          footer: (items) => {
+                            const total = items
+                              .filter((i) => i.dataset.stack === 'ops')
+                              .reduce((a, i) => a + i.parsed.y, 0);
+                            return `Total Operadores: ${total}`;
+                          },
+                        },
+                      },
                       datalabels: {
-                        anchor: 'end',
-                        align: 'top',
-                        color: '#1e293b',
-                        font: { weight: 'bold', size: 11 },
+                        color: '#fff',
+                        font: { weight: 'bold', size: 10 },
                         formatter: (v) => (v > 0 ? v : ''),
                       },
                     },
                     scales: {
-                      x: { stacked: false },
-                      y: integerYAxisConfig,
+                      x: { stacked: true },
+                      y: {
+                        ...integerYAxisConfig,
+                        stacked: true,
+                        grace: '10%',
+                        title: { display: true, text: 'Nº Operadores' },
+                      },
+                      y1: {
+                        position: 'right',
+                        beginAtZero: true,
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'Peças Planeadas' },
+                        ticks: {
+                          callback: (v) => v.toLocaleString('pt-PT'),
+                        },
+                      },
                     },
                   },
                 }
