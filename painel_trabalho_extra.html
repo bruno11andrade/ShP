@@ -1759,7 +1759,7 @@
                       <div class="chart-card">
                         <h5 class="card-title text-secondary mb-3">
                           <i class="fa-solid fa-clock-rotate-left me-2"></i
-                          >Operadores por Semana
+                          >HC por Semana
                         </h5>
                         <div class="scrollable-chart-container">
                           <div
@@ -3869,7 +3869,7 @@
               renderEvolucaoTurnosChart(data);
               renderEvolucaoNecPreenchidosChart(data);
 
-              // Operadores por semana (barra acumulada Logística + Produção)
+              // HC por semana (barra acumulada Logística + Produção)
               // com as peças planeadas num eixo secundário
               const opsSemanaMap = {};
               const getOpsSemana = (ano, semana) => {
@@ -3945,14 +3945,14 @@
                         datalabels: { display: false },
                       },
                       {
-                        label: 'Operadores Logística',
+                        label: 'HC Logística',
                         data: opsSemanas.map((s) => s.log),
                         backgroundColor: '#0284c7',
                         stack: 'ops',
                         order: 1,
                       },
                       {
-                        label: 'Operadores Produção',
+                        label: 'HC Produção',
                         data: opsSemanas.map((s) => s.prod),
                         backgroundColor: '#fd7e14',
                         stack: 'ops',
@@ -3982,14 +3982,47 @@
                             const total = items
                               .filter((i) => i.dataset.stack === 'ops')
                               .reduce((a, i) => a + i.parsed.y, 0);
-                            return `Total Operadores: ${total}`;
+                            return `Total HC: ${total}`;
                           },
                         },
                       },
                       datalabels: {
-                        color: '#fff',
-                        font: { weight: 'bold', size: 10 },
-                        formatter: (v) => (v > 0 ? v : ''),
+                        labels: {
+                          // Valor de cada parte, dentro da barra
+                          value: {
+                            color: '#fff',
+                            font: { weight: 'bold', size: 10 },
+                            formatter: (v) => (v > 0 ? v : ''),
+                          },
+                          // Total de HC por cima da barra (só na parte de cima)
+                          total: {
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#1e293b',
+                            font: { weight: 'bold', size: 11 },
+                            display: (ctx) => {
+                              const visiveis = ctx.chart.data.datasets
+                                .map((ds, i) => i)
+                                .filter(
+                                  (i) =>
+                                    ctx.chart.data.datasets[i].stack === 'ops' &&
+                                    ctx.chart.isDatasetVisible(i) &&
+                                    ctx.chart.data.datasets[i].data[ctx.dataIndex] > 0
+                                );
+                              return (
+                                visiveis.length > 0 &&
+                                visiveis[visiveis.length - 1] === ctx.datasetIndex
+                              );
+                            },
+                            formatter: (v, ctx) =>
+                              ctx.chart.data.datasets
+                                .filter(
+                                  (ds, i) =>
+                                    ds.stack === 'ops' && ctx.chart.isDatasetVisible(i)
+                                )
+                                .reduce((a, ds) => a + (ds.data[ctx.dataIndex] || 0), 0),
+                          },
+                        },
                       },
                     },
                     scales: {
@@ -3997,8 +4030,11 @@
                       y: {
                         ...integerYAxisConfig,
                         stacked: true,
-                        grace: '10%',
-                        title: { display: true, text: 'Nº Operadores' },
+                        // Folga para o total ficar abaixo da linha das peças
+                        suggestedMax: Math.ceil(
+                          Math.max(0, ...opsSemanas.map((s) => s.prod + s.log)) * 1.3
+                        ),
+                        title: { display: true, text: 'Nº HC' },
                       },
                       y1: {
                         position: 'right',
