@@ -1626,10 +1626,24 @@
         min-width: 0;
         box-shadow: var(--card-shadow);
       }
-      .fab-kpis {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 10px;
+      /* Faixa do cumprimento do plano: valor à esquerda, barra a seguir */
+      .fab-cumpr {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        flex-wrap: wrap;
+        padding: 10px 16px;
+      }
+      .fab-cumpr .fab-big {
+        margin: 2px 0 0;
+      }
+      .fab-cumpr-barra {
+        flex: 1 1 300px;
+        min-width: 0;
+      }
+      .fab-cumpr-barra .fab-barra {
+        height: 10px;
+        margin: 0 0 6px;
       }
       .fab-lbl {
         font-size: 0.72rem;
@@ -1646,17 +1660,10 @@
         margin: 6px 0 4px;
       }
       .fab-meio {
-        display: flex;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
         gap: 14px;
-        flex-wrap: wrap;
         align-items: stretch;
-      }
-      .fab-planta-col {
-        flex: 999 1 720px;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
       }
       .fab-planta {
         background-color: var(--fab-planta);
@@ -1859,19 +1866,44 @@
         vertical-align: -2px;
         margin-right: 6px;
       }
+      /* O detalhe ocupa a altura da planta: o conteúdo fica por cima, em
+         posição absoluta, para não esticar a linha (rola se não couber) */
       .fab-detalhe {
-        flex: 1 1 300px;
+        position: relative;
+        padding: 0;
+        min-height: 260px;
+      }
+      .fab-det-corpo {
+        position: absolute;
+        inset: 0;
+        overflow-y: auto;
+        padding: 12px 14px;
         display: flex;
         flex-direction: column;
         gap: 6px;
       }
+      @media (max-width: 900px) {
+        .fab-meio {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .fab-det-corpo {
+          position: static;
+        }
+      }
+      .fab-det-topo,
+      .fab-det-linha {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
       .fab-det-cc {
-        font-size: 2rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: var(--cyan-accent);
       }
       .fab-det-delta {
-        font-size: 2.5rem;
+        font-size: 1.9rem;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
         line-height: 1;
@@ -1881,7 +1913,7 @@
         border-radius: 4px;
         background: var(--border-color);
         overflow: hidden;
-        margin: 10px 0;
+        margin: 4px 0;
       }
       .fab-barra i {
         display: block;
@@ -1892,14 +1924,20 @@
         display: flex;
         justify-content: space-between;
         gap: 8px;
-        font-size: 0.85rem;
-        padding: 6px 0;
+        font-size: 0.82rem;
+        padding: 3px 0;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .fab-alertas {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
       }
       .fab-alerta {
         border: 1px solid;
-        border-radius: 8px;
-        padding: 10px 12px;
-        font-size: 0.85rem;
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 0.76rem;
       }
       .fab-alerta-mf {
         border-color: var(--st-mf);
@@ -1914,7 +1952,7 @@
         font-size: 0.85rem;
         font-weight: 700;
         border-radius: 8px;
-        padding: 10px 14px;
+        padding: 7px 12px;
         border: 1px solid var(--cyan-accent);
         background: transparent;
         color: var(--cyan-accent);
@@ -2150,24 +2188,26 @@
         <div class="fab-pg">
           <div id="fab-aviso"></div>
 
-          <section class="fab-kpis" id="fab-kpis" aria-label="Indicadores da fábrica"></section>
+          <section class="fab-card fab-cumpr" id="fab-cumprimento" aria-label="Cumprimento do plano"></section>
 
+          <!-- Planta e detalhe do C.C. com a mesma altura: o detalhe não
+               estica a linha, acompanha a planta -->
           <section class="fab-meio">
-            <div class="fab-planta-col">
-              <div class="fab-planta">
-                <div class="fab-planta-lbl">PLANTA · OVAR</div>
-                <div class="fab-edificios" id="fab-edificios"></div>
-              </div>
-              <div class="fab-legenda">
+            <div class="fab-planta">
+              <div class="fab-planta-lbl">PLANTA · OVAR</div>
+              <div class="fab-edificios" id="fab-edificios"></div>
+            </div>
+            <aside class="fab-card fab-detalhe" aria-live="polite">
+              <div class="fab-det-corpo" id="fab-detalhe"></div>
+            </aside>
+          </section>
+          <div class="fab-legenda">
                 <span><span class="fab-sw" style="border-color: var(--fab-ok-borda)"></span>Em avanço</span>
                 <span><span class="fab-sw" style="border-color: var(--fab-y-borda)"></span>Atraso &lt; 4 h</span>
                 <span><span class="fab-sw" style="border-color: var(--fab-o-borda); background: var(--fab-o-fundo)"></span>4 – 8 h</span>
                 <span><span class="fab-sw" style="border-color: var(--fab-r-borda); background: var(--fab-r-fundo)"></span>&gt; 8 h (pisca)</span>
                 <span><span class="fab-sw" style="border-color: var(--st-mf); background: var(--st-mf); border-radius: 50%"></span>Material em falha</span>
-              </div>
-            </div>
-            <aside class="fab-card fab-detalhe" id="fab-detalhe" aria-live="polite"></aside>
-          </section>
+          </div>
 
           <section class="fab-baixo">
             <div class="fab-card">
@@ -10490,19 +10530,6 @@
               qProd += i.QtdProduzida || 0;
             });
 
-            // Trabalho extra: previsão calculada e o que está na lista
-            const te = { previsto: 0, pedidos: 0, preenchidos: 0 };
-            unicos.forEach((cc) => {
-              te.previsto += calculateTrabalhoExtra(cc);
-            });
-            const semana = getSemanaIso(getSegundaDoPeriodo());
-            rawTrabalhoExtraItems.forEach((r) => {
-              if (r.Ano !== semana.ano || r.Semana !== semana.semana) return;
-              if (!areasAtivas.has(r.Area)) return;
-              te.pedidos += r.TurnosNec || 0;
-              te.preenchidos += r.TurnosPreench || 0;
-            });
-
             // Mapa dos últimos dias úteis: peças produzidas ÷ planeadas das
             // linhas planeadas para cada dia, por área
             const dias = ultimosDiasUteis(FAB_DIAS_MAPA);
@@ -10548,13 +10575,9 @@
               periodo: periodo,
               armazens: armazens,
               todos: todos,
-              nCC: unicos.length,
-              bruto: negativos.reduce((s, c) => s + c.delta, 0),
               saldo: todos.reduce((s, c) => s + c.delta, 0),
-              cc1t: todos.filter((c) => c.delta < -HORAS_POR_TURNO).length,
               cumprimento: { plan: qPlan, prod: qProd },
               falhas: falhas,
-              te: te,
               dias: dias,
               mapa: mapa,
               top: negativos
@@ -10614,7 +10637,7 @@
             dot.title = `Saldo da fábrica: ${fabTurnosComSinal(d.saldo)} turnos`;
           }
           renderFabAviso(d);
-          renderFabKpis(d);
+          renderFabCumprimento(d);
           renderFabPlanta(d);
           renderFabDetalhe(d);
           renderFabTop(d);
@@ -10631,53 +10654,27 @@
           );
         }
 
-        function renderFabKpis(d) {
+        /* Único indicador da Fábrica: peças produzidas ÷ planeadas até hoje,
+           com a barra e as quantidades. */
+        function renderFabCumprimento(d) {
           const c = d.cumprimento;
           const pct = c.plan > 0 ? Math.round((c.prod / c.plan) * 100) : null;
-          const tePedidos = trabalhoExtraDisponivel
-            ? `pedidos ${formatarTurnos(d.te.pedidos)} · preenchidos ${formatarTurnos(d.te.preenchidos)}`
-            : 'lista de registos indisponível';
-          const cartoes = [
-            [
-              'Atraso bruto',
-              `${fabTurnos(d.bruto)} turnos`,
-              d.bruto < 0 ? 'fab-neg' : 'fab-pos',
-              `${fabHoras(d.bruto)} h · só C.C. atrasados`,
-            ],
-            [
-              'Saldo líquido',
-              `${fabTurnosComSinal(d.saldo)} turnos`,
-              d.saldo < 0 ? 'fab-amb' : 'fab-pos',
-              `${fabHoras(d.saldo)} h · avanços descontados`,
-            ],
-            [
-              'Cumprimento do plano',
-              pct === null ? '—' : `${pct}%`,
-              '',
-              pct === null ? 'sem peças planeadas até hoje' : 'peças até hoje',
-              pct === null ? 'var(--text-muted)' : getCumprimentoColor(pct),
-            ],
-            [
-              'C.C. em atraso > 1 turno',
-              `${d.cc1t} de ${d.nCC}`,
-              d.cc1t > 0 ? 'fab-neg' : 'fab-pos',
-              `mais de ${String(HORAS_POR_TURNO).replace('.', ',')} h de atraso`,
-            ],
-            d.falhas.ativo
-              ? ['Material em falha', String(d.falhas.n), d.falhas.n > 0 ? 'fab-pur' : 'fab-pos', 'linhas MD07 · hoje / próximo dia']
-              : ['Material em falha', '—', 'fab-mut', 'carregar o MD07 de hoje'],
-            ['TE previsto', `${formatarTurnos(d.te.previsto)} turnos`, 'fab-cy', tePedidos],
-          ];
-          $('#fab-kpis').html(
-            cartoes
-              .map(
-                ([t, v, cls, sub, cor]) =>
-                  `<div class="fab-card"><div class="fab-lbl">${t}</div><div class="fab-big ${cls}"${
-                    cor ? ` style="color: ${cor}"` : ''
-                  }>${v}</div><div class="fab-mut">${sub}</div></div>`
-              )
-              .join('')
-          );
+          const cor = pct === null ? 'var(--text-muted)' : getCumprimentoColor(pct);
+          const periodo = `${fabDataCurta(d.periodo.inicio)} a ${fabDataCurta(d.periodo.fim)}`;
+          $('#fab-cumprimento').html(`
+            <div>
+              <div class="fab-lbl">Cumprimento do plano</div>
+              <div class="fab-big" style="color: ${cor}">${pct === null ? '—' : pct + '%'}</div>
+            </div>
+            <div class="fab-cumpr-barra">
+              <div class="fab-barra"><i style="width: ${Math.min(100, pct || 0)}%; background: ${cor}"></i></div>
+              <div class="fab-mut">${
+                pct === null
+                  ? `Sem peças planeadas até hoje no período ${periodo}`
+                  : `${formatQtd(c.prod)} de ${formatQtd(c.plan)} peças planeadas até hoje · período ${periodo}`
+              }</div>
+            </div>
+          `);
         }
 
         function renderFabPlanta(d) {
@@ -10769,24 +10766,25 @@
           const [mpTxt, mpCls] = textoDisponibilidade(c.disp.n, c.disp.mp);
           const [frtTxt, frtCls] = textoDisponibilidade(c.disp.n, c.disp.frt);
           const alertas = [];
-          if (c.mf) alertas.push('<div class="fab-alerta fab-alerta-mf">Material em falha (MD07)</div>');
+          if (c.mf) alertas.push('<span class="fab-alerta fab-alerta-mf">Material em falha (MD07)</span>');
           if (c.delta < -HORAS_POR_TURNO) {
-            alertas.push('<div class="fab-alerta fab-alerta-te">Mais de 1 turno de atraso: avaliar TE</div>');
+            alertas.push('<span class="fab-alerta fab-alerta-te">Mais de 1 turno de atraso: avaliar TE</span>');
           }
           $det.html(`
-            <div style="display: flex; align-items: baseline; gap: 10px">
+            <div class="fab-det-topo">
               <span class="fab-det-cc">${escapeHtml(c.cc)}</span>
               <span class="fab-mut">${escapeHtml(c.armazem)} · ${escapeHtml(c.area)}</span>
             </div>
-            <div class="fab-mut" style="margin-top: 8px">${c.delta < 0 ? 'Em atraso' : 'Em avanço'}</div>
-            <div class="fab-det-delta ${c.delta < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(c.delta)}</div>
-            <div class="fab-mut">${fabTurnos(c.delta)} turnos</div>
+            <div class="fab-det-linha">
+              <span class="fab-det-delta ${c.delta < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(c.delta)}</span>
+              <span class="fab-mut">${c.delta < 0 ? 'Em atraso' : 'Em avanço'} · ${fabTurnos(c.delta)} turnos</span>
+            </div>
             <div class="fab-barra" title="Produzido ÷ planeado até hoje: ${pct}%"><i style="width: ${pct}%"></i></div>
             <div class="fab-row"><span>Planeado até hoje</span><b>${formatHoursToHHMM(c.plan)}</b></div>
             <div class="fab-row"><span>Produzido</span><b>${formatHoursToHHMM(c.prod)}</b></div>
             <div class="fab-row"><span>Matéria-prima</span><b class="${mpCls}">${mpTxt}</b></div>
             <div class="fab-row"><span>Ferramenta</span><b class="${frtCls}">${frtTxt}</b></div>
-            ${alertas.join('')}
+            ${alertas.length ? `<div class="fab-alertas">${alertas.join('')}</div>` : ''}
             <button type="button" class="fab-btn" data-fab-abrir-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
               c.area
             )}" data-armazem="${escapeHtml(c.armazem)}">Abrir detalhe do C.C. →</button>
