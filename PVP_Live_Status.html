@@ -3383,8 +3383,9 @@
         /* Escalações: a lista "KPT - TOP 5" está no site sfm, que o browser
            não deixa ler a partir daqui. Uma importação (Infowise Import)
            copia-a para a lista "KPT TOP 5 Réplica" deste site, que é a que
-           o dashboard lê. O nível (Vermelho, Amarelo, Dourado) vem na
-           coluna Equipamento. */
+           o dashboard lê. Cada nível mostra os itens da vista da réplica com
+           o mesmo nome (Vermelho, Amarelo, Dourado), com o filtro, a ordem e
+           o limite de linhas da vista. Sem a vista, usa a coluna Equipamento. */
         const ESCALACAO_LISTA = 'KPT TOP 5 Réplica';
         const ESCALACAO_ORIGEM_URL = 'https://sfm.sps.automotive.local/Lists/KPT%20%20TOP%205';
         const ESCALACAO_NIVEIS = [
@@ -11062,37 +11063,92 @@
         }
 
         // ---------------------------------------------------------------- escalação
+        function urlListaEscalacao(resto) {
+          return `${getWebUrl()}/_api/web/lists/getbytitle('${encodeURIComponent(
+            ESCALACAO_LISTA.replace(/'/g, "''")
+          )}')${resto}`;
+        }
+
+        /* Itens de uma vista da réplica: o SharePoint aplica a definição da
+           vista (filtro, ordem, limite de linhas). */
+        function itensDaVistaEscalacao(nome, digest) {
+          return $.ajax({
+            url: urlListaEscalacao(
+              `/views/getbytitle('${encodeURIComponent(nome)}')?$select=ListViewXml`
+            ),
+            type: 'GET',
+            headers: { Accept: 'application/json; odata=verbose' },
+          }).then(function (res) {
+            const viewXml = res && res.d && res.d.ListViewXml;
+            if (!viewXml) return $.Deferred().reject('vista sem definição');
+            return $.ajax({
+              url: urlListaEscalacao('/GetItems'),
+              type: 'POST',
+              contentType: 'application/json;odata=verbose',
+              headers: {
+                Accept: 'application/json; odata=verbose',
+                'X-RequestDigest': digest,
+              },
+              data: JSON.stringify({
+                query: { __metadata: { type: 'SP.CamlQuery' }, ViewXml: viewXml },
+              }),
+            }).then(function (r) {
+              return (r && r.d && r.d.results) || [];
+            });
+          });
+        }
+
+        /* Sem as vistas, o nível vem da coluna Equipamento */
+        function niveisPelaColuna(itens) {
+          const niveis = ESCALACAO_NIVEIS.map((n) => ({ nome: n.nome, cor: n.cor, itens: [] }));
+          itens.forEach((it) => {
+            const nivel = campoEscalacao(it, 'nivel').toLowerCase();
+            const alvo = niveis.find((n) => nivel.indexOf(n.nome.toLowerCase()) !== -1);
+            if (alvo) alvo.itens.push(it);
+          });
+          niveis.forEach((n) =>
+            n.itens.sort((a, b) =>
+              String(a.Title || '').localeCompare(String(b.Title || ''), 'pt', { numeric: true })
+            )
+          );
+          return niveis;
+        }
+
+        function erroEscalacao(err) {
+          console.warn(`[Dashboard OPT] Escalação: não foi possível ler a lista «${ESCALACAO_LISTA}».`, err);
+          escalacaoDados = { erro: true };
+          renderFabEscalacao();
+        }
+
         function carregarEscalacao() {
-          lerListaCompleta(
-            `${getWebUrl()}/_api/web/lists/getbytitle('${encodeURIComponent(
-              ESCALACAO_LISTA
-            ).replace(/'/g, "''")}')/items?$top=${PAGINA_ITENS}`,
-            ESCALACAO_LISTA
-          )
-            .done(function (res) {
-              const niveis = ESCALACAO_NIVEIS.map((n) => ({ nome: n.nome, cor: n.cor, itens: [] }));
-              let semNivel = 0;
-              res.itens.forEach((it) => {
-                const nivel = campoEscalacao(it, 'nivel').toLowerCase();
-                const alvo = niveis.find((n) => nivel.indexOf(n.nome.toLowerCase()) !== -1);
-                if (alvo) alvo.itens.push(it);
-                else semNivel++;
-              });
-              niveis.forEach((n) =>
-                n.itens.sort((a, b) =>
-                  String(a.Title || '').localeCompare(String(b.Title || ''), 'pt', { numeric: true })
-                )
+          getRequestDigest()
+            .then(function (digest) {
+              return $.when.apply(
+                $,
+                ESCALACAO_NIVEIS.map((n) => itensDaVistaEscalacao(n.nome, digest))
               );
-              if (semNivel) {
-                console.info(`[Dashboard OPT] Escalação: ${semNivel} linha(s) sem nível em Equipamento.`);
-              }
-              escalacaoDados = { niveis: niveis };
+            })
+            .done(function () {
+              const listas = Array.prototype.slice.call(arguments);
+              escalacaoDados = {
+                niveis: ESCALACAO_NIVEIS.map((n, i) => ({
+                  nome: n.nome,
+                  cor: n.cor,
+                  itens: listas[i] || [],
+                })),
+              };
               renderFabEscalacao();
             })
             .fail(function (err) {
-              console.warn(`[Dashboard OPT] Escalação: não foi possível ler a lista «${ESCALACAO_LISTA}».`, err);
-              escalacaoDados = { erro: true };
-              renderFabEscalacao();
+              // Vistas em falta ou sem acesso: lê a lista toda e separa pela
+              // coluna Equipamento
+              console.info('[Dashboard OPT] Escalação: vistas da réplica indisponíveis; a usar a coluna Equipamento.', err);
+              lerListaCompleta(urlListaEscalacao(`/items?$top=${PAGINA_ITENS}`), ESCALACAO_LISTA)
+                .done(function (res) {
+                  escalacaoDados = { niveis: niveisPelaColuna(res.itens) };
+                  renderFabEscalacao();
+                })
+                .fail(erroEscalacao);
             });
         }
 
