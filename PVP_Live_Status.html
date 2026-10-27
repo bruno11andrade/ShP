@@ -56,6 +56,10 @@
         --btn-warning: #fbbf24;
         --btn-success: #34d399;
         --btn-danger: #f87171;
+        /* Cores das escalações */
+        --esc-amarelo: #facc15;
+        --esc-vermelho: #f87171;
+        --esc-dourado: #d4a72c;
         /* Página Fábrica: estado dos C.C. na planta e mapa de 10 dias */
         --st-ok: #34d399;
         --st-y: #fbbf24;
@@ -110,6 +114,9 @@
         --btn-warning: #b45309;
         --btn-success: #15803d;
         --btn-danger: #b91c1c;
+        --esc-amarelo: #ca8a04;
+        --esc-vermelho: #dc2626;
+        --esc-dourado: #a16207;
         --st-ok: #15803d;
         --st-y: #a16207;
         --st-o: #c2410c;
@@ -2039,6 +2046,90 @@
         outline: 2px solid var(--cyan-accent);
         outline-offset: 2px;
       }
+      /* Escalação: três colunas (Amarelo, Vermelho, Dourado) */
+      .fab-esc {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .fab-esc-cab {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .fab-esc-cab .fab-h2 {
+        margin: 0;
+      }
+      .fab-esc-cols {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+      @media (max-width: 700px) {
+        .fab-esc-cols {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .fab-esc-col {
+        border: 1px solid var(--border-color);
+        border-top: 3px solid var(--esc-cor);
+        border-radius: 6px;
+        padding: 8px;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .fab-esc-tit {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--esc-cor);
+      }
+      .fab-esc-tit a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .fab-esc-tit a:hover {
+        text-decoration: underline;
+      }
+      .fab-esc-n {
+        min-width: 22px;
+        text-align: center;
+        border-radius: 999px;
+        padding: 0 7px;
+        font-size: 0.78rem;
+        background: var(--esc-cor);
+        color: var(--on-accent);
+      }
+      .fab-esc-lista {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 230px;
+        overflow-y: auto;
+      }
+      .fab-esc-item {
+        background: var(--bg-inset);
+        border-radius: 5px;
+        padding: 6px 8px;
+        font-size: 0.78rem;
+        line-height: 1.35;
+      }
+      .fab-esc-item b {
+        color: var(--text-main);
+      }
+      .fab-esc-coment {
+        color: var(--text-muted);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
       .fab-baixo {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
@@ -2271,7 +2362,14 @@
           </div>
 
           <section class="fab-baixo">
-            <div class="fab-card fab-vazio"></div>
+            <!-- Escalação (lista KPT - TOP 5, noutro site do SharePoint) -->
+            <div class="fab-card fab-esc">
+              <div class="fab-esc-cab">
+                <h2 class="fab-h2">Escalação · KPT – Top 5</h2>
+                <span class="fab-mut" id="fab-escEstado"></span>
+              </div>
+              <div class="fab-esc-cols" id="fab-escalacao"></div>
+            </div>
             <div class="fab-card">
               <h2 class="fab-h2">Cumprimento do plano · últimos 10 dias úteis</h2>
               <div class="fab-mapa" id="fab-mapa"></div>
@@ -3270,6 +3368,31 @@
         const FAB_LIMITE_LARANJA = 4;
         const FAB_LIMITE_VERMELHO = 8;
         const FAB_DIAS_MAPA = 10;
+
+        /* Escalações: lista "KPT - TOP 5" do site sfm (outro site do
+           SharePoint). Cada nível é uma vista da lista com o mesmo nome; o
+           filtro de cada vista é lido da própria vista, para o dashboard
+           mostrar sempre o mesmo que a lista. */
+        const ESCALACAO_SITE = 'https://sfm.sps.automotive.local';
+        const ESCALACAO_LIST_GUID = '{F0D9420E-CF12-427C-B6C2-B3647DCD4AC8}';
+        const ESCALACAO_LIST_URL = ESCALACAO_SITE + '/Lists/KPT%20%20TOP%205';
+        const ESCALACAO_NIVEIS = [
+          { vista: 'Amarelo', cor: 'var(--esc-amarelo)' },
+          { vista: 'Vermelho', cor: 'var(--esc-vermelho)' },
+          { vista: 'Dourado', cor: 'var(--esc-dourado)' },
+        ];
+        const ESCALACAO_CAMPOS = {
+          cc: 'Title',
+          ka: 'e09w',
+          cliente: 'Cliente',
+          ccAlternativo: 'lqpv',
+          comentarios: 'cgbz',
+          equipamento: 'Equipamento',
+          unidade: 'Unidade',
+          area: '_x00c1_rea_x0020_Produtiva',
+        };
+        // null = ainda a ler; { erro } ou { niveis: [{ vista, cor, itens }] }
+        let escalacaoDados = null;
 
         let armazemAtual = null; // null = página Fábrica
         let separadorAtual = 'plano'; // 'plano' ou 'historico'
@@ -4894,6 +5017,8 @@
                   reqTE.resolve(semDados('Trabalho Extra - Registos'));
                 });
             });
+
+          carregarEscalacao();
 
           // Plano do OV9: se a lista não abrir, o OV2 continua a funcionar
           const reqOV9 = $.Deferred();
@@ -10845,6 +10970,7 @@
           }
           renderFabAviso(d);
           renderFabKpiTotal();
+          renderFabEscalacao();
           renderFabPlanta(d);
           renderFabDetalhe(d);
           renderFabMapa(d);
@@ -10870,6 +10996,261 @@
               .map((w) => w.id)
               .join(' + ')}</div>
           `);
+        }
+
+        // ---------------------------------------------------------------- escalação
+        /* Pedido ao outro site: leva as credenciais do utilizador. O site
+           sfm tem de aceitar pedidos vindos deste (CORS); se não aceitar, o
+           cartão mostra os links para as vistas. */
+        function pedirEscalacao(caminho) {
+          const d = $.Deferred();
+          const itens = [];
+          function pagina(url) {
+            $.ajax({
+              url: url,
+              type: 'GET',
+              headers: { Accept: 'application/json; odata=verbose' },
+              xhrFields: { withCredentials: true },
+            })
+              .done(function (res) {
+                const dados = (res && res.d) || {};
+                if (!dados.results) {
+                  d.resolve(dados);
+                  return;
+                }
+                dados.results.forEach((r) => itens.push(r));
+                if (dados.__next) pagina(dados.__next);
+                else d.resolve(itens);
+              })
+              .fail(function (err) {
+                d.reject(err);
+              });
+          }
+          pagina(
+            `${ESCALACAO_SITE}/_api/web/lists(guid'${ESCALACAO_LIST_GUID.replace(/[{}]/g, '')}')${caminho}`
+          );
+          return d.promise();
+        }
+
+        function carregarEscalacao() {
+          const pedidos = [pedirEscalacao(`/items?$top=${PAGINA_ITENS}`)].concat(
+            ESCALACAO_NIVEIS.map((n) =>
+              pedirEscalacao(`/views/getbytitle('${n.vista}')?$select=ViewQuery`)
+            )
+          );
+          $.when
+            .apply($, pedidos)
+            .done(function (itens) {
+              const vistas = Array.prototype.slice.call(arguments, 1);
+              escalacaoDados = {
+                niveis: ESCALACAO_NIVEIS.map((n, i) => ({
+                  vista: n.vista,
+                  cor: n.cor,
+                  itens: filtrarPelaVista(itens, (vistas[i] || {}).ViewQuery || ''),
+                })),
+              };
+              renderFabEscalacao();
+            })
+            .fail(function (err) {
+              console.warn(
+                '[Dashboard OPT] Escalação: não foi possível ler a lista KPT - TOP 5 ' +
+                  '(outro site do SharePoint; pode ser bloqueado pelo browser).',
+                err
+              );
+              escalacaoDados = { erro: true };
+              renderFabEscalacao();
+            });
+        }
+
+        /* Valor de uma coluna tal como o REST a devolve (texto, escolha,
+           pesquisa ou utilizador). */
+        function valorEscalacao(item, nome) {
+          let v = item[nome];
+          if (v === undefined) v = item['OData_' + nome];
+          if (v && typeof v === 'object') {
+            if (v.results) return v.results.map((x) => x.Title || x.Value || x).join(', ');
+            return v.Title || v.Value || '';
+          }
+          return v === null || v === undefined ? '' : String(v);
+        }
+
+        /* Aplica o filtro (CAML) da vista às linhas: E/Ou, igual/diferente,
+           maior/menor, contém, começa por, vazio/preenchido e «Em». O que
+           não se consegue avaliar (ex.: o utilizador atual) deixa passar. */
+        function filtrarPelaVista(itens, viewQuery) {
+          let where = null;
+          let orderBy = null;
+          try {
+            const xml = new DOMParser().parseFromString(
+              `<Query>${viewQuery}</Query>`,
+              'text/xml'
+            );
+            where = xml.getElementsByTagName('Where')[0] || null;
+            orderBy = xml.getElementsByTagName('OrderBy')[0] || null;
+          } catch (e) {
+            where = null;
+          }
+          const filhos = (no) => Array.prototype.filter.call(no.childNodes, (c) => c.nodeType === 1);
+          function valorDoItem(item, ref) {
+            const nome = ref.getAttribute('Name');
+            if (ref.getAttribute('LookupId') === 'TRUE') {
+              const id = item[nome + 'Id'];
+              return id === undefined || id === null ? '' : String(id);
+            }
+            return valorEscalacao(item, nome);
+          }
+          function valorDaCondicao(no) {
+            if (!no) return { tipo: 'Text', texto: '' };
+            const tipo = no.getAttribute('Type') || 'Text';
+            if (no.getElementsByTagName('Today').length) {
+              const hoje = getTodayZero();
+              const desvio = parseInt(no.getElementsByTagName('Today')[0].getAttribute('OffsetDays') || '0', 10);
+              hoje.setDate(hoje.getDate() + desvio);
+              return { tipo: 'DateTime', data: hoje };
+            }
+            if (no.getElementsByTagName('UserID').length) return null;
+            return { tipo: tipo, texto: no.textContent || '' };
+          }
+          function comparar(a, cond) {
+            if (/^(Number|Integer|Counter|Currency)$/i.test(cond.tipo)) {
+              return parseFloat(a) - parseFloat(cond.texto);
+            }
+            if (/^DateTime$/i.test(cond.tipo)) {
+              const da = a ? new Date(a) : null;
+              const db = cond.data || (cond.texto ? new Date(cond.texto) : null);
+              if (!da || !db) return NaN;
+              const dia = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+              return dia(da) - dia(db);
+            }
+            if (/^Boolean$/i.test(cond.tipo)) {
+              const bool = (x) => (/^(1|true|sim|yes)$/i.test(String(x)) ? 1 : 0);
+              return bool(a) - bool(cond.texto);
+            }
+            return String(a).trim().toLowerCase().localeCompare(String(cond.texto).trim().toLowerCase());
+          }
+          function avaliar(no, item) {
+            const op = no.nodeName;
+            const f = filhos(no);
+            if (op === 'And') return f.every((c) => avaliar(c, item));
+            if (op === 'Or') return f.some((c) => avaliar(c, item));
+            const ref = no.getElementsByTagName('FieldRef')[0];
+            if (!ref) return true;
+            const v = valorDoItem(item, ref);
+            if (op === 'IsNull') return v === '';
+            if (op === 'IsNotNull') return v !== '';
+            if (op === 'In') {
+              const valores = Array.prototype.map.call(no.getElementsByTagName('Value'), valorDaCondicao);
+              return valores.some((c) => c && comparar(v, c) === 0);
+            }
+            const cond = valorDaCondicao(no.getElementsByTagName('Value')[0]);
+            if (!cond) return true;
+            const texto = String(v).toLowerCase();
+            const alvo = String(cond.texto || '').toLowerCase();
+            switch (op) {
+              case 'Eq':
+                return comparar(v, cond) === 0;
+              case 'Neq':
+                return comparar(v, cond) !== 0;
+              case 'Gt':
+                return comparar(v, cond) > 0;
+              case 'Geq':
+                return comparar(v, cond) >= 0;
+              case 'Lt':
+                return comparar(v, cond) < 0;
+              case 'Leq':
+                return comparar(v, cond) <= 0;
+              case 'Contains':
+                return texto.indexOf(alvo) !== -1;
+              case 'BeginsWith':
+                return texto.indexOf(alvo) === 0;
+              default:
+                return true;
+            }
+          }
+          let lista = (itens || []).filter((item) => {
+            const raiz = where ? filhos(where)[0] : null;
+            return !raiz || avaliar(raiz, item);
+          });
+          if (orderBy) {
+            const refs = filhos(orderBy);
+            lista = lista.slice().sort((a, b) => {
+              for (const ref of refs) {
+                const nome = ref.getAttribute('Name');
+                const asc = ref.getAttribute('Ascending') !== 'FALSE';
+                const va = valorEscalacao(a, nome);
+                const vb = valorEscalacao(b, nome);
+                const c = String(va).localeCompare(String(vb), 'pt', { numeric: true });
+                if (c !== 0) return asc ? c : -c;
+              }
+              return 0;
+            });
+          }
+          return lista;
+        }
+
+        function textoSemHtml(v) {
+          return String(v || '')
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+
+        function renderFabEscalacao() {
+          const $c = $('#fab-escalacao');
+          if (!$c.length) return;
+          const $estado = $('#fab-escEstado');
+          const linkVista = (n) => `${ESCALACAO_LIST_URL}/${encodeURIComponent(n.vista)}.aspx`;
+          if (!escalacaoDados || escalacaoDados.erro) {
+            $estado.html(
+              escalacaoDados
+                ? '<i class="fa-solid fa-triangle-exclamation me-1"></i>Não foi possível ler a lista'
+                : '<i class="fa-solid fa-spinner fa-spin me-1"></i>A ler a lista...'
+            );
+            $c.html(
+              ESCALACAO_NIVEIS.map(
+                (n) => `<div class="fab-esc-col" style="--esc-cor: ${n.cor}">
+                  <div class="fab-esc-tit"><a href="${linkVista(n)}" target="_blank" rel="noopener">${n.vista} ↗</a></div>
+                  <div class="fab-mut">${escalacaoDados ? 'Abrir a vista na lista' : ''}</div>
+                </div>`
+              ).join('')
+            );
+            return;
+          }
+          const C = ESCALACAO_CAMPOS;
+          $estado.text(
+            `${escalacaoDados.niveis.reduce((s, n) => s + n.itens.length, 0)} escalações`
+          );
+          $c.html(
+            escalacaoDados.niveis
+              .map((n) => {
+                const itens = n.itens
+                  .map((it) => {
+                    const v = (campo) => escapeHtml(textoSemHtml(valorEscalacao(it, C[campo])));
+                    const detalhe = [v('cliente'), v('equipamento'), v('area'), v('unidade')]
+                      .filter(Boolean)
+                      .join(' · ');
+                    const alt = v('ccAlternativo');
+                    const coment = v('comentarios');
+                    return `<div class="fab-esc-item">
+                      <div><b>${v('cc') || '—'}</b>${v('ka') ? ` · ${v('ka')}` : ''}${
+                      alt ? ` <span class="fab-mut">(alt. ${alt})</span>` : ''
+                    }</div>
+                      ${detalhe ? `<div class="fab-mut">${detalhe}</div>` : ''}
+                      ${coment ? `<div class="fab-esc-coment" title="${coment}">${coment}</div>` : ''}
+                    </div>`;
+                  })
+                  .join('');
+                return `<div class="fab-esc-col" style="--esc-cor: ${n.cor}">
+                  <div class="fab-esc-tit">
+                    <a href="${linkVista(n)}" target="_blank" rel="noopener" title="Abrir a vista ${n.vista} na lista">${n.vista}</a>
+                    <span class="fab-esc-n">${n.itens.length}</span>
+                  </div>
+                  <div class="fab-esc-lista">${itens || '<span class="fab-mut">Sem escalações</span>'}</div>
+                </div>`;
+              })
+              .join('')
+          );
         }
 
         function renderFabAviso(d) {
