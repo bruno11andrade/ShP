@@ -2335,9 +2335,20 @@
               tabindex="0"
               title="Clique para ver detalhes"
             ></div>
-            <div class="fab-card fab-vazio"></div>
-            <div class="fab-card fab-vazio"></div>
-            <div class="fab-card fab-vazio"></div>
+            <div
+              class="fab-card fab-kpi fab-vazio"
+              id="fab-kpiAtraso8h"
+              role="button"
+              tabindex="0"
+              title="Clique para ver detalhes"
+            ></div>
+            <div
+              class="fab-card fab-kpi fab-vazio"
+              id="fab-kpiQtd"
+              role="button"
+              tabindex="0"
+              title="Clique para ver detalhes"
+            ></div>
             <div class="fab-card fab-vazio"></div>
             <div class="fab-card fab-vazio"></div>
           </section>
@@ -3376,9 +3387,16 @@
         const ESCALACAO_SITE = 'https://sfm.sps.automotive.local';
         const ESCALACAO_LIST_GUID = '{F0D9420E-CF12-427C-B6C2-B3647DCD4AC8}';
         const ESCALACAO_LIST_URL = ESCALACAO_SITE + '/Lists/KPT%20%20TOP%205';
+        /* Réplica da lista neste site (importação a partir do sfm): quando
+           existir, preencher o GUID e o endereço da lista; o dashboard passa
+           a lê-la em vez da original, sem o bloqueio entre sites. A réplica
+           tem de ter as vistas Vermelho, Amarelo e Dourado com os mesmos
+           filtros da original. */
+        const ESCALACAO_REPLICA_GUID = null; // ex.: '{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}'
+        const ESCALACAO_REPLICA_URL = null; // ex.: getWebUrl() + '/Lists/KPT%20TOP%205'
         const ESCALACAO_NIVEIS = [
-          { vista: 'Amarelo', cor: 'var(--esc-amarelo)' },
           { vista: 'Vermelho', cor: 'var(--esc-vermelho)' },
+          { vista: 'Amarelo', cor: 'var(--esc-amarelo)' },
           { vista: 'Dourado', cor: 'var(--esc-dourado)' },
         ];
         const ESCALACAO_CAMPOS = {
@@ -4100,17 +4118,25 @@
               showKpiDetails('deltaTotal');
             });
           // Na Fábrica, o mesmo detalhe com os C.C. de todos os armazéns
-          $('#fab-kpiTotal')
-            .off('click keydown')
-            .on('click', function () {
-              showKpiDetails('deltaTotal');
-            })
-            .on('keydown', function (e) {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                showKpiDetails('deltaTotal');
-              }
-            });
+          // Cartões da Fábrica: os mesmos detalhes dos cartões do armazém,
+          // com os C.C. de todos os armazéns
+          [
+            ['#fab-kpiTotal', 'deltaTotal'],
+            ['#fab-kpiAtraso8h', 'atraso8h'],
+            ['#fab-kpiQtd', 'qtd'],
+          ].forEach(([seletor, tipo]) => {
+            $(seletor)
+              .off('click keydown')
+              .on('click', function () {
+                showKpiDetails(tipo);
+              })
+              .on('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  showKpiDetails(tipo);
+                }
+              });
+          });
           $('#btn-kpi-atraso8h')
             .off('click')
             .on('click', function () {
@@ -10970,6 +10996,8 @@
           }
           renderFabAviso(d);
           renderFabKpiTotal();
+          renderFabKpiAtraso8h();
+          renderFabKpiQtd();
           renderFabEscalacao();
           renderFabPlanta(d);
           renderFabDetalhe(d);
@@ -10995,6 +11023,47 @@
             <div class="opt-kpi-sub">soma dos C.C. · ${ARMAZENS.filter((w) => w.ativo)
               .map((w) => w.id)
               .join(' + ')}</div>
+          `);
+        }
+
+        /* % de C.C. com mais de 8 h de atraso, em toda a fábrica — a mesma
+           conta do cartão do armazém sem área escolhida. */
+        function renderFabKpiAtraso8h() {
+          const ccs = getCCsParaAtraso8h('');
+          const pct = calcularPctCcAtraso8h('');
+          const n = Math.round((pct / 100) * ccs.length);
+          $('#fab-kpiAtraso8h').html(`
+            <div class="fab-kpi-tit">% C.C. em atraso &gt; 8H</div>
+            <div class="fab-kpi-val" style="color: ${getAtraso8hColor(pct)}">${pct}%</div>
+            <div class="opt-kpi-sub">${n} de ${ccs.length} C.C.</div>
+          `);
+        }
+
+        /* Peças produzidas ÷ planeadas até hoje, em toda a fábrica — a mesma
+           conta do cartão do armazém. */
+        function renderFabKpiQtd() {
+          const fimDeHoje = new Date();
+          fimDeHoje.setHours(23, 59, 59, 999);
+          let plan = 0;
+          let prod = 0;
+          currentFilteredItems.forEach((i) => {
+            if (!i.RawDateObj || i.RawDateObj > fimDeHoje) return;
+            plan += i.QtdPlaneada || 0;
+            prod += i.QtdProduzida || 0;
+          });
+          let pct = 0;
+          let cor = corTema('--text-muted');
+          if (plan > 0) {
+            pct = Math.round((prod / plan) * 100);
+            cor = getCumprimentoColor(pct);
+          } else if (prod > 0) {
+            pct = 100;
+            cor = '#34d399';
+          }
+          $('#fab-kpiQtd').html(`
+            <div class="fab-kpi-tit">Qtd. Produzido/Planeado (%)</div>
+            <div class="fab-kpi-val" style="color: ${cor}">${pct}%</div>
+            <div class="opt-kpi-sub">até hoje</div>
           `);
         }
 
@@ -11027,7 +11096,9 @@
               });
           }
           pagina(
-            `${ESCALACAO_SITE}/_api/web/lists(guid'${ESCALACAO_LIST_GUID.replace(/[{}]/g, '')}')${caminho}`
+            ESCALACAO_REPLICA_GUID
+              ? `${getWebUrl()}/_api/web/lists(guid'${ESCALACAO_REPLICA_GUID.replace(/[{}]/g, '')}')${caminho}`
+              : `${ESCALACAO_SITE}/_api/web/lists(guid'${ESCALACAO_LIST_GUID.replace(/[{}]/g, '')}')${caminho}`
           );
           return d.promise();
         }
@@ -11200,7 +11271,8 @@
           const $c = $('#fab-escalacao');
           if (!$c.length) return;
           const $estado = $('#fab-escEstado');
-          const linkVista = (n) => `${ESCALACAO_LIST_URL}/${encodeURIComponent(n.vista)}.aspx`;
+          const linkVista = (n) =>
+            `${ESCALACAO_REPLICA_URL || ESCALACAO_LIST_URL}/${encodeURIComponent(n.vista)}.aspx`;
           if (!escalacaoDados || escalacaoDados.erro) {
             $estado.html(
               escalacaoDados
