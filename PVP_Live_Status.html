@@ -3387,22 +3387,26 @@
            o mesmo nome (Vermelho, Amarelo, Dourado), com o filtro, a ordem e
            o limite de linhas da vista. Sem a vista, usa a coluna Equipamento. */
         const ESCALACAO_LISTA = 'KPT TOP 5 Réplica';
-        const ESCALACAO_ORIGEM_URL = 'https://sfm.sps.automotive.local/Lists/KPT%20%20TOP%205';
+        const ESCALACAO_LIST_GUID = '{66B10087-7AA5-470D-9AA3-A6A83352D273}';
+        // Endereço da réplica (as vistas abrem a partir daqui)
+        const ESCALACAO_LIST_URL =
+          'https://pt.sps.automotive.local/departments/logistica/Lists/KPT%20TOP%205%20Rplica';
         const ESCALACAO_NIVEIS = [
           { nome: 'Vermelho', cor: 'var(--esc-vermelho)' },
           { nome: 'Amarelo', cor: 'var(--esc-amarelo)' },
           { nome: 'Dourado', cor: 'var(--esc-dourado)' },
         ];
-        // Colunas da réplica pelo nome (sem acentos nem espaços), para não
-        // depender dos nomes internos que o SharePoint gerou
+        // Nomes internos das colunas da réplica
         const ESCALACAO_CAMPOS = {
-          nivel: ['equipamento'],
-          ka: ['ka', 'e09w'],
-          cliente: ['cliente'],
-          ccAlternativo: ['ccalternativo', 'lqpv'],
-          comentarios: ['comentrios', 'comentarios', 'cgbz'],
-          unidade: ['unidade'],
-          area: ['reaprodutiva', 'areaprodutiva'],
+          cc: 'Title',
+          nivel: 'Equipamento',
+          ka: 'KA',
+          cliente: 'Cliente',
+          ccAlternativo: 'CC_x0020_Alternativo',
+          comentarios: 'Coment_x00e1_rios',
+          unidade: 'Unidade',
+          area: '_x00c1_rea_x0020_Produtiva',
+          idOrigem: 'ID_x0020_Origem',
         };
         // null = ainda a ler; { erro } ou { niveis: [{ nome, cor, itens }] }
         let escalacaoDados = null;
@@ -11064,8 +11068,9 @@
 
         // ---------------------------------------------------------------- escalação
         function urlListaEscalacao(resto) {
-          return `${getWebUrl()}/_api/web/lists/getbytitle('${encodeURIComponent(
-            ESCALACAO_LISTA.replace(/'/g, "''")
+          return `${getWebUrl()}/_api/web/lists(guid'${ESCALACAO_LIST_GUID.replace(
+            /[{}]/g,
+            ''
           )}')${resto}`;
         }
 
@@ -11152,13 +11157,12 @@
             });
         }
 
-        /* Valor de uma coluna da réplica, procurada pelo nome normalizado */
+        /* Valor de uma coluna da réplica. As colunas cujo nome interno começa
+           por «_» chegam pelo REST com o prefixo «OData_». */
         function campoEscalacao(item, campo) {
-          const nomes = ESCALACAO_CAMPOS[campo] || [];
-          const chave = Object.keys(item).find(
-            (k) => k !== '__metadata' && nomes.indexOf(normalizarNomeCampo(k)) !== -1
-          );
-          let v = chave ? item[chave] : '';
+          const nome = ESCALACAO_CAMPOS[campo];
+          let v = item[nome];
+          if (v === undefined) v = item['OData_' + nome];
           if (v && typeof v === 'object') v = v.Title || v.Value || '';
           return v === null || v === undefined ? '' : String(v).trim();
         }
@@ -11175,7 +11179,7 @@
           const $c = $('#fab-escalacao');
           if (!$c.length) return;
           const $estado = $('#fab-escEstado');
-          const linkVista = (n) => `${ESCALACAO_ORIGEM_URL}/${encodeURIComponent(n.nome)}.aspx`;
+          const linkVista = (n) => `${ESCALACAO_LIST_URL}/${encodeURIComponent(n.nome)}.aspx`;
           if (!escalacaoDados || escalacaoDados.erro) {
             $estado.html(
               escalacaoDados
@@ -11204,7 +11208,7 @@
                     const detalhe = [v('cliente'), v('area'), v('unidade')].filter(Boolean).join(' · ');
                     const alt = v('ccAlternativo');
                     const coment = v('comentarios');
-                    const cc = escapeHtml(textoSemHtml(it.Title));
+                    const cc = v('cc');
                     return `<div class="fab-esc-item">
                       <div><b>${cc || '—'}</b>${v('ka') ? ` · ${v('ka')}` : ''}${
                       alt ? ` <span class="fab-mut">(alt. ${alt})</span>` : ''
@@ -11216,7 +11220,7 @@
                   .join('');
                 return `<div class="fab-esc-col" style="--esc-cor: ${n.cor}">
                   <div class="fab-esc-tit">
-                    <a href="${linkVista(n)}" target="_blank" rel="noopener" title="Abrir a vista ${n.nome} na lista original">${n.nome}</a>
+                    <a href="${linkVista(n)}" target="_blank" rel="noopener" title="Abrir a vista ${n.nome} na lista">${n.nome}</a>
                     <span class="fab-esc-n">${n.itens.length}</span>
                   </div>
                   <div class="fab-esc-lista">${itens || '<span class="fab-mut">Sem escalações</span>'}</div>
