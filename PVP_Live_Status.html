@@ -11002,6 +11002,11 @@
         /* Pedido ao outro site: leva as credenciais do utilizador. O site
            sfm tem de aceitar pedidos vindos deste (CORS); se não aceitar, o
            cartão mostra os links para as vistas. */
+        // O site sfm responde com «Access-Control-Allow-Origin: *», que o
+        // browser só aceita em pedidos sem credenciais: tenta-se primeiro com
+        // credenciais e, se falhar, sem elas (passa se a lista o permitir).
+        let escalacaoComCredenciais = true;
+
         function pedirEscalacao(caminho) {
           const d = $.Deferred();
           const itens = [];
@@ -11010,7 +11015,7 @@
               url: url,
               type: 'GET',
               headers: { Accept: 'application/json; odata=verbose' },
-              xhrFields: { withCredentials: true },
+              xhrFields: { withCredentials: escalacaoComCredenciais },
             })
               .done(function (res) {
                 const dados = (res && res.d) || {};
@@ -11032,7 +11037,7 @@
           return d.promise();
         }
 
-        function carregarEscalacao() {
+        function carregarEscalacao(repeticao) {
           const pedidos = [pedirEscalacao(`/items?$top=${PAGINA_ITENS}`)].concat(
             ESCALACAO_NIVEIS.map((n) =>
               pedirEscalacao(`/views/getbytitle('${n.vista}')?$select=ViewQuery`)
@@ -11052,6 +11057,12 @@
               renderFabEscalacao();
             })
             .fail(function (err) {
+              if (!repeticao) {
+                escalacaoComCredenciais = !escalacaoComCredenciais;
+                carregarEscalacao(true);
+                return;
+              }
+              escalacaoComCredenciais = true;
               console.warn(
                 '[Dashboard OPT] Escalação: não foi possível ler a lista KPT - TOP 5 ' +
                   '(outro site do SharePoint; pode ser bloqueado pelo browser).',
@@ -11204,7 +11215,7 @@
           if (!escalacaoDados || escalacaoDados.erro) {
             $estado.html(
               escalacaoDados
-                ? '<i class="fa-solid fa-triangle-exclamation me-1"></i>Não foi possível ler a lista'
+                ? '<i class="fa-solid fa-triangle-exclamation me-1"></i>Sem acesso à lista (outro site do SharePoint)'
                 : '<i class="fa-solid fa-spinner fa-spin me-1"></i>A ler a lista...'
             );
             $c.html(
