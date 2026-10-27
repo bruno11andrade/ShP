@@ -1610,7 +1610,6 @@
       }
       .fab-seg button:focus-visible,
       .fab-tile:focus-visible,
-      .fab-btn:focus-visible,
       .fab-wh-nome:focus-visible {
         outline: 2px solid var(--cyan-accent);
         outline-offset: 2px;
@@ -1626,38 +1625,14 @@
         min-width: 0;
         box-shadow: var(--card-shadow);
       }
-      /* Faixa do cumprimento do plano: valor à esquerda, barra a seguir */
-      .fab-cumpr {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-wrap: wrap;
-        padding: 10px 16px;
+      .fab-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
       }
-      .fab-cumpr .fab-big {
-        margin: 2px 0 0;
-      }
-      .fab-cumpr-barra {
-        flex: 1 1 300px;
-        min-width: 0;
-      }
-      .fab-cumpr-barra .fab-barra {
-        height: 10px;
-        margin: 0 0 6px;
-      }
-      .fab-lbl {
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--text-label);
-      }
-      .fab-big {
-        font-size: 1.75rem;
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-        line-height: 1.15;
-        margin: 6px 0 4px;
+      /* Cartões ainda sem indicador */
+      .fab-vazio {
+        min-height: 92px;
       }
       .fab-meio {
         display: grid;
@@ -1825,10 +1800,6 @@
       .fab-t-r .v {
         color: var(--st-r);
       }
-      .fab-sel {
-        outline: 2px solid var(--cyan-accent);
-        outline-offset: 2px;
-      }
       .fab-dot {
         position: absolute;
         top: 4px;
@@ -1890,79 +1861,6 @@
           position: static;
         }
       }
-      .fab-det-topo,
-      .fab-det-linha {
-        display: flex;
-        align-items: baseline;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-      .fab-det-cc {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--cyan-accent);
-      }
-      .fab-det-delta {
-        font-size: 1.9rem;
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-        line-height: 1;
-      }
-      .fab-barra {
-        height: 8px;
-        border-radius: 4px;
-        background: var(--border-color);
-        overflow: hidden;
-        margin: 4px 0;
-      }
-      .fab-barra i {
-        display: block;
-        height: 100%;
-        background: var(--cyan-accent);
-      }
-      .fab-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        font-size: 0.82rem;
-        padding: 3px 0;
-        border-bottom: 1px solid var(--border-color);
-      }
-      .fab-alertas {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      .fab-alerta {
-        border: 1px solid;
-        border-radius: 6px;
-        padding: 4px 8px;
-        font-size: 0.76rem;
-      }
-      .fab-alerta-mf {
-        border-color: var(--st-mf);
-        color: var(--st-mf);
-      }
-      .fab-alerta-te {
-        border-color: var(--st-r);
-        color: var(--st-r);
-      }
-      .fab-btn {
-        font: inherit;
-        font-size: 0.85rem;
-        font-weight: 700;
-        border-radius: 8px;
-        padding: 7px 12px;
-        border: 1px solid var(--cyan-accent);
-        background: transparent;
-        color: var(--cyan-accent);
-        text-align: center;
-        cursor: pointer;
-        margin-top: auto;
-      }
-      .fab-btn:hover {
-        background: var(--fab-sel-fundo);
-      }
       .fab-baixo {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
@@ -1973,37 +1871,6 @@
         font-size: 0.95rem;
         font-weight: 700;
         color: var(--text-main);
-      }
-      .fab-tbl-wrap {
-        overflow-x: auto;
-      }
-      .fab-tbl {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.85rem;
-        font-variant-numeric: tabular-nums;
-        color: var(--text-main);
-      }
-      .fab-tbl th {
-        text-align: left;
-        font-size: 0.7rem;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-        font-weight: 700;
-        padding: 7px 8px;
-        border-bottom: 1px solid var(--border-color);
-      }
-      .fab-tbl td {
-        padding: 8px;
-        border-bottom: 1px solid var(--border-color);
-        white-space: nowrap;
-      }
-      .fab-tbl tr.fab-tr-link {
-        cursor: pointer;
-      }
-      .fab-tbl tr.fab-tr-link:hover td {
-        background: var(--bg-stripe);
       }
       .fab-mapa {
         display: grid;
@@ -2188,7 +2055,15 @@
         <div class="fab-pg">
           <div id="fab-aviso"></div>
 
-          <section class="fab-card fab-cumpr" id="fab-cumprimento" aria-label="Cumprimento do plano"></section>
+          <!-- Cartões de indicadores da Fábrica: por preencher -->
+          <section class="fab-kpis" aria-label="Indicadores da fábrica">
+            <div class="fab-card fab-vazio"></div>
+            <div class="fab-card fab-vazio"></div>
+            <div class="fab-card fab-vazio"></div>
+            <div class="fab-card fab-vazio"></div>
+            <div class="fab-card fab-vazio"></div>
+            <div class="fab-card fab-vazio"></div>
+          </section>
 
           <!-- Planta e detalhe do C.C. com a mesma altura: o detalhe não
                estica a linha, acompanha a planta -->
@@ -2210,12 +2085,7 @@
           </div>
 
           <section class="fab-baixo">
-            <div class="fab-card">
-              <h2 class="fab-h2">Os 5 C.C. com mais atraso</h2>
-              <div class="fab-tbl-wrap">
-                <table class="fab-tbl" id="fab-top"></table>
-              </div>
-            </div>
+            <div class="fab-card fab-vazio"></div>
             <div class="fab-card">
               <h2 class="fab-h2">Cumprimento do plano · últimos 10 dias úteis</h2>
               <div class="fab-mapa" id="fab-mapa"></div>
@@ -3199,14 +3069,10 @@
         const FAB_LIMITE_LARANJA = 4;
         const FAB_LIMITE_VERMELHO = 8;
         const FAB_DIAS_MAPA = 10;
-        // A causa principal de um C.C. vê-se nos registos deste nº de dias
-        const FAB_DIAS_CAUSA = 30;
 
         let armazemAtual = null; // null = página Fábrica
         let separadorAtual = 'plano'; // 'plano' ou 'historico'
         let areaPendente = null; // área a escolher quando o armazém abrir
-        let fabSelecionado = null; // { cc, area } escolhido na planta
-        let fabUltimosDados = null;
         let fabTicks = 0;
         // Enquanto se calcula a página Fábrica, a semana em análise é a do
         // período da Fábrica e não a do período escolhido no armazém.
@@ -3736,22 +3602,10 @@
           $('#fab-edificios')
             .off('click', '.fab-tile')
             .on('click', '.fab-tile', function () {
-              fabSelecionado = {
-                cc: String($(this).data('fab-cc')),
-                area: String($(this).data('fab-area')),
-              };
-              if (fabUltimosDados) {
-                renderFabPlanta(fabUltimosDados);
-                renderFabDetalhe(fabUltimosDados);
-              }
-            });
-
-          $('#fab-detalhe, #fab-top')
-            .off('click', '[data-fab-abrir-cc]')
-            .on('click', '[data-fab-abrir-cc]', function () {
+              // Abre o armazém nessa área, com o C.C. já expandido
               irParaArmazem(String($(this).data('armazem')), {
                 area: String($(this).data('fab-area')),
-                cc: String($(this).data('fab-abrir-cc')),
+                cc: String($(this).data('fab-cc')),
               });
             });
 
@@ -10405,20 +10259,6 @@
           };
         }
 
-        /* Causa mais registada nas linhas do C.C. dos últimos dias. */
-        function causaPrincipal(cc) {
-          const desde = getTodayZero();
-          desde.setDate(desde.getDate() - FAB_DIAS_CAUSA);
-          const conta = {};
-          rawListItems.forEach((i) => {
-            if (!i.CausaRaizDesvio || !i.RawDateObj || i.RawDateObj < desde) return;
-            if (!areCCsEqual(i.CC, cc)) return;
-            conta[i.CausaRaizDesvio] = (conta[i.CausaRaizDesvio] || 0) + 1;
-          });
-          const lista = Object.keys(conta).sort((a, b) => conta[b] - conta[a]);
-          return lista.length ? lista[0] : '—';
-        }
-
         /* Últimos dias úteis antes de hoje (hoje ainda vai a meio). */
         function ultimosDiasUteis(n) {
           const dias = [];
@@ -10570,7 +10410,6 @@
               ),
             ];
 
-            const negativos = todos.filter((c) => c.delta < 0);
             return {
               periodo: periodo,
               armazens: armazens,
@@ -10580,11 +10419,6 @@
               falhas: falhas,
               dias: dias,
               mapa: mapa,
-              top: negativos
-                .slice()
-                .sort((a, b) => a.delta - b.delta)
-                .slice(0, 5)
-                .map((c) => Object.assign({ causa: causaPrincipal(c.cc) }, c)),
               semArmazem: semArmazem,
             };
           });
@@ -10630,17 +10464,13 @@
             console.error('Erro ao calcular a página Fábrica:', e);
             return;
           }
-          fabUltimosDados = d;
           const dot = document.getElementById('opt-liveDot');
           if (dot) {
             dot.style.setProperty('--live-cor', d.saldo >= 0 ? 'var(--st-ok)' : 'var(--st-r)');
             dot.title = `Saldo da fábrica: ${fabTurnosComSinal(d.saldo)} turnos`;
           }
           renderFabAviso(d);
-          renderFabCumprimento(d);
           renderFabPlanta(d);
-          renderFabDetalhe(d);
-          renderFabTop(d);
           renderFabMapa(d);
         }
 
@@ -10654,31 +10484,7 @@
           );
         }
 
-        /* Único indicador da Fábrica: peças produzidas ÷ planeadas até hoje,
-           com a barra e as quantidades. */
-        function renderFabCumprimento(d) {
-          const c = d.cumprimento;
-          const pct = c.plan > 0 ? Math.round((c.prod / c.plan) * 100) : null;
-          const cor = pct === null ? 'var(--text-muted)' : getCumprimentoColor(pct);
-          const periodo = `${fabDataCurta(d.periodo.inicio)} a ${fabDataCurta(d.periodo.fim)}`;
-          $('#fab-cumprimento').html(`
-            <div>
-              <div class="fab-lbl">Cumprimento do plano</div>
-              <div class="fab-big" style="color: ${cor}">${pct === null ? '—' : pct + '%'}</div>
-            </div>
-            <div class="fab-cumpr-barra">
-              <div class="fab-barra"><i style="width: ${Math.min(100, pct || 0)}%; background: ${cor}"></i></div>
-              <div class="fab-mut">${
-                pct === null
-                  ? `Sem peças planeadas até hoje no período ${periodo}`
-                  : `${formatQtd(c.prod)} de ${formatQtd(c.plan)} peças planeadas até hoje · período ${periodo}`
-              }</div>
-            </div>
-          `);
-        }
-
         function renderFabPlanta(d) {
-          const sel = fabSelecionado;
           const html = d.armazens
             .map((a) => {
               if (!a.ativo) {
@@ -10703,12 +10509,13 @@
                       : '';
                   const tiles = ar.ccs
                     .map((c) => {
-                      const ligado = !!sel && areCCsEqual(sel.cc, c.cc) && sel.area === c.area;
-                      return `<button type="button" class="fab-tile fab-t-${fabNivel(c.delta)}${
-                        ligado ? ' fab-sel' : ''
-                      }" data-fab-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
+                      return `<button type="button" class="fab-tile fab-t-${fabNivel(
+                        c.delta
+                      )}" data-fab-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
                         c.area
-                      )}" aria-pressed="${ligado}" aria-label="C.C. ${escapeHtml(c.cc)}, ${fabHoras(
+                      )}" data-armazem="${escapeHtml(c.armazem)}" title="Abrir o C.C. ${escapeHtml(
+                        c.cc
+                      )} no ${escapeHtml(c.armazem)}" aria-label="C.C. ${escapeHtml(c.cc)}, ${fabHoras(
                         c.delta
                       )} horas${c.mf ? ', material em falha' : ''}"><b>${escapeHtml(
                         c.cc
@@ -10738,85 +10545,6 @@
             })
             .join('');
           $('#fab-edificios').html(html);
-        }
-
-        function textoDisponibilidade(n, ok) {
-          if (n === 0) return ['Nada até amanhã', 'fab-mut'];
-          if (ok === n) return ['OK', 'fab-pos'];
-          return [`${n - ok} de ${n} não OK`, ok / n >= 0.8 ? 'fab-amb' : 'fab-neg'];
-        }
-
-        function renderFabDetalhe(d) {
-          const $det = $('#fab-detalhe');
-          if (d.todos.length === 0) {
-            fabSelecionado = null;
-            $det.html('<div class="fab-mut">Sem C.C. com plano no período.</div>');
-            return;
-          }
-          let c = fabSelecionado
-            ? d.todos.find((x) => areCCsEqual(x.cc, fabSelecionado.cc) && x.area === fabSelecionado.area)
-            : null;
-          if (!c) {
-            // Por defeito, o C.C. com mais atraso
-            c = d.todos.slice().sort((a, b) => a.delta - b.delta)[0];
-            fabSelecionado = { cc: c.cc, area: c.area };
-            renderFabPlanta(d);
-          }
-          const pct = c.plan > 0 ? Math.min(100, Math.round((c.prod / c.plan) * 100)) : c.prod > 0 ? 100 : 0;
-          const [mpTxt, mpCls] = textoDisponibilidade(c.disp.n, c.disp.mp);
-          const [frtTxt, frtCls] = textoDisponibilidade(c.disp.n, c.disp.frt);
-          const alertas = [];
-          if (c.mf) alertas.push('<span class="fab-alerta fab-alerta-mf">Material em falha (MD07)</span>');
-          if (c.delta < -HORAS_POR_TURNO) {
-            alertas.push('<span class="fab-alerta fab-alerta-te">Mais de 1 turno de atraso: avaliar TE</span>');
-          }
-          $det.html(`
-            <div class="fab-det-topo">
-              <span class="fab-det-cc">${escapeHtml(c.cc)}</span>
-              <span class="fab-mut">${escapeHtml(c.armazem)} · ${escapeHtml(c.area)}</span>
-            </div>
-            <div class="fab-det-linha">
-              <span class="fab-det-delta ${c.delta < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(c.delta)}</span>
-              <span class="fab-mut">${c.delta < 0 ? 'Em atraso' : 'Em avanço'} · ${fabTurnos(c.delta)} turnos</span>
-            </div>
-            <div class="fab-barra" title="Produzido ÷ planeado até hoje: ${pct}%"><i style="width: ${pct}%"></i></div>
-            <div class="fab-row"><span>Planeado até hoje</span><b>${formatHoursToHHMM(c.plan)}</b></div>
-            <div class="fab-row"><span>Produzido</span><b>${formatHoursToHHMM(c.prod)}</b></div>
-            <div class="fab-row"><span>Matéria-prima</span><b class="${mpCls}">${mpTxt}</b></div>
-            <div class="fab-row"><span>Ferramenta</span><b class="${frtCls}">${frtTxt}</b></div>
-            ${alertas.length ? `<div class="fab-alertas">${alertas.join('')}</div>` : ''}
-            <button type="button" class="fab-btn" data-fab-abrir-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
-              c.area
-            )}" data-armazem="${escapeHtml(c.armazem)}">Abrir detalhe do C.C. →</button>
-          `);
-        }
-
-        function renderFabTop(d) {
-          const cab =
-            '<thead><tr><th>C.C.</th><th>Armazém · área</th><th>Atraso</th><th>Turnos</th><th>Causa principal</th></tr></thead>';
-          if (d.top.length === 0) {
-            $('#fab-top').html(cab + '<tbody><tr><td colspan="5" class="fab-mut">Nenhum C.C. em atraso.</td></tr></tbody>');
-            return;
-          }
-          $('#fab-top').html(
-            cab +
-              '<tbody>' +
-              d.top
-                .map(
-                  (t) =>
-                    `<tr class="fab-tr-link" data-fab-abrir-cc="${escapeHtml(t.cc)}" data-fab-area="${escapeHtml(
-                      t.area
-                    )}" data-armazem="${escapeHtml(t.armazem)}" title="Abrir o C.C. ${escapeHtml(
-                      t.cc
-                    )}"><td><b>${escapeHtml(t.cc)}</b></td><td>${escapeHtml(t.armazem)} · ${escapeHtml(
-                      t.area
-                    )}</td><td class="fab-neg">${fabHoras(t.delta)}</td><td>${fabTurnos(
-                      t.delta
-                    )}</td><td class="fab-mut">${escapeHtml(t.causa)}</td></tr>`
-                )
-                .join('') +
-              '</tbody>'
-          );
         }
 
         function renderFabMapa(d) {
