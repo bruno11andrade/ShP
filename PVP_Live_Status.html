@@ -364,6 +364,36 @@
       /* Dados a envelhecer: num ecrã de fábrica, o pior que pode acontecer
          é alguém decidir com base em números de há duas horas sem dar por
          isso. A idade dos dados fica à vista. */
+      /* Bloco «hora da atualização + Atualizar» do cabeçalho */
+      .opt-atualizar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 3px 3px 3px 12px;
+        white-space: nowrap;
+      }
+      .opt-atualizar-btn {
+        font: inherit;
+        font-size: 0.82rem;
+        font-weight: 700;
+        margin: 0;
+        min-width: 0;
+        padding: 4px 10px;
+        border-radius: 5px;
+        border: 1px solid var(--cyan-accent);
+        background: transparent;
+        color: var(--cyan-accent);
+        cursor: pointer;
+      }
+      .opt-atualizar-btn:hover,
+      .opt-atualizar-btn:focus-visible {
+        background: var(--fab-sel-fundo);
+        border-color: var(--cyan-accent);
+        color: var(--cyan-accent);
+      }
+      #opt-headerArmazem {
+        margin-top: 0;
+      }
       .opt-header-status.opt-dados-velhos {
         color: #fb923c;
         border-color: rgba(251, 146, 60, 0.6);
@@ -382,10 +412,13 @@
         border: 1px solid rgba(34, 211, 238, 0.3);
         font-weight: 600;
         font-size: 0.85rem;
-        padding: 4px 12px;
+        padding: 4px 10px;
         border-radius: 6px;
       }
       .opt-date-input {
+        /* A caixa da data fica à medida do texto (dd/mm/aaaa + ícone), sem
+           o espaço que o browser deixa por defeito */
+        width: 7.1rem;
         border: none;
         background: transparent;
         color: var(--cyan-accent);
@@ -1597,6 +1630,9 @@
       #opt-headerArmazem .fab-seg button {
         padding: 5px 10px;
       }
+      .fab-seg .fab-escondido + button {
+        border-left: 0;
+      }
       .fab-seg button + button {
         border-left: 1px solid var(--border-color);
       }
@@ -2041,15 +2077,6 @@
       })();
     </script>
     <div class="container-fluid" id="opt-dashboard-wrapper">
-      <!-- Hora da última atualização, por cima do cabeçalho -->
-      <div class="d-flex justify-content-end mb-1">
-        <div class="opt-header-status">
-          <i class="fa-regular fa-clock me-1"></i>Atualizado a
-          <span id="opt-lblTimestamp">--/--/---- --:--:--</span>
-          <span id="opt-lblIdadeDados"></span>
-        </div>
-      </div>
-
       <!-- Cabeçalho -->
       <div
         class="opt-header-bar d-flex justify-content-between align-items-center flex-wrap gap-2"
@@ -2120,21 +2147,32 @@
               title="Data Final"
             />
           </div>
-          <button
-            id="opt-btnRefresh"
-            class="btn btn-outline-primary btn-sm fw-bold"
-          >
-            <i class="fa-solid fa-rotate me-1"></i> Atualizar Dados
-          </button>
+          <!-- Hora da última atualização e o botão para atualizar, juntos -->
+          <div class="opt-header-status opt-atualizar" id="opt-grupoAtualizar">
+            <span class="opt-atualizar-hora" id="opt-lblAtualizado">
+              <i class="fa-regular fa-clock me-1"></i
+              ><span id="opt-lblTimestamp">--:--</span
+              ><span id="opt-lblIdadeDados"></span>
+            </span>
+            <button
+              type="button"
+              id="opt-btnRefresh"
+              class="opt-atualizar-btn"
+              title="Atualizar os dados agora"
+            >
+              <i class="fa-solid fa-rotate me-1"></i>Atualizar
+            </button>
+          </div>
           <div class="fab-seg" role="tablist" aria-label="Vista" id="opt-tabsArmazem">
             <button
               type="button"
               role="tab"
               id="opt-tabPlano"
-              class="on"
+              class="fab-escondido"
               aria-selected="true"
+              title="Voltar ao plano atual"
             >
-              Plano atual
+              <i class="fa-solid fa-arrow-left me-1"></i>Plano atual
             </button>
             <button
               type="button"
@@ -2659,10 +2697,55 @@
         <!-- Barra de filtros do Histórico -->
         <div class="opt-hist-filter-bar">
           <div class="opt-hist-field">
+            <label><i class="fa-solid fa-layer-group me-1"></i>Área</label>
+            <div class="opt-multiselect">
+              <button type="button" class="opt-ms-toggle">
+                <span class="opt-ms-label">Todas</span>
+              </button>
+              <div class="opt-ms-panel" id="hist-ms-area">
+                <div class="opt-ms-actions">
+                  <a class="opt-ms-selectall">Selecionar tudo</a>
+                  <a class="opt-ms-clear">Limpar</a>
+                </div>
+                <div class="opt-ms-items"></div>
+              </div>
+            </div>
+          </div>
+          <div class="opt-hist-field">
+            <label><i class="fa-solid fa-industry me-1"></i>CC</label>
+            <div class="opt-multiselect">
+              <button type="button" class="opt-ms-toggle">
+                <span class="opt-ms-label">Todos</span>
+              </button>
+              <div class="opt-ms-panel" id="hist-ms-cc">
+                <div class="opt-ms-actions">
+                  <a class="opt-ms-selectall">Selecionar tudo</a>
+                  <a class="opt-ms-clear">Limpar</a>
+                </div>
+                <div class="opt-ms-items"></div>
+              </div>
+            </div>
+          </div>
+          <div class="opt-hist-field">
+            <label><i class="fa-solid fa-cube me-1"></i>KA</label>
+            <div class="opt-multiselect">
+              <button type="button" class="opt-ms-toggle">
+                <span class="opt-ms-label">Todos</span>
+              </button>
+              <div class="opt-ms-panel" id="hist-ms-ka">
+                <div class="opt-ms-actions">
+                  <a class="opt-ms-selectall">Selecionar tudo</a>
+                  <a class="opt-ms-clear">Limpar</a>
+                </div>
+                <div class="opt-ms-items"></div>
+              </div>
+            </div>
+          </div>
+          <div class="opt-hist-field">
             <label><i class="fa-solid fa-filter me-1"></i>Período</label>
             <select id="hist-selPeriodo" class="form-select form-select-sm">
-              <option value="data">Data (intervalo)</option>
               <option value="semana_ano">Semana/Ano</option>
+              <option value="data">Data (intervalo)</option>
               <option value="mes_ano">Mês/Ano</option>
               <option value="ano">Ano</option>
             </select>
@@ -2716,51 +2799,6 @@
                 <span class="opt-ms-label">Todos</span>
               </button>
               <div class="opt-ms-panel" id="hist-ms-ano">
-                <div class="opt-ms-actions">
-                  <a class="opt-ms-selectall">Selecionar tudo</a>
-                  <a class="opt-ms-clear">Limpar</a>
-                </div>
-                <div class="opt-ms-items"></div>
-              </div>
-            </div>
-          </div>
-          <div class="opt-hist-field">
-            <label><i class="fa-solid fa-layer-group me-1"></i>Área</label>
-            <div class="opt-multiselect">
-              <button type="button" class="opt-ms-toggle">
-                <span class="opt-ms-label">Todas</span>
-              </button>
-              <div class="opt-ms-panel" id="hist-ms-area">
-                <div class="opt-ms-actions">
-                  <a class="opt-ms-selectall">Selecionar tudo</a>
-                  <a class="opt-ms-clear">Limpar</a>
-                </div>
-                <div class="opt-ms-items"></div>
-              </div>
-            </div>
-          </div>
-          <div class="opt-hist-field">
-            <label><i class="fa-solid fa-industry me-1"></i>CC</label>
-            <div class="opt-multiselect">
-              <button type="button" class="opt-ms-toggle">
-                <span class="opt-ms-label">Todos</span>
-              </button>
-              <div class="opt-ms-panel" id="hist-ms-cc">
-                <div class="opt-ms-actions">
-                  <a class="opt-ms-selectall">Selecionar tudo</a>
-                  <a class="opt-ms-clear">Limpar</a>
-                </div>
-                <div class="opt-ms-items"></div>
-              </div>
-            </div>
-          </div>
-          <div class="opt-hist-field">
-            <label><i class="fa-solid fa-cube me-1"></i>KA</label>
-            <div class="opt-multiselect">
-              <button type="button" class="opt-ms-toggle">
-                <span class="opt-ms-label">Todos</span>
-              </button>
-              <div class="opt-ms-panel" id="hist-ms-ka">
                 <div class="opt-ms-actions">
                   <a class="opt-ms-selectall">Selecionar tudo</a>
                   <a class="opt-ms-clear">Limpar</a>
@@ -5068,11 +5106,22 @@
           reevaluateRisk();
 
           ultimaAtualizacao = new Date();
-          $('#opt-lblTimestamp').text(
+          // Só a hora (o dia só aparece se não for hoje); a data completa
+          // fica na dica
+          const completo =
             ultimaAtualizacao.toLocaleDateString('pt-PT') +
-              ' ' +
-              ultimaAtualizacao.toLocaleTimeString('pt-PT')
+            ' ' +
+            ultimaAtualizacao.toLocaleTimeString('pt-PT');
+          const hora = ultimaAtualizacao.toLocaleTimeString('pt-PT', {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          $('#opt-lblTimestamp').text(
+            isToday(ultimaAtualizacao)
+              ? hora
+              : `${formatDateShort(ultimaAtualizacao).slice(0, 5)} ${hora}`
           );
+          $('#opt-lblAtualizado').attr('title', `Atualizado a ${completo}`);
           atualizarFrescuraDados();
           $('#opt-loadingSpinner').hide();
           mostrarConteudo();
@@ -5085,7 +5134,7 @@
         /* Idade dos dados no ecrã: até 15 minutos passa despercebida, a
            partir daí fica laranja e, acima de uma hora, vermelha. */
         function atualizarFrescuraDados() {
-          const $caixa = $('.opt-header-status');
+          const $caixa = $('#opt-grupoAtualizar');
           const $idade = $('#opt-lblIdadeDados');
           if (!ultimaAtualizacao) {
             $caixa.removeClass('opt-dados-velhos opt-dados-muito-velhos');
@@ -8722,8 +8771,9 @@
           $('#hist-startDate').attr('min', minDateStr);
           $('#hist-endDate').attr('min', minDateStr);
 
-          // Período por defeito: Data (intervalo)
-          $('#hist-selPeriodo').val('data');
+          // Período por defeito: Semana/Ano, na semana atual
+          $('#hist-selPeriodo').val('semana_ano');
+          histSemanaAtualPendente = true;
 
           populateHistAreaSelect();
           populateHistCCSelect();
@@ -8741,8 +8791,9 @@
         }
 
         function resetHistFilters() {
-          // Reset período
-          $('#hist-selPeriodo').val('data');
+          // Reset período: Semana/Ano, na semana atual
+          $('#hist-selPeriodo').val('semana_ano');
+          histSemanaAtualPendente = true;
 
           const today = getTodayZero();
           $('#hist-startDate').val(formatDateForInput(HIST_MIN_DATE));
@@ -9060,6 +9111,28 @@
           populateMultiSelect('hist-ms-semana', semanas, 'Todas');
         }
 
+        /* Ao abrir (ou repor) o Histórico fica escolhida a semana atual e o
+           seu ano; se ainda não houver registos dessa semana, ficam todas. */
+        let histSemanaAtualPendente = false;
+
+        function marcarSo(panelId, valor, allLabel) {
+          const $checks = $('#' + panelId + ' input[type=checkbox]');
+          if (!$checks.filter((i, c) => c.value === valor).length) return;
+          $checks.each(function () {
+            $(this).prop('checked', this.value === valor);
+          });
+          updateMultiSelectLabel(panelId, allLabel);
+        }
+
+        function escolherAnoAtual() {
+          marcarSo('hist-ms-ano', String(getISOWeekYear(getTodayZero())), 'Todos');
+        }
+
+        function escolherSemanaAtual() {
+          const hoje = getTodayZero();
+          marcarSo('hist-ms-semana', `${getISOWeek(hoje)}-${getISOWeekYear(hoje)}`, 'Todas');
+        }
+
         function onHistPeriodoChange() {
           const periodo = $('#hist-selPeriodo').val() || 'data';
 
@@ -9079,8 +9152,11 @@
           } else if (periodo === 'semana_ano') {
             $('.hist-field-ano').show();
             $('.hist-field-semana').show();
+            if (histSemanaAtualPendente) escolherAnoAtual();
             populateSemanaForAno();
+            if (histSemanaAtualPendente) escolherSemanaAtual();
           }
+          histSemanaAtualPendente = false;
 
           applyHistFilters();
         }
@@ -10434,6 +10510,9 @@
             'fab-escondido',
             hist
           );
+          // Só se mostra o separador para onde se pode ir
+          $('#opt-tabPlano').toggleClass('fab-escondido', !hist);
+          $('#opt-tabHistorico').toggleClass('fab-escondido', hist);
           $('#opt-historicoContent').toggle(hist);
           if (!ultimaAtualizacao) {
             $('#opt-fabricaContent, #opt-dashboardContent').hide();
