@@ -3165,9 +3165,24 @@
             id: 'OV9',
             tipo: 'Hot forming',
             areas: ['OHF1', 'OHF2', 'OHF3'],
-            ativo: false,
+            ativo: true,
           },
         ];
+        // Áreas onde a disponibilidade de matéria-prima não se aplica: não
+        // entram no cartão nem nos detalhes de Disp. MP.
+        const AREAS_SEM_MP = ['OHF2', 'OHF3'];
+        // Plano de Produção do OV9 ("OHF Plano Produção"): lista própria, com
+        // colunas de nomes diferentes dos da lista do OV2.
+        const LIST_OV9_GUID = '{95EC5EF9-D77B-4C96-B0B0-7409E4365325}';
+        const CAMPOS_OV9 = {
+          horas: 'Horas_x0020_Produ_x00e7__x00e3_o',
+          dataProducao: 'DataProducao',
+          qtdPlaneada: 'Qtd_x0020_Planeada',
+          qtdProduzida: 'Qtd_x0020_Produzida',
+          dispMP: 'DisponibilidadeMP',
+          dispFRT: 'DisponibilidadeFerramenta',
+          interrupcoes: 'Ninterrupcao',
+        };
         // Horas de um turno: base dos "turnos" da página Fábrica e da
         // previsão de trabalho extra.
         const HORAS_POR_TURNO = 7.5;
@@ -4161,7 +4176,10 @@
            com o relógio, porque não há registo de conclusão. Havendo mais
            do que um ensaio no mesmo C.C. e no mesmo dia, o dia reparte-se
            entre eles.                                                    */
-        const AREAS_ENSAIO = ['OPA', 'OPT'];
+        const AREAS_ENSAIO = ARMAZENS.filter((w) => w.ativo).reduce(
+          (l, w) => l.concat(w.areas),
+          []
+        );
         const ENSAIO_HORA_INICIO = 9 * 60;
         const ENSAIO_PAUSA_INICIO = 12 * 60;
         const ENSAIO_PAUSA_FIM = 13 * 60;
@@ -4786,9 +4804,20 @@
                 });
             });
 
-          $.when(reqOpt, reqMod, reqAbertura, reqEnsaios, reqTE)
-            .done(function (resOpt, resMod, resAbertura, resEnsaios, resTE) {
-              const listas = [resOpt, resMod, resAbertura, resEnsaios, resTE];
+          // Plano do OV9: se a lista não abrir, o OV2 continua a funcionar
+          const reqOV9 = $.Deferred();
+          lerListaCompleta(urlLista(LIST_OV9_GUID), 'Plano de Produção OV9')
+            .done(function (res) {
+              reqOV9.resolve(res);
+            })
+            .fail(function (err) {
+              console.error('Erro ao carregar o Plano de Produção do OV9:', err);
+              reqOV9.resolve(semDados('Plano de Produção OV9'));
+            });
+
+          $.when(reqOpt, reqMod, reqAbertura, reqEnsaios, reqTE, reqOV9)
+            .done(function (resOpt, resMod, resAbertura, resEnsaios, resTE, resOV9) {
+              const listas = [resOpt, resMod, resAbertura, resEnsaios, resTE, resOV9];
               mostrarAvisoDados(listas.filter((l) => l && l.truncado));
               console.info(
                 '[Dashboard OPT] Listas lidas: ' +
@@ -4806,7 +4835,8 @@
                 resMod.itens,
                 resAbertura.itens,
                 resEnsaios.itens,
-                resTE.itens
+                resTE.itens,
+                resOV9.itens
               );
             })
             .fail(function (err) {
@@ -4820,7 +4850,8 @@
           modItems,
           aberturaItems,
           ensaioItems,
-          teItems
+          teItems,
+          ov9Items
         ) {
           rawListItems = optItems.map((item) => {
             const rawCC = item.CC || item.OData_CC || 'N/A';
@@ -4876,6 +4907,9 @@
                 0,
             };
           });
+          // As linhas do OV9 juntam-se às do OV2 com o mesmo formato
+          rawListItems = rawListItems.concat((ov9Items || []).map(mapearItemOV9));
+          diagnosticoCamposOV9(ov9Items || []);
 
           rawModItems = modItems.map((item) => {
             const rawCC = item.CC || item.Title || item.OData_CC || 'N/A';
@@ -4925,6 +4959,8 @@
                   isMarcaCancelamento(item.Cancelar) ||
                   isMarcaCancelamento(item.Cancelado_x003f_),
                 IsEnsaio: true,
+                SemMP:
+                  AREAS_SEM_MP.indexOf(extractValue(rawArea).toUpperCase()) !== -1,
               };
             })
             .filter(
@@ -6284,15 +6320,19 @@
             ['#opt-kpiDispMP', 'DispMP'],
             ['#opt-kpiDispFRT', 'DispFRT'],
           ].forEach(([seletor, campo]) => {
-            if (itens.length === 0) {
+            const base = campo === 'DispMP' ? itens.filter(contaParaMP) : itens;
+            if (base.length === 0) {
               $(seletor)
                 .text('—')
                 .css('color', corTema('--text-muted'))
-                .attr('title', 'Nada por produzir até amanhã');
+                .attr(
+                  'title',
+                  itens.length ? 'Não se aplica nesta área' : 'Nada por produzir até amanhã'
+                );
               return;
             }
             const pct = Math.round(
-              (itens.filter((i) => i[campo] === 'OK').length / itens.length) * 100
+              (base.filter((i) => i[campo] === 'OK').length / base.length) * 100
             );
             $(seletor).text(`${pct}%`).css('color', getKpiColor(pct)).removeAttr('title');
           });
@@ -7030,10 +7070,11 @@
             </tr>
           </thead>
           <tbody>`;
-            if (itensDisponibilidade.length === 0) {
+            const itensMP = itensDisponibilidade.filter(contaParaMP);
+            if (itensMP.length === 0) {
               html += `<tr><td colspan="4" class="text-muted">Nada por produzir até amanhã.</td></tr>`;
             } else {
-              itensDisponibilidade.forEach((item) => {
+              itensMP.forEach((item) => {
                 const badgeClass = getDispBadgeClass(item.DispMP);
 
                 html += `
@@ -9174,10 +9215,11 @@
               ? Math.round((noPrazo.length / comDataProducao.length) * 100)
               : 0;
 
-          const okMP = items.filter((i) => i.DispMP === 'OK').length;
+          const itensMP = items.filter(contaParaMP);
+          const okMP = itensMP.filter((i) => i.DispMP === 'OK').length;
           const okFRT = items.filter((i) => i.DispFRT === 'OK').length;
           const pctMP =
-            items.length > 0 ? Math.round((okMP / items.length) * 100) : 0;
+            itensMP.length > 0 ? Math.round((okMP / itensMP.length) * 100) : 0;
           const pctFRT =
             items.length > 0 ? Math.round((okFRT / items.length) * 100) : 0;
 
@@ -10147,23 +10189,86 @@
           return ARMAZENS.find((w) => w.areas.indexOf(a) !== -1) || null;
         }
 
-        /* Uma área sem armazém conhecido continua à vista dentro do
-           armazém (é como o dashboard sempre funcionou); só sai quando se
-           sabe que é de outro armazém. */
-        function areaNoArmazemAtual(area) {
+        /* Armazém de uma linha: pela área; uma linha da lista do OV9 com a
+           área por preencher continua a ser do OV9. Uma linha sem armazém
+           conhecido continua à vista dentro do armazém (é como o dashboard
+           sempre funcionou); só sai quando se sabe que é de outro. */
+        function armazemDoItem(i) {
+          return armazemDaArea(i.Area) || (i.Armazem ? armazemPorId(i.Armazem) : null);
+        }
+
+        function itemNoArmazemAtual(i) {
           if (!armazemAtual) return true;
-          const w = armazemDaArea(area);
+          const w = armazemDoItem(i);
           return !w || w.id === armazemAtual;
         }
 
         function itensDoArmazem(lista) {
-          return lista.filter((i) => areaNoArmazemAtual(i.Area));
+          return lista.filter(itemNoArmazemAtual);
+        }
+
+        /* A disponibilidade de MP só conta nas áreas onde se aplica */
+        function contaParaMP(i) {
+          return !i.SemMP;
+        }
+
+        /* Linha da lista do OV9 no mesmo formato das do OV2. Não tem Causa
+           Raiz nem Bobines (por agora não se registam no OV9). */
+        function mapearItemOV9(item) {
+          const valor = (nome) => {
+            if (item[nome] !== undefined) return item[nome];
+            return item['OData_' + nome];
+          };
+          const dateObj = parseItemDate(valor('Data'));
+          const dateProducaoObj = parseItemDate(valor(CAMPOS_OV9.dataProducao));
+          const area = extractValue(item._x00c1_rea || item.OData__x00c1_rea || item.Area);
+          const semMP = AREAS_SEM_MP.indexOf(area.toUpperCase()) !== -1;
+          return {
+            CC: extractValue(item.CC || item.OData_CC || 'N/A'),
+            KA: extractValue(item.KA || item.Material || item.Title || item.OData_KA || ''),
+            Area: area,
+            Armazem: 'OV9',
+            SemMP: semMP,
+            DataFormatted: dateObj ? formatDateShort(dateObj) : 'N/D',
+            RawDateObj: dateObj,
+            DataProducaoFormatted: dateProducaoObj ? formatDateShort(dateProducaoObj) : 'N/D',
+            RawDataProducaoObj: dateProducaoObj,
+            Status: extractValue(item.Status),
+            HorasPlaneadas: parseFloat(valor(CAMPOS_OV9.horas)) || 0,
+            QtdPlaneada: parseFloat(valor(CAMPOS_OV9.qtdPlaneada)) || 0,
+            QtdProduzida: parseFloat(valor(CAMPOS_OV9.qtdProduzida)) || 0,
+            DispMP: semMP ? '' : extractDispValue(valor(CAMPOS_OV9.dispMP)),
+            DispFRT: extractDispValue(valor(CAMPOS_OV9.dispFRT)),
+            CausaRaizDesvio: '',
+            QtdBobines: 0,
+            QtdInterrompido: parseFloat(valor(CAMPOS_OV9.interrupcoes)) || 0,
+          };
+        }
+
+        /* Uma linha na consola com as colunas do OV9 que não apareceram:
+           chega para perceber se a lista mudou de nomes. */
+        function diagnosticoCamposOV9(itens) {
+          if (!itens.length) {
+            console.info('[Dashboard OPT] Plano OV9: 0 linhas lidas.');
+            return;
+          }
+          const chaves = Object.keys(itens[0]);
+          const tem = (n) => chaves.indexOf(n) !== -1 || chaves.indexOf('OData_' + n) !== -1;
+          const esperados = ['CC', 'KA', 'Data', '_x00c1_rea', 'Status'].concat(
+            Object.keys(CAMPOS_OV9).map((k) => CAMPOS_OV9[k])
+          );
+          const emFalta = esperados.filter((n) => !tem(n));
+          console.info(
+            `[Dashboard OPT] Plano OV9: ${itens.length} linhas; colunas em falta: ${
+              emFalta.length ? emFalta.join(', ') : 'nenhuma'
+            }`
+          );
         }
 
         function construirMapaCCArmazens() {
           mapaCCArmazens = {};
           [...rawListItems, ...rawEnsaioItems].forEach((i) => {
-            const w = armazemDaArea(i.Area);
+            const w = armazemDoItem(i);
             if (!w || !i.CC || i.CC === 'N/A') return;
             const chave = normalizeCC(i.CC);
             if (!mapaCCArmazens[chave]) mapaCCArmazens[chave] = new Set();
@@ -10183,7 +10288,7 @@
         function filtrarPeriodo(startDate, endDate, soDoArmazem) {
           const noPeriodo = (i) =>
             i.RawDateObj && i.RawDateObj >= startDate && i.RawDateObj <= endDate;
-          const doArmazem = (i) => !soDoArmazem || areaNoArmazemAtual(i.Area);
+          const doArmazem = (i) => !soDoArmazem || itemNoArmazemAtual(i);
           return {
             itens: rawListItems.filter((i) => noPeriodo(i) && doArmazem(i)),
             ensaios: rawEnsaioItems.filter((i) => noPeriodo(i) && doArmazem(i)),
@@ -10383,6 +10488,7 @@
         function resumoDisponibilidade(itens) {
           return {
             n: itens.length,
+            nMP: itens.filter(contaParaMP).length,
             mp: itens.filter((i) => i.DispMP === 'OK').length,
             frt: itens.filter((i) => i.DispFRT === 'OK').length,
           };
@@ -10534,8 +10640,11 @@
             const semArmazem = [
               ...new Set(
                 currentFilteredItems
-                  .map((i) => String(i.Area || '').trim())
-                  .filter((a) => a && !armazemDaArea(a))
+                  .filter((i) => !armazemDaArea(i.Area))
+                  .map((i) =>
+                    String(i.Area || '').trim() ||
+                    `área vazia${i.Armazem ? ' no ' + i.Armazem : ''}`
+                  )
               ),
             ];
 
@@ -10703,7 +10812,10 @@
             renderFabPlanta(d);
           }
           const pct = c.plan > 0 ? Math.min(100, Math.round((c.prod / c.plan) * 100)) : c.prod > 0 ? 100 : 0;
-          const [mpTxt, mpCls] = textoDisponibilidade(c.disp.n, c.disp.mp);
+          const [mpTxt, mpCls] =
+            AREAS_SEM_MP.indexOf(String(c.area).toUpperCase()) !== -1
+              ? ['Não se aplica', 'fab-mut']
+              : textoDisponibilidade(c.disp.nMP, c.disp.mp);
           const [frtTxt, frtCls] = textoDisponibilidade(c.disp.n, c.disp.frt);
           const alertas = [];
           if (c.mf) alertas.push('<span class="fab-alerta fab-alerta-mf">Material em falha (MD07)</span>');
