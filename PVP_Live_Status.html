@@ -1702,6 +1702,34 @@
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 10px;
       }
+      /* Cartão de indicador da Fábrica, com o aspeto dos do armazém */
+      .fab-kpi {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 2px;
+        cursor: pointer;
+        transition: border-color 0.15s ease;
+      }
+      .fab-kpi:hover,
+      .fab-kpi:focus-visible {
+        border-color: var(--cyan-accent);
+        outline: none;
+      }
+      .fab-kpi-tit {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--text-label);
+        text-transform: uppercase;
+      }
+      .fab-kpi-val {
+        font-size: 1.75rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.2;
+      }
       /* Cartões ainda sem indicador */
       .fab-vazio {
         min-height: 92px;
@@ -1812,7 +1840,7 @@
         border-color: var(--fab-o-borda);
       }
       .fab-al {
-        font-size: 11px;
+        font-size: 13px;
         font-weight: 700;
         color: var(--text-label);
         margin-bottom: 8px;
@@ -2209,7 +2237,13 @@
 
           <!-- Cartões de indicadores da Fábrica: por preencher -->
           <section class="fab-kpis" aria-label="Indicadores da fábrica">
-            <div class="fab-card fab-vazio"></div>
+            <div
+              class="fab-card fab-kpi fab-vazio"
+              id="fab-kpiTotal"
+              role="button"
+              tabindex="0"
+              title="Clique para ver detalhes"
+            ></div>
             <div class="fab-card fab-vazio"></div>
             <div class="fab-card fab-vazio"></div>
             <div class="fab-card fab-vazio"></div>
@@ -2232,7 +2266,7 @@
                 <span><span class="fab-sw" style="border-color: var(--fab-ok-borda)"></span>Em avanço</span>
                 <span><span class="fab-sw" style="border-color: var(--fab-y-borda)"></span>Atraso &lt; 4 h</span>
                 <span><span class="fab-sw" style="border-color: var(--fab-o-borda); background: var(--fab-o-fundo)"></span>4 – 8 h</span>
-                <span><span class="fab-sw" style="border-color: var(--fab-r-borda); background: var(--fab-r-fundo)"></span>&gt; 8 h (pisca)</span>
+                <span><span class="fab-sw" style="border-color: var(--fab-r-borda); background: var(--fab-r-fundo)"></span>&gt; 8 h</span>
                 <span><span class="fab-sw" style="border-color: var(--st-mf); background: var(--st-mf); border-radius: 50%"></span>Material em falha</span>
           </div>
 
@@ -3942,6 +3976,18 @@
             .on('click', function () {
               showKpiDetails('deltaTotal');
             });
+          // Na Fábrica, o mesmo detalhe com os C.C. de todos os armazéns
+          $('#fab-kpiTotal')
+            .off('click keydown')
+            .on('click', function () {
+              showKpiDetails('deltaTotal');
+            })
+            .on('keydown', function (e) {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                showKpiDetails('deltaTotal');
+              }
+            });
           $('#btn-kpi-atraso8h')
             .off('click')
             .on('click', function () {
@@ -5642,8 +5688,11 @@
             (soma, cc) => soma + calcularResumoCC(cc, selAreaClean).delta,
             0
           );
+          // Com área escolhida diz a área; sem área, o armazém (OV2, OV9)
           const sufixoArea = selectedArea
             ? ' ' + String(selectedArea).trim().toUpperCase()
+            : armazemAtual
+            ? ' ' + armazemAtual
             : '';
           // Saldo nulo: nem avanço nem atraso a assinalar
           const cfg =
@@ -10795,9 +10844,32 @@
             dot.title = `Saldo da fábrica: ${fabTurnosComSinal(d.saldo)} turnos`;
           }
           renderFabAviso(d);
+          renderFabKpiTotal();
           renderFabPlanta(d);
           renderFabDetalhe(d);
           renderFabMapa(d);
+        }
+
+        /* Total em atraso da fábrica: soma do avanço/atraso de todos os
+           C.C. dos armazéns — a mesma conta do cartão do armazém sem área
+           escolhida, e a mesma do detalhe que abre ao clicar. */
+        function renderFabKpiTotal() {
+          const total = getCCsForArea('').reduce(
+            (soma, cc) => soma + calcularResumoCC(cc, null).delta,
+            0
+          );
+          const cfg =
+            Math.abs(total) < 1 / 120
+              ? { color: '#34d399', icon: 'fa-solid fa-circle-check', valueText: '0:00' }
+              : getDelayCardConfig(total);
+          $('#fab-kpiTotal').html(`
+            <div class="fab-kpi-tit">${total >= 0 ? 'Total avanço' : 'Total em atraso'} Fábrica</div>
+            <div class="fab-kpi-val" style="color: ${cfg.color}">${cfg.valueText}
+              <i class="${cfg.icon}" style="font-size: 0.9rem"></i></div>
+            <div class="opt-kpi-sub">soma dos C.C. · ${ARMAZENS.filter((w) => w.ativo)
+              .map((w) => w.id)
+              .join(' + ')}</div>
+          `);
         }
 
         function renderFabAviso(d) {
@@ -10867,9 +10939,7 @@
                 a.w.id
               )}</b><span class="fab-mut">${escapeHtml(
                 a.w.tipo
-              )}</span></div><div class="fab-whs-r">saldo <b class="${
-                a.saldo < 0 ? 'fab-neg' : 'fab-pos'
-              }">${fabTurnosComSinal(a.saldo)} t</b> · ${a.ccs.length} C.C.</div><div class="fab-areas">${areas}</div></div>`;
+              )}</span></div><div class="fab-whs-r">${a.ccs.length} C.C.</div><div class="fab-areas">${areas}</div></div>`;
             })
             .join('');
           $('#fab-edificios')
