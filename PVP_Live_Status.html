@@ -1699,11 +1699,18 @@
         letter-spacing: 0.12em;
         color: var(--text-muted);
       }
+      /* A largura de cada armazém é proporcional ao nº de áreas (posta
+         pelo script: OV2 com 2 e OV9 com 3 dá 40/60) */
       .fab-edificios {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+        grid-template-columns: var(--fab-colunas, repeat(auto-fit, minmax(min(100%, 360px), 1fr)));
         gap: 22px;
         margin-top: 8px;
+      }
+      @media (max-width: 900px) {
+        .fab-edificios {
+          grid-template-columns: minmax(0, 1fr);
+        }
       }
       .fab-wh {
         border: 2px solid var(--fab-parede);
@@ -10786,7 +10793,12 @@
               }">${fabTurnosComSinal(a.saldo)} t</b> · ${a.ccs.length} C.C.</div><div class="fab-areas">${areas}</div></div>`;
             })
             .join('');
-          $('#fab-edificios').html(html);
+          $('#fab-edificios')
+            .html(html)
+            .css(
+              '--fab-colunas',
+              d.armazens.map((a) => `minmax(0, ${Math.max(1, a.w.areas.length)}fr)`).join(' ')
+            );
         }
 
         function textoDisponibilidade(n, ok) {
