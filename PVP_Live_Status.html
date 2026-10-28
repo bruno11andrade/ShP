@@ -60,6 +60,7 @@
         --esc-amarelo: #facc15;
         --esc-vermelho: #f87171;
         --esc-dourado: #d4a72c;
+        --esc-texto: #0f172a;
         /* Página Fábrica: estado dos C.C. na planta e mapa de 10 dias */
         --st-ok: #34d399;
         --st-y: #fbbf24;
@@ -117,6 +118,7 @@
         --esc-amarelo: #ca8a04;
         --esc-vermelho: #dc2626;
         --esc-dourado: #a16207;
+        --esc-texto: #ffffff;
         --st-ok: #15803d;
         --st-y: #a16207;
         --st-o: #c2410c;
@@ -2148,10 +2150,6 @@
         }
       }
       .fab-esc-col {
-        border: 1px solid var(--border-color);
-        border-top: 3px solid var(--esc-cor);
-        border-radius: 6px;
-        padding: 8px;
         min-width: 0;
         display: flex;
         flex-direction: column;
@@ -2162,9 +2160,12 @@
         justify-content: space-between;
         align-items: center;
         gap: 6px;
-        font-weight: 700;
+        padding: 6px 10px;
+        border-radius: 6px;
+        background: var(--esc-cor);
+        font-weight: 800;
         font-size: 0.85rem;
-        color: var(--esc-cor);
+        color: var(--esc-texto);
       }
       .fab-esc-tit a {
         color: inherit;
@@ -2176,17 +2177,21 @@
       .fab-esc-lista {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 6px;
       }
       /* Lugar do Top 5: posição à esquerda, conteúdo à direita */
       /* Todos os lugares com a mesma altura (3 linhas), preenchidos ou
          não, para as colunas ficarem alinhadas */
       .fab-esc-lugar {
-        --esc-altura: 62px;
+        height: 66px;
         display: grid;
-        grid-template-columns: 16px minmax(0, 1fr);
+        grid-template-columns: 20px minmax(0, 1fr);
         gap: 8px;
         align-items: center;
+        padding: 4px 8px;
+        border-radius: 6px;
+        background: var(--bg-inset);
+        border: 1px solid var(--border-color);
       }
       .fab-esc-pos {
         font-weight: 800;
@@ -2195,10 +2200,9 @@
         text-align: center;
         font-variant-numeric: tabular-nums;
       }
-      .fab-esc-livre {
-        height: var(--esc-altura);
-        border: 1px dashed var(--border-color);
-        border-radius: 4px;
+      .fab-esc-lugar-livre {
+        background: transparent;
+        border-style: dashed;
       }
       .fab-esc-lugar-livre .fab-esc-pos {
         color: var(--text-muted);
@@ -2227,14 +2231,10 @@
       /* Uma escalação: C.C. e unidade na 1.ª linha; KA, cliente e
          comentário na 2.ª, numa só linha (o texto completo fica na dica) */
       .fab-esc-item {
-        background: var(--bg-inset);
-        border-left: 3px solid var(--esc-cor);
-        border-radius: 4px;
-        padding: 4px 8px;
         font-size: 0.78rem;
         line-height: 1.35;
         min-width: 0;
-        height: var(--esc-altura);
+        height: 100%;
         display: grid;
         grid-template-rows: repeat(3, minmax(0, 1fr));
         align-items: center;
@@ -11511,7 +11511,7 @@
                   const pos = k + 1;
                   const l = lugares.find((x) => x.pos === pos && x.cc);
                   if (!l) {
-                    return `<div class="fab-esc-lugar fab-esc-lugar-livre"><span class="fab-esc-pos">${pos}</span><div class="fab-esc-livre"></div></div>`;
+                    return `<div class="fab-esc-lugar fab-esc-lugar-livre"><span class="fab-esc-pos">${pos}</span></div>`;
                   }
                   const it = l.it;
                   const v = (campo) => escapeHtml(textoSemHtml(campoEscalacao(it, campo)));
