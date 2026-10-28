@@ -2985,51 +2985,6 @@
         <!-- Barra de filtros do Histórico -->
         <div class="opt-hist-filter-bar">
           <div class="opt-hist-field">
-            <label><i class="fa-solid fa-layer-group me-1"></i>Área</label>
-            <div class="opt-multiselect">
-              <button type="button" class="opt-ms-toggle">
-                <span class="opt-ms-label">Todas</span>
-              </button>
-              <div class="opt-ms-panel" id="hist-ms-area">
-                <div class="opt-ms-actions">
-                  <a class="opt-ms-selectall">Selecionar tudo</a>
-                  <a class="opt-ms-clear">Limpar</a>
-                </div>
-                <div class="opt-ms-items"></div>
-              </div>
-            </div>
-          </div>
-          <div class="opt-hist-field">
-            <label><i class="fa-solid fa-industry me-1"></i>CC</label>
-            <div class="opt-multiselect">
-              <button type="button" class="opt-ms-toggle">
-                <span class="opt-ms-label">Todos</span>
-              </button>
-              <div class="opt-ms-panel" id="hist-ms-cc">
-                <div class="opt-ms-actions">
-                  <a class="opt-ms-selectall">Selecionar tudo</a>
-                  <a class="opt-ms-clear">Limpar</a>
-                </div>
-                <div class="opt-ms-items"></div>
-              </div>
-            </div>
-          </div>
-          <div class="opt-hist-field">
-            <label><i class="fa-solid fa-cube me-1"></i>KA</label>
-            <div class="opt-multiselect">
-              <button type="button" class="opt-ms-toggle">
-                <span class="opt-ms-label">Todos</span>
-              </button>
-              <div class="opt-ms-panel" id="hist-ms-ka">
-                <div class="opt-ms-actions">
-                  <a class="opt-ms-selectall">Selecionar tudo</a>
-                  <a class="opt-ms-clear">Limpar</a>
-                </div>
-                <div class="opt-ms-items"></div>
-              </div>
-            </div>
-          </div>
-          <div class="opt-hist-field">
             <label><i class="fa-solid fa-filter me-1"></i>Período</label>
             <select id="hist-selPeriodo" class="form-select form-select-sm">
               <option value="semana_ano">Semana/Ano</option>
@@ -3087,6 +3042,51 @@
                 <span class="opt-ms-label">Todos</span>
               </button>
               <div class="opt-ms-panel" id="hist-ms-ano">
+                <div class="opt-ms-actions">
+                  <a class="opt-ms-selectall">Selecionar tudo</a>
+                  <a class="opt-ms-clear">Limpar</a>
+                </div>
+                <div class="opt-ms-items"></div>
+              </div>
+            </div>
+          </div>
+          <div class="opt-hist-field">
+            <label><i class="fa-solid fa-layer-group me-1"></i>Área</label>
+            <div class="opt-multiselect">
+              <button type="button" class="opt-ms-toggle">
+                <span class="opt-ms-label">Todas</span>
+              </button>
+              <div class="opt-ms-panel" id="hist-ms-area">
+                <div class="opt-ms-actions">
+                  <a class="opt-ms-selectall">Selecionar tudo</a>
+                  <a class="opt-ms-clear">Limpar</a>
+                </div>
+                <div class="opt-ms-items"></div>
+              </div>
+            </div>
+          </div>
+          <div class="opt-hist-field">
+            <label><i class="fa-solid fa-industry me-1"></i>CC</label>
+            <div class="opt-multiselect">
+              <button type="button" class="opt-ms-toggle">
+                <span class="opt-ms-label">Todos</span>
+              </button>
+              <div class="opt-ms-panel" id="hist-ms-cc">
+                <div class="opt-ms-actions">
+                  <a class="opt-ms-selectall">Selecionar tudo</a>
+                  <a class="opt-ms-clear">Limpar</a>
+                </div>
+                <div class="opt-ms-items"></div>
+              </div>
+            </div>
+          </div>
+          <div class="opt-hist-field">
+            <label><i class="fa-solid fa-cube me-1"></i>KA</label>
+            <div class="opt-multiselect">
+              <button type="button" class="opt-ms-toggle">
+                <span class="opt-ms-label">Todos</span>
+              </button>
+              <div class="opt-ms-panel" id="hist-ms-ka">
                 <div class="opt-ms-actions">
                   <a class="opt-ms-selectall">Selecionar tudo</a>
                   <a class="opt-ms-clear">Limpar</a>
@@ -9125,9 +9125,8 @@
           $('#hist-startDate').attr('min', minDateStr);
           $('#hist-endDate').attr('min', minDateStr);
 
-          // Período por defeito: Semana/Ano, na semana atual
+          // Período por defeito: Semana/Ano, com todas as semanas e anos
           $('#hist-selPeriodo').val('semana_ano');
-          histSemanaAtualPendente = true;
 
           populateHistAreaSelect();
           populateHistCCSelect();
@@ -9145,9 +9144,8 @@
         }
 
         function resetHistFilters() {
-          // Reset período: Semana/Ano, na semana atual
+          // Reset período: Semana/Ano, com todas as semanas e anos
           $('#hist-selPeriodo').val('semana_ano');
-          histSemanaAtualPendente = true;
 
           const today = getTodayZero();
           $('#hist-startDate').val(formatDateForInput(HIST_MIN_DATE));
@@ -9465,28 +9463,6 @@
           populateMultiSelect('hist-ms-semana', semanas, 'Todas');
         }
 
-        /* Ao abrir (ou repor) o Histórico fica escolhida a semana atual e o
-           seu ano; se ainda não houver registos dessa semana, ficam todas. */
-        let histSemanaAtualPendente = false;
-
-        function marcarSo(panelId, valor, allLabel) {
-          const $checks = $('#' + panelId + ' input[type=checkbox]');
-          if (!$checks.filter((i, c) => c.value === valor).length) return;
-          $checks.each(function () {
-            $(this).prop('checked', this.value === valor);
-          });
-          updateMultiSelectLabel(panelId, allLabel);
-        }
-
-        function escolherAnoAtual() {
-          marcarSo('hist-ms-ano', String(getISOWeekYear(getTodayZero())), 'Todos');
-        }
-
-        function escolherSemanaAtual() {
-          const hoje = getTodayZero();
-          marcarSo('hist-ms-semana', `${getISOWeek(hoje)}-${getISOWeekYear(hoje)}`, 'Todas');
-        }
-
         function onHistPeriodoChange() {
           const periodo = $('#hist-selPeriodo').val() || 'data';
 
@@ -9506,11 +9482,8 @@
           } else if (periodo === 'semana_ano') {
             $('.hist-field-ano').show();
             $('.hist-field-semana').show();
-            if (histSemanaAtualPendente) escolherAnoAtual();
             populateSemanaForAno();
-            if (histSemanaAtualPendente) escolherSemanaAtual();
           }
-          histSemanaAtualPendente = false;
 
           applyHistFilters();
         }
