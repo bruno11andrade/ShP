@@ -1737,6 +1737,73 @@
         font-variant-numeric: tabular-nums;
         line-height: 1.2;
       }
+      /* Menu de gestão */
+      .fab-menu {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 10px;
+      }
+      .fab-menu-item {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 12px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-inset);
+        color: var(--text-main);
+        text-decoration: none;
+        min-width: 0;
+      }
+      a.fab-menu-item:hover,
+      a.fab-menu-item:focus-visible,
+      .fab-menu-grupo:hover {
+        border-color: var(--cyan-accent);
+        color: var(--text-main);
+      }
+      .fab-menu-item i.fa-solid {
+        font-size: 1.3rem;
+        color: var(--cyan-accent);
+        width: 26px;
+        text-align: center;
+        margin-top: 2px;
+      }
+      .fab-menu-item b {
+        display: block;
+        font-size: 0.95rem;
+      }
+      .fab-menu-item small {
+        display: block;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+      }
+      .fab-menu-item.fab-menu-off {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .fab-menu-opcoes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .fab-menu-opcoes a {
+        font-size: 0.8rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--cyan-accent);
+        color: var(--cyan-accent);
+        text-decoration: none;
+      }
+      .fab-menu-opcoes a:hover {
+        background: var(--fab-sel-fundo);
+      }
+      .fab-menu-opcoes .fab-menu-off {
+        border-color: var(--border-color);
+        color: var(--text-muted);
+        pointer-events: none;
+      }
       /* Cartões ainda sem indicador */
       .fab-vazio {
         min-height: 92px;
@@ -1817,10 +1884,18 @@
       }
       .fab-whs-r {
         position: absolute;
-        top: 8px;
+        top: 7px;
         right: 12px;
         font-size: 12px;
         color: var(--text-muted);
+      }
+      .fab-wh-total {
+        font-size: 13px;
+        color: var(--text-label);
+      }
+      .fab-wh-total b {
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
       }
       .fab-wh-vazio {
         color: var(--text-muted);
@@ -1847,10 +1922,11 @@
         border-color: var(--fab-o-borda);
       }
       .fab-al {
-        font-size: 13px;
+        font-size: 15px;
         font-weight: 700;
         color: var(--text-label);
         margin-bottom: 8px;
+        text-align: center;
       }
       /* Dois C.C. por linha em cada área */
       .fab-tiles {
@@ -2408,7 +2484,18 @@
               title="Clique para ver detalhes"
             ></div>
             <div class="fab-card fab-vazio"></div>
-            <div class="fab-card fab-vazio"></div>
+            <!-- Menu de gestão da aplicação -->
+            <div
+              class="fab-card fab-kpi fab-gestao"
+              id="fab-gestao"
+              role="button"
+              tabindex="0"
+              title="Abrir o menu de gestão"
+            >
+              <div class="fab-kpi-tit">Gestão</div>
+              <div class="fab-kpi-val fab-cy"><i class="fa-solid fa-sliders"></i></div>
+              <div class="opt-kpi-sub">Planos, Trabalho Extra, MOD…</div>
+            </div>
           </section>
 
           <!-- Planta e detalhe do C.C. com a mesma altura: o detalhe não
@@ -4175,6 +4262,16 @@
               showKpiDetails('deltaTotal');
             });
           // Na Fábrica, o mesmo detalhe com os C.C. de todos os armazéns
+          $('#fab-gestao')
+            .off('click keydown')
+            .on('click', abrirMenuGestao)
+            .on('keydown', function (e) {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                abrirMenuGestao();
+              }
+            });
+
           // Cartões da Fábrica: os mesmos detalhes dos cartões do armazém,
           // com os C.C. de todos os armazéns
           [
@@ -11124,6 +11221,131 @@
           `);
         }
 
+        // ---------------------------------------------------------------- menu de gestão
+        /* Ações do menu de gestão. Um destino pode ser:
+             lista + vista  → a vista da lista (por GUID; sem a vista, a
+                              vista por defeito da lista);
+             url            → um endereço fixo.
+           Os endereços das listas são pedidos ao SharePoint quando o menu
+           abre, para os links já estarem prontos ao clicar (abrem num
+           separador novo). Um destino ainda por definir aparece apagado. */
+        const MENU_GESTAO = [
+          {
+            titulo: 'Lançar Planos',
+            icone: 'fa-calendar-plus',
+            texto: 'Atualizar o plano de produção',
+            opcoes: [
+              { nome: 'OV2 · Estampagem', lista: LIST_GUID, vista: 'Update_Plano' },
+              { nome: 'OV9 · Hot forming', lista: LIST_OV9_GUID, vista: 'Update_Plano' },
+            ],
+          },
+          {
+            titulo: 'Trabalho Extra',
+            icone: 'fa-user-clock',
+            texto: 'Criar / consultar pedidos de TE',
+            url: null, // página do Trabalho Extra: por definir
+          },
+          {
+            titulo: 'MOD Planeada',
+            icone: 'fa-users',
+            texto: 'Turnos planeados por C.C.',
+            lista: LIST_MOD_GUID,
+          },
+          {
+            titulo: 'Abertura dos C.C.',
+            icone: 'fa-door-open',
+            texto: 'Turnos de abertura de cada C.C.',
+            lista: LIST_ABERTURA_GUID,
+          },
+          {
+            titulo: 'Ensaios de Ferramenta',
+            icone: 'fa-flask',
+            texto: 'Checklist de ensaios',
+            lista: LIST_ENSAIOS_GUID,
+          },
+          {
+            titulo: 'Pares KA ↔ CO KA',
+            icone: 'fa-link',
+            texto: 'Lista KA CO',
+            url: 'https://pt.sps.automotive.local/departments/logistica/Lists/KA%20CO/Update%20CO%20KA.aspx',
+          },
+          {
+            titulo: 'Escalação KPT – Top 5',
+            icone: 'fa-triangle-exclamation',
+            texto: 'Réplica da lista do SFM',
+            url: ESCALACAO_LIST_URL + '/AllItems.aspx',
+          },
+        ];
+
+        /* Endereço de um destino de lista: a vista pedida ou, sem ela, a
+           vista por defeito. */
+        function urlDestinoLista(guid, vista) {
+          const base = `${getWebUrl()}/_api/web/lists(guid'${String(guid).replace(/[{}]/g, '')}')`;
+          const absoluto = (rel) => (rel ? window.location.origin + rel : null);
+          const porDefeito = () =>
+            $.ajax({
+              url: `${base}?$select=DefaultViewUrl`,
+              headers: { Accept: 'application/json; odata=verbose' },
+            }).then((r) => absoluto(r && r.d && r.d.DefaultViewUrl));
+          if (!vista) return porDefeito();
+          return $.ajax({
+            url: `${base}/views/getbytitle('${encodeURIComponent(vista)}')?$select=ServerRelativeUrl`,
+            headers: { Accept: 'application/json; odata=verbose' },
+          }).then(
+            (r) => absoluto(r && r.d && r.d.ServerRelativeUrl),
+            () => porDefeito()
+          );
+        }
+
+        function abrirMenuGestao() {
+          const destinos = [];
+          MENU_GESTAO.forEach((acao) => (acao.opcoes || [acao]).forEach((d) => destinos.push(d)));
+          const pendentes = destinos.map((d) => {
+            if (d.url !== undefined || !d.lista) return $.Deferred().resolve(d.url || null);
+            const p = $.Deferred();
+            urlDestinoLista(d.lista, d.vista).then(
+              (u) => p.resolve(u),
+              () => p.resolve(null)
+            );
+            return p.promise();
+          });
+          const desenhar = (urls) => {
+            let i = 0;
+            const link = () => urls[i++];
+            const html = MENU_GESTAO.map((acao) => {
+              if (acao.opcoes) {
+                const botoes = acao.opcoes
+                  .map((o) => {
+                    const u = link();
+                    return u
+                      ? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener">${escapeHtml(o.nome)}</a>`
+                      : `<span class="fab-menu-off" title="Destino por definir">${escapeHtml(o.nome)}</span>`;
+                  })
+                  .join('');
+                return `<div class="fab-menu-item fab-menu-grupo"><i class="fa-solid ${acao.icone}"></i><div><b>${escapeHtml(
+                  acao.titulo
+                )}</b><small>${escapeHtml(acao.texto)}</small><div class="fab-menu-opcoes">${botoes}</div></div></div>`;
+              }
+              const u = link();
+              const corpo = `<i class="fa-solid ${acao.icone}"></i><div><b>${escapeHtml(acao.titulo)}</b><small>${escapeHtml(
+                u ? acao.texto : 'Destino por definir'
+              )}</small></div>`;
+              return u
+                ? `<a class="fab-menu-item" href="${escapeHtml(u)}" target="_blank" rel="noopener">${corpo}</a>`
+                : `<div class="fab-menu-item fab-menu-off">${corpo}</div>`;
+            }).join('');
+            $('#opt-kpiModalBody').html(`<div class="fab-menu">${html}</div>`);
+          };
+          $('#opt-kpiModalTitle').html('<i class="fa-solid fa-sliders me-2"></i>Gestão');
+          $('#opt-kpiModalBody').html(
+            '<div class="text-center text-muted py-4"><i class="fa-solid fa-spinner fa-spin me-2"></i>A preparar o menu...</div>'
+          );
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('opt-kpiModal')).show();
+          $.when.apply($, pendentes).done(function () {
+            desenhar(Array.prototype.slice.call(arguments));
+          });
+        }
+
         // ---------------------------------------------------------------- escalação
         function urlListaEscalacao(resto) {
           return `${getWebUrl()}/_api/web/lists(guid'${ESCALACAO_LIST_GUID.replace(
@@ -11405,7 +11627,11 @@
                 a.w.id
               )}</b><span class="fab-mut">${escapeHtml(
                 a.w.tipo
-              )}</span></div><div class="fab-whs-r">${a.ccs.length} C.C.</div><div class="fab-areas">${areas}</div></div>`;
+              )}</span></div><div class="fab-whs-r"><span class="fab-wh-total">${
+                a.saldo < 0 ? 'Total em atraso' : 'Total avanço'
+              } <b class="${a.saldo < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(a.saldo)}</b></span> · ${
+                a.ccs.length
+              } C.C.</div><div class="fab-areas">${areas}</div></div>`;
             })
             .join('');
           $('#fab-edificios')
