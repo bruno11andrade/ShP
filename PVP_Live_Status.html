@@ -11629,9 +11629,7 @@
                 a.w.tipo
               )}</span></div><div class="fab-whs-r"><span class="fab-wh-total">${
                 a.saldo < 0 ? 'Total em atraso' : 'Total avanço'
-              } <b class="${a.saldo < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(a.saldo)}</b></span> · ${
-                a.ccs.length
-              } C.C.</div><div class="fab-areas">${areas}</div></div>`;
+              } <b class="${a.saldo < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(a.saldo)}</b></span></div><div class="fab-areas">${areas}</div></div>`;
             })
             .join('');
           $('#fab-edificios')
