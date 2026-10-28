@@ -2058,7 +2058,7 @@
         align-items: baseline;
         gap: 10px;
       }
-      .fab-esc-cab .fab-h2 {
+      #opt-fabricaContent .fab-esc-cab .fab-h2 {
         margin: 0;
       }
       .fab-esc-cols {
@@ -2097,19 +2097,47 @@
       .fab-esc-tit a:hover {
         text-decoration: underline;
       }
-      .fab-esc-n {
-        min-width: 22px;
-        text-align: center;
-        border-radius: 999px;
-        padding: 0 7px;
-        font-size: 0.78rem;
-        background: var(--esc-cor);
-        color: var(--on-accent);
-      }
       .fab-esc-lista {
         display: flex;
         flex-direction: column;
         gap: 4px;
+      }
+      /* Lugar do Top 5: posição à esquerda, conteúdo à direita */
+      .fab-esc-lugar {
+        display: grid;
+        grid-template-columns: 16px minmax(0, 1fr);
+        gap: 8px;
+        align-items: start;
+      }
+      .fab-esc-pos {
+        font-weight: 800;
+        font-size: 0.8rem;
+        color: var(--esc-cor);
+        text-align: center;
+        padding-top: 6px;
+        font-variant-numeric: tabular-nums;
+      }
+      .fab-esc-livre {
+        min-height: 30px;
+        border: 1px dashed var(--border-color);
+        border-radius: 4px;
+      }
+      .fab-esc-lugar-livre .fab-esc-pos {
+        color: var(--text-muted);
+      }
+      .fab-esc-campos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 10px;
+        color: var(--text-muted);
+      }
+      .fab-esc-campos b {
+        font-weight: 600;
+        color: var(--text-label);
+      }
+      .fab-esc-coment {
+        color: var(--text-main);
+        overflow-wrap: anywhere;
       }
       /* Uma escalação: C.C. e unidade na 1.ª linha; KA, cliente e
          comentário na 2.ª, numa só linha (o texto completo fica na dica) */
@@ -2143,25 +2171,21 @@
         border: 1px solid var(--border-color);
         color: var(--text-muted);
       }
-      .fab-esc-l2 {
-        color: var(--text-muted);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .fab-esc-l2 .fab-esc-txt {
-        color: var(--text-label);
-      }
       .fab-baixo {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
         gap: 14px;
       }
-      .fab-h2 {
+      /* Títulos dos cartões da Fábrica no azul do resto do dashboard. O
+         SharePoint pinta os <h2> com o azul dele e outra letra: o id e o
+         !important garantem que fica o do dashboard. */
+      #opt-fabricaContent .fab-h2 {
         margin: 0 0 10px;
-        font-size: 0.95rem;
-        font-weight: 700;
-        color: var(--text-main);
+        font-family: inherit !important;
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        color: var(--cyan-accent) !important;
+        line-height: 1.3;
       }
       .fab-mapa {
         display: grid;
@@ -11241,37 +11265,49 @@
           $c.html(
             escalacaoDados.niveis
               .map((n) => {
-                // Só as linhas com C.C. preenchido (as vistas guardam os 5
-                // lugares mesmo vazios), pela ordem da vista
-                const preenchidos = n.itens.filter((it) => ccSemOrdem(campoEscalacao(it, 'cc')));
-                n.preenchidos = preenchidos.length;
-                const itens = preenchidos
-                  .map((it) => {
-                    const v = (campo) => escapeHtml(textoSemHtml(campoEscalacao(it, campo)));
-                    const cc = escapeHtml(ccSemOrdem(textoSemHtml(campoEscalacao(it, 'cc'))));
-                    const alt = v('ccAlternativo');
-                    const coment = v('comentarios');
-                    const un = unidadeCurta(textoSemHtml(campoEscalacao(it, 'unidade')));
-                    const partes = [v('ka'), v('cliente')].filter(Boolean);
-                    if (alt) partes.push(`alt. ${alt}`);
-                    const linha2 =
-                      partes.join(' · ') +
-                      (coment ? `${partes.length ? ' — ' : ''}<span class="fab-esc-txt">${coment}</span>` : '');
-                    const dica = [cc, partes.join(' · '), coment].filter(Boolean).join('\n');
-                    return `<div class="fab-esc-item" title="${dica}">
-                      <div class="fab-esc-l1"><span class="fab-esc-cc">${cc}</span>${
-                      un ? `<span class="fab-esc-un">${escapeHtml(un)}</span>` : ''
-                    }</div>
-                      ${linha2 ? `<div class="fab-esc-l2">${linha2}</div>` : ''}
-                    </div>`;
-                  })
-                  .join('');
+                // Os 5 lugares da vista, pela posição do C.C. («1 - …»); os
+                // lugares sem C.C. ficam a tracejado
+                const lugares = n.itens.map((it, k) => {
+                  const bruto = textoSemHtml(campoEscalacao(it, 'cc'));
+                  const m = bruto.match(/^\s*(\d+)\s*[-–.)]/);
+                  return { it: it, pos: m ? parseInt(m[1], 10) : k + 1, cc: ccSemOrdem(bruto) };
+                });
+                const total = Math.max(5, lugares.length);
+                const itens = Array.from({ length: total }, (_, k) => {
+                  const pos = k + 1;
+                  const l = lugares.find((x) => x.pos === pos && x.cc);
+                  if (!l) {
+                    return `<div class="fab-esc-lugar fab-esc-lugar-livre"><span class="fab-esc-pos">${pos}</span><div class="fab-esc-livre"></div></div>`;
+                  }
+                  const it = l.it;
+                  const v = (campo) => escapeHtml(textoSemHtml(campoEscalacao(it, campo)));
+                  const un = unidadeCurta(textoSemHtml(campoEscalacao(it, 'unidade')));
+                  const campos = [
+                    ['KA', v('ka')],
+                    ['Cliente', v('cliente')],
+                    ['C.C. alt.', v('ccAlternativo')],
+                  ].filter((c) => c[1]);
+                  const coment = v('comentarios');
+                  return `<div class="fab-esc-lugar"><span class="fab-esc-pos">${pos}</span>
+                    <div class="fab-esc-item">
+                      <div class="fab-esc-l1"><span class="fab-esc-cc">${escapeHtml(l.cc)}</span>${
+                    un ? `<span class="fab-esc-un">${escapeHtml(un)}</span>` : ''
+                  }</div>
+                      ${
+                        campos.length
+                          ? `<div class="fab-esc-campos">${campos
+                              .map((c) => `<span>${c[0]} <b>${c[1]}</b></span>`)
+                              .join('')}</div>`
+                          : ''
+                      }
+                      ${coment ? `<div class="fab-esc-coment">${coment}</div>` : ''}
+                    </div></div>`;
+                }).join('');
                 return `<div class="fab-esc-col" style="--esc-cor: ${n.cor}">
                   <div class="fab-esc-tit">
                     <a href="${linkVista(n)}" target="_blank" rel="noopener" title="Abrir a vista ${n.nome} na lista">${n.nome}</a>
-                    <span class="fab-esc-n">${n.preenchidos}</span>
                   </div>
-                  <div class="fab-esc-lista">${itens || '<span class="fab-mut">Sem escalações</span>'}</div>
+                  <div class="fab-esc-lista">${itens}</div>
                 </div>`;
               })
               .join('')
