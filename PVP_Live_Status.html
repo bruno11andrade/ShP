@@ -2014,6 +2014,12 @@
       .fab-tile b {
         font-size: 13px;
       }
+      /* Parte do atraso em ordens Em curso (ainda pode desaparecer) */
+      .fab-ec {
+        font-size: 10px;
+        color: var(--st-y);
+        white-space: nowrap;
+      }
       .fab-tile .v {
         font-size: 12px;
         font-weight: 700;
@@ -11021,6 +11027,29 @@
           return dias;
         }
 
+        /* Ordens com Status «Em curso» (e «Interrompido», só contadas) com
+           data até hoje ou no backlog. Um C.C. só produz uma ordem de cada
+           vez: conta-se a mais recente; as outras «Em curso» são registos
+           por fechar e continuam no atraso. */
+        function ordensEmCurso(itens, hoje) {
+          const fim = new Date(hoje);
+          fim.setHours(23, 59, 59, 999);
+          const res = { horas: 0, n: 0, interrompidas: 0 };
+          let atual = null;
+          itens.forEach((i) => {
+            if (i.RawDateObj && i.RawDateObj > fim) return;
+            const st = String(i.Status || '').trim().toLowerCase();
+            if (st === 'em curso') {
+              res.n++;
+              if (!atual || (i.RawDateObj || 0) > (atual.RawDateObj || 0)) atual = i;
+            } else if (st.indexOf('interrompid') === 0) {
+              res.interrompidas++;
+            }
+          });
+          if (atual) res.horas = atual.HorasPlaneadas || 0;
+          return res;
+        }
+
         function dadosDaFabrica() {
           const periodo = periodoDaFabrica();
           return comPeriodo(periodo.inicio, periodo.fim, function () {
@@ -11043,11 +11072,20 @@
                     prod += g.Produzido;
                   });
                   const disp = resumoDisponibilidade(getItensDisponibilidade(area, [cc]));
+                  // Ordens «Em curso» até hoje: as horas só passam a produzidas
+                  // quando a ordem fecha, por isso a parte do atraso que elas
+                  // explicam ainda pode desaparecer (fica «por confirmar»)
+                  const curso = ordensEmCurso(r.ccItems.concat(r.ccBacklog || []), hoje);
+                  const emCurso = r.delta < 0 ? Math.min(-r.delta, curso.horas) : 0;
                   const o = {
                     cc: cc,
                     area: area,
                     armazem: w.id,
                     delta: r.delta,
+                    emCurso: emCurso,
+                    confirmado: r.delta + emCurso,
+                    ordensEmCurso: curso.n,
+                    interrompidas: curso.interrompidas,
                     plan: plan,
                     prod: prod,
                     disp: disp,
@@ -11225,7 +11263,7 @@
             dot.title = `Saldo da fábrica: ${fabTurnosComSinal(d.saldo)} turnos`;
           }
           renderFabAviso(d);
-          renderFabKpiTotal();
+          renderFabKpiTotal(d);
           renderFabKpiAtraso8h();
           renderFabKpiQtd();
           renderFabEscalacao();
@@ -11237,7 +11275,8 @@
         /* Total em atraso da fábrica: soma do avanço/atraso de todos os
            C.C. dos armazéns — a mesma conta do cartão do armazém sem área
            escolhida, e a mesma do detalhe que abre ao clicar. */
-        function renderFabKpiTotal() {
+        function renderFabKpiTotal(d) {
+          const emCurso = d ? d.todos.reduce((t, c) => t + c.emCurso, 0) : 0;
           const total = getCCsForArea('').reduce(
             (soma, cc) => soma + calcularResumoCC(cc, null).delta,
             0
@@ -11252,7 +11291,13 @@
               <i class="${cfg.icon}" style="font-size: 0.9rem"></i></div>
             <div class="opt-kpi-sub">soma dos C.C. · ${ARMAZENS.filter((w) => w.ativo)
               .map((w) => w.id)
-              .join(' + ')}</div>
+              .join(' + ')}${
+              emCurso >= 1 / 60
+                ? ` · <span class="fab-amb" title="Parte do atraso em ordens Em curso: desaparece quando forem fechadas">${formatHoursToHHMM(
+                    emCurso
+                  )} em curso</span>`
+                : ''
+            }</div>
           `);
         }
 
@@ -11684,7 +11729,9 @@
                         c.delta
                       )} horas${c.mf ? ', material em falha' : ''}"><b>${escapeHtml(
                         c.cc
-                      )}</b><span class="v">${fabHoras(c.delta)}</span>${
+                      )}</b><span class="v">${fabHoras(c.delta)}</span><span class="fab-ec">${
+                        c.emCurso >= 1 / 60 ? `${formatHoursToHHMM(c.emCurso)} em curso` : '&nbsp;'
+                      }</span>${
                         c.mf ? '<span class="fab-dot" aria-hidden="true" title="Material em falha"></span>' : ''
                       }</button>`;
                     })
@@ -11769,8 +11816,20 @@
           const [frtTxt, frtCls] = textoDisponibilidade(c.disp.n, c.disp.frt);
           const alertas = [];
           if (c.mf) alertas.push('<span class="fab-alerta fab-alerta-mf">Material em falha (MD07)</span>');
-          if (c.delta < -HORAS_POR_TURNO) {
-            alertas.push('<span class="fab-alerta fab-alerta-te">Mais de 1 turno de atraso: avaliar TE</span>');
+          if (c.ordensEmCurso > 1) {
+            alertas.push(
+              `<span class="fab-alerta fab-alerta-te" title="Só a mais recente conta como em curso; as outras continuam no atraso">${c.ordensEmCurso} ordens marcadas Em curso</span>`
+            );
+          }
+          if (c.interrompidas) {
+            alertas.push(
+              `<span class="fab-alerta fab-alerta-te">${c.interrompidas} ordem${c.interrompidas > 1 ? 's' : ''} interrompida${
+                c.interrompidas > 1 ? 's' : ''
+              }</span>`
+            );
+          }
+          if (c.confirmado < -HORAS_POR_TURNO) {
+            alertas.push('<span class="fab-alerta fab-alerta-te">Mais de 1 turno de atraso confirmado: avaliar TE</span>');
           }
           $det.html(`
             <div class="fab-det-topo">
@@ -11782,8 +11841,14 @@
               <span class="fab-mut">${c.delta < 0 ? 'Em atraso' : 'Em avanço'} · ${fabTurnos(c.delta)} turnos</span>
             </div>
             <div class="fab-barra" title="Produzido ÷ planeado até hoje: ${pct}%"><i style="width: ${pct}%"></i></div>
-            <div class="fab-row"><span>Planeado até hoje</span><b>${formatHoursToHHMM(c.plan)}</b></div>
-            <div class="fab-row"><span>Produzido</span><b>${formatHoursToHHMM(c.prod)}</b></div>
+            <div class="fab-row"><span>Produzido / planeado até hoje</span><b>${formatHoursToHHMM(
+              c.prod
+            )} de ${formatHoursToHHMM(c.plan)}</b></div>
+            <div class="fab-row" title="Horas de ordens Em curso: só passam a produzidas quando a ordem fecha"><span>Em curso · confirmado</span><b><span class="${
+              c.emCurso > 0 ? 'fab-amb' : 'fab-mut'
+            }">${formatHoursToHHMM(c.emCurso)}</span> · <span class="${
+              c.confirmado < 0 ? 'fab-neg' : 'fab-pos'
+            }">${fabHoras(c.confirmado)}</span></b></div>
             <div class="fab-row"><span>Matéria-prima</span><b class="${mpCls}">${mpTxt}</b></div>
             <div class="fab-row"><span>Ferramenta</span><b class="${frtCls}">${frtTxt}</b></div>
             ${alertas.length ? `<div class="fab-alertas">${alertas.join('')}</div>` : ''}
@@ -11801,6 +11866,7 @@
           const areas = ar ? [ar.area] : wh.areas.map((x) => x.area);
           const soma = (f) => ccs.reduce((t, c) => t + f(c), 0);
           const delta = soma((c) => c.delta);
+          const emCurso = soma((c) => c.emCurso);
           const plan = soma((c) => c.plan);
           const prod = soma((c) => c.prod);
           const pct = plan > 0 ? Math.min(100, Math.round((prod / plan) * 100)) : prod > 0 ? 100 : 0;
@@ -11845,7 +11911,9 @@
             </div>
             <div class="fab-det-linha">
               <span class="fab-det-delta ${delta < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(delta)}</span>
-              <span class="fab-mut">${delta < 0 ? 'Total em atraso' : 'Total em avanço'} · ${fabTurnos(delta)} turnos</span>
+              <span class="fab-mut">${delta < 0 ? 'Total em atraso' : 'Total em avanço'} · ${fabTurnos(delta)} turnos${
+                emCurso >= 1 / 60 ? ` · <span class="fab-amb">${formatHoursToHHMM(emCurso)} em curso</span>` : ''
+              }</span>
             </div>
             <div class="fab-det-grelha">
               ${kpi(
