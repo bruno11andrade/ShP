@@ -1924,56 +1924,77 @@
       .fab-area:hover {
         border-color: var(--cyan-accent);
       }
-      /* Indicadores de área/armazém: grelha de 2 colunas */
-      .fab-det-grelha {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 6px;
-        margin-top: 2px;
-      }
-      .fab-det-kpi {
-        background: var(--bg-inset);
-        border-radius: 6px;
-        padding: 5px 8px;
-        min-width: 0;
-      }
-      .fab-det-kpi span {
-        display: block;
-        font-size: 0.7rem;
-        color: var(--text-muted);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .fab-det-kpi b {
-        font-size: 0.9rem;
+      /* Top 3 em atraso / em avanço no painel ao lado da planta */
+      .fab-top-saldo {
+        margin-left: auto;
+        font-size: 1.35rem;
+        font-weight: 700;
         font-variant-numeric: tabular-nums;
-        white-space: nowrap;
       }
-      .fab-det-kpi small {
-        font-size: 0.7rem;
+      .fab-top-tit {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
         color: var(--text-muted);
-        margin-left: 4px;
+        margin-top: 6px;
       }
-      .fab-det-piores {
-        display: flex;
-        flex-wrap: nowrap;
-        overflow: hidden;
+      .fab-top-l {
+        display: grid;
+        grid-template-columns: 16px minmax(64px, auto) minmax(0, 1fr) 62px;
+        gap: 8px;
         align-items: center;
-        gap: 6px;
-        font-size: 0.78rem;
-      }
-      .fab-det-cc-link {
-        display: inline-flex;
-        gap: 6px;
-        padding: 2px 8px;
-        border-radius: 4px;
-        border: 1px solid var(--border-color);
+        font-size: 0.85rem;
+        padding: 4px 8px;
+        border-radius: 6px;
         background: var(--bg-inset);
+        border: 1px solid transparent;
         cursor: pointer;
       }
-      .fab-det-cc-link:hover {
+      .fab-top-l:hover,
+      .fab-top-l:focus-visible {
         border-color: var(--cyan-accent);
+        outline: none;
+      }
+      .fab-top-sel {
+        border-color: var(--cyan-accent);
+      }
+      .fab-top-n {
+        color: var(--text-muted);
+        font-weight: 700;
+        text-align: center;
+      }
+      .fab-top-barra {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--border-color);
+        overflow: hidden;
+      }
+      .fab-top-barra i {
+        display: block;
+        height: 100%;
+        border-radius: 3px;
+      }
+      .fab-top-barra i.neg {
+        background: var(--st-r);
+      }
+      .fab-top-barra i.pos {
+        background: var(--st-ok);
+      }
+      .fab-top-h {
+        text-align: right;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .fab-top-vazio {
+        font-size: 0.8rem;
+        padding: 4px 8px;
+      }
+      /* Horas do C.C. dentro do texto da escalação */
+      .fab-esc-h {
+        font-size: 0.74rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
       }
       .fab-a-r {
         border-color: var(--fab-r-borda);
@@ -2106,8 +2127,7 @@
           position: static;
         }
       }
-      .fab-det-topo,
-      .fab-det-linha {
+      .fab-det-topo {
         display: flex;
         align-items: baseline;
         gap: 10px;
@@ -2117,51 +2137,6 @@
         font-size: 1.5rem;
         font-weight: 700;
         color: var(--cyan-accent);
-      }
-      .fab-det-delta {
-        font-size: 1.9rem;
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-        line-height: 1;
-      }
-      .fab-barra {
-        height: 8px;
-        border-radius: 4px;
-        background: var(--border-color);
-        overflow: hidden;
-        margin: 4px 0;
-      }
-      .fab-barra i {
-        display: block;
-        height: 100%;
-        background: var(--cyan-accent);
-      }
-      .fab-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        font-size: 0.82rem;
-        padding: 3px 0;
-        border-bottom: 1px solid var(--border-color);
-      }
-      .fab-alertas {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      .fab-alerta {
-        border: 1px solid;
-        border-radius: 6px;
-        padding: 4px 8px;
-        font-size: 0.76rem;
-      }
-      .fab-alerta-mf {
-        border-color: var(--st-mf);
-        color: var(--st-mf);
-      }
-      .fab-alerta-te {
-        border-color: var(--st-r);
-        color: var(--st-r);
       }
       .fab-btn {
         font: inherit;
@@ -2225,13 +2200,6 @@
         font-weight: 800;
         font-size: 0.85rem;
         color: var(--esc-texto);
-      }
-      .fab-esc-tit a {
-        color: inherit;
-        text-decoration: none;
-      }
-      .fab-esc-tit a:hover {
-        text-decoration: underline;
       }
       .fab-esc-lista {
         display: flex;
@@ -4193,23 +4161,11 @@
               const area = $(this).data('fab-area');
               irParaArmazem(String($(this).data('armazem')), area ? { area: String(area) } : {});
             })
-            .off('keydown', '[data-fab-escolher-cc]')
-            .on('keydown', '[data-fab-escolher-cc]', function (e) {
+            .off('keydown', '.fab-top-l')
+            .on('keydown', '.fab-top-l', function (e) {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 $(this).trigger('click');
-              }
-            })
-            .off('click', '[data-fab-escolher-cc]')
-            .on('click', '[data-fab-escolher-cc]', function () {
-              fabSelecionado = {
-                tipo: 'cc',
-                cc: String($(this).data('fab-escolher-cc')),
-                area: String($(this).data('fab-area')),
-              };
-              if (fabUltimosDados) {
-                renderFabPlanta(fabUltimosDados);
-                renderFabDetalhe(fabUltimosDados);
               }
             })
             .off('click', '[data-fab-abrir-cc]')
@@ -11001,15 +10957,6 @@
           return item ? String(item.Area).trim() : area;
         }
 
-        function resumoDisponibilidade(itens) {
-          return {
-            n: itens.length,
-            nMP: itens.filter(contaParaMP).length,
-            mp: itens.filter((i) => i.DispMP === 'OK').length,
-            frt: itens.filter((i) => i.DispFRT === 'OK').length,
-          };
-        }
-
         /* Últimos dias úteis antes de hoje (hoje ainda vai a meio). */
         function ultimosDiasUteis(n) {
           const dias = [];
@@ -11033,24 +10980,11 @@
                 const areaClean = area.toLowerCase();
                 const ccs = getCCsForArea(area).map((cc) => {
                   const r = calcularResumoCC(cc, areaClean);
-                  let plan = 0;
-                  let prod = 0;
-                  r.rows.forEach((g) => {
-                    const dia = g.RawDate
-                      ? new Date(g.RawDate.getFullYear(), g.RawDate.getMonth(), g.RawDate.getDate())
-                      : null;
-                    if (!dia || dia <= hoje) plan += g.Planeado;
-                    prod += g.Produzido;
-                  });
-                  const disp = resumoDisponibilidade(getItensDisponibilidade(area, [cc]));
                   const o = {
                     cc: cc,
                     area: area,
                     armazem: w.id,
                     delta: r.delta,
-                    plan: plan,
-                    prod: prod,
-                    disp: disp,
                     mf: false,
                   };
                   todos.push(o);
@@ -11545,11 +11479,37 @@
             .trim();
         }
 
+        /* C.C. citados no texto livre da escalação (pode haver vários,
+           «10137/10138», «16167/16178 (Leapmotor CCB)»): os números de 5
+           algarismos que são C.C. da fábrica, com o avanço/atraso de cada
+           um. Os que não estão nos armazéns ligados (OV1, Cucujães…) ficam
+           sem horas. */
+        function horasDosCCsNoTexto(texto) {
+          const d = fabUltimosDados;
+          if (!d) return [];
+          const res = [];
+          (String(texto || '').match(/\b\d{5}\b/g) || []).forEach((num) => {
+            if (res.some((h) => h.cc === num)) return;
+            const doCC = d.todos.filter((c) => areCCsEqual(c.cc, num));
+            if (doCC.length) res.push({ cc: num, delta: doCC.reduce((t, c) => t + c.delta, 0) });
+          });
+          return res;
+        }
+
+        // Texto (já em HTML) com as horas a seguir a cada C.C. conhecido
+        function comHorasDosCCs(texto, horas) {
+          return escapeHtml(texto).replace(/\b\d{5}\b/g, (num) => {
+            const h = horas.find((x) => x.cc === num);
+            return h
+              ? `${num} <span class="fab-esc-h ${h.delta < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(h.delta)}</span>`
+              : num;
+          });
+        }
+
         function renderFabEscalacao() {
           const $c = $('#fab-escalacao');
           if (!$c.length) return;
           const $estado = $('#fab-escEstado');
-          const linkVista = (n) => `${ESCALACAO_LIST_URL}/${encodeURIComponent(n.nome)}.aspx`;
           if (!escalacaoDados || escalacaoDados.erro) {
             $estado.html(
               escalacaoDados
@@ -11559,8 +11519,7 @@
             $c.html(
               ESCALACAO_NIVEIS.map(
                 (n) => `<div class="fab-esc-col" style="--esc-cor: ${n.cor}">
-                  <div class="fab-esc-tit"><a href="${linkVista(n)}" target="_blank" rel="noopener">${n.nome} ↗</a></div>
-                  <div class="fab-mut">${escalacaoDados ? 'Abrir a vista na lista' : ''}</div>
+                  <div class="fab-esc-tit">${n.nome}</div>
                 </div>`
               ).join('')
             );
@@ -11598,6 +11557,7 @@
                     ['C.C. alt.', v('ccAlternativo')],
                   ].filter((c) => c[1]);
                   const coment = v('comentarios');
+                  const horas = horasDosCCsNoTexto(l.cc + ' ' + textoSemHtml(campoEscalacao(it, 'ccAlternativo')));
                   // Dica com tudo, porque as linhas cortam o que não cabe
                   const bruto = (campo) => textoSemHtml(campoEscalacao(it, campo));
                   const dica = [
@@ -11610,25 +11570,26 @@
                       .filter((c) => c[1])
                       .map((c) => `${c[0]}: ${c[1]}`)
                       .join(' · '),
+                    horas.length
+                      ? 'Avanço/atraso: ' + horas.map((h) => `${h.cc} ${fabHoras(h.delta)}`).join(' · ')
+                      : '',
                     bruto('comentarios'),
                   ]
                     .filter(Boolean)
                     .join('\n');
                   return `<div class="fab-esc-lugar"><span class="fab-esc-pos">${pos}</span>
                     <div class="fab-esc-item" title="${escapeHtml(dica).replace(/\n/g, '&#10;')}">
-                      <div class="fab-esc-l1"><span class="fab-esc-cc">${escapeHtml(l.cc)}</span>${
+                      <div class="fab-esc-l1"><span class="fab-esc-cc">${comHorasDosCCs(l.cc, horas)}</span>${
                     un ? `<span class="fab-esc-un">${escapeHtml(un)}</span>` : ''
                   }</div>
                       <div class="fab-esc-campos">${campos
-                        .map((c) => `<span>${c[0]} <b>${c[1]}</b></span>`)
+                        .map((c) => `<span>${c[0]} <b>${c[0] === 'C.C. alt.' ? comHorasDosCCs(c[1], horas) : c[1]}</b></span>`)
                         .join('')}</div>
                       <div class="fab-esc-coment">${coment}</div>
                     </div></div>`;
                 }).join('');
                 return `<div class="fab-esc-col" style="--esc-cor: ${n.cor}">
-                  <div class="fab-esc-tit">
-                    <a href="${linkVista(n)}" target="_blank" rel="noopener" title="Abrir a vista ${n.nome} na lista">${n.nome}</a>
-                  </div>
+                  <div class="fab-esc-tit">${n.nome}</div>
                   <div class="fab-esc-lista">${itens}</div>
                 </div>`;
               })
@@ -11729,172 +11690,77 @@
             );
         }
 
-        function textoDisponibilidade(n, ok) {
-          if (n === 0) return ['Nada até amanhã', 'fab-mut'];
-          if (ok === n) return ['OK', 'fab-pos'];
-          return [`${n - ok} de ${n} não OK`, ok / n >= 0.8 ? 'fab-amb' : 'fab-neg'];
-        }
-
+        /* Painel ao lado da planta: Top 3 de C.C. em atraso e Top 3 em
+           avanço da área escolhida (clique na área ou num C.C. dela) ou do
+           armazém (clique no edifício). Por defeito, a área com mais atraso. */
         function renderFabDetalhe(d) {
           const $det = $('#fab-detalhe');
-          if (d.todos.length === 0) {
+          const ativos = d.armazens.filter((a) => a.ativo);
+          const areas = [];
+          ativos.forEach((a) => a.areas.forEach((ar) => areas.push({ wh: a, ar: ar })));
+          if (!areas.some((x) => x.ar.ccs.length)) {
             fabSelecionado = null;
             $det.html('<div class="fab-mut">Sem C.C. com plano no período.</div>');
             return;
           }
           const sel = fabSelecionado || {};
-          if (sel.tipo === 'armazem' || sel.tipo === 'area') {
-            const wh = d.armazens.find((a) => a.ativo && a.w.id === sel.armazem);
-            const ar = wh && sel.tipo === 'area' ? wh.areas.find((x) => x.area === sel.area) : null;
-            if (wh && (sel.tipo === 'armazem' || ar)) {
-              renderFabDetalheGrupo(d, wh, ar);
-              return;
+          let wh = null;
+          let ar = null;
+          if (sel.tipo === 'armazem') {
+            wh = ativos.find((a) => a.w.id === sel.armazem) || null;
+          } else if (sel.tipo === 'area' || sel.tipo === 'cc') {
+            const x = areas.find(
+              (y) => y.ar.area === sel.area && (sel.tipo === 'cc' || y.wh.w.id === sel.armazem)
+            );
+            if (x) {
+              wh = x.wh;
+              ar = x.ar;
             }
           }
-          let c =
-            sel.tipo === 'cc'
-              ? d.todos.find((x) => areCCsEqual(x.cc, sel.cc) && x.area === sel.area)
-              : null;
-          if (!c) {
-            // Por defeito, o C.C. com mais atraso
-            c = d.todos.slice().sort((a, b) => a.delta - b.delta)[0];
-            fabSelecionado = { tipo: 'cc', cc: c.cc, area: c.area };
+          if (!wh) {
+            const pior = areas
+              .filter((y) => y.ar.ccs.length)
+              .sort((a, b) => a.ar.saldo - b.ar.saldo)[0];
+            wh = pior.wh;
+            ar = pior.ar;
+            fabSelecionado = { tipo: 'area', area: ar.area, armazem: wh.w.id };
             renderFabPlanta(d);
           }
-          const pct = c.plan > 0 ? Math.min(100, Math.round((c.prod / c.plan) * 100)) : c.prod > 0 ? 100 : 0;
-          const [mpTxt, mpCls] =
-            AREAS_SEM_MP.indexOf(String(c.area).toUpperCase()) !== -1
-              ? ['Não se aplica', 'fab-mut']
-              : textoDisponibilidade(c.disp.nMP, c.disp.mp);
-          const [frtTxt, frtCls] = textoDisponibilidade(c.disp.n, c.disp.frt);
-          const alertas = [];
-          if (c.mf) alertas.push('<span class="fab-alerta fab-alerta-mf">Material em falha (MD07)</span>');
-          if (c.delta < -HORAS_POR_TURNO) {
-            alertas.push('<span class="fab-alerta fab-alerta-te">Mais de 1 turno de atraso: avaliar TE</span>');
-          }
+          const ccs = ar ? ar.ccs : wh.ccs;
+          const saldo = ccs.reduce((t, c) => t + c.delta, 0);
+          const atraso = ccs.filter((c) => c.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 3);
+          const avanco = ccs.filter((c) => c.delta > 0).sort((a, b) => b.delta - a.delta).slice(0, 3);
+          const maxAbs = Math.max(1, ...atraso.concat(avanco).map((c) => Math.abs(c.delta)));
+          const ccSel = sel.tipo === 'cc' ? sel.cc : null;
+          const linha = (c, i) => {
+            const neg = c.delta < 0;
+            const ligado = ccSel && areCCsEqual(ccSel, c.cc) && c.area === sel.area;
+            return `<div class="fab-top-l${ligado ? ' fab-top-sel' : ''}" role="button" tabindex="0" title="Abrir o C.C. ${escapeHtml(
+              c.cc
+            )} no ${escapeHtml(c.armazem)}" data-fab-abrir-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
+              c.area
+            )}" data-armazem="${escapeHtml(c.armazem)}"><span class="fab-top-n">${i + 1}</span><b>${escapeHtml(c.cc)}${
+              ar ? '' : ` <span class="fab-mut">${escapeHtml(c.area)}</span>`
+            }</b><span class="fab-top-barra"><i class="${neg ? 'neg' : 'pos'}" style="width: ${Math.max(
+              4,
+              Math.round((Math.abs(c.delta) / maxAbs) * 100)
+            )}%"></i></span><span class="${neg ? 'fab-neg' : 'fab-pos'} fab-top-h">${fabHoras(c.delta)}</span></div>`;
+          };
+          const bloco = (tit, lista, vazio) =>
+            `<div class="fab-top-tit">${tit}</div>${
+              lista.length ? lista.map(linha).join('') : `<div class="fab-mut fab-top-vazio">${vazio}</div>`
+            }`;
           $det.html(`
             <div class="fab-det-topo">
-              <span class="fab-det-cc">${escapeHtml(c.cc)}</span>
-              <span class="fab-mut">${escapeHtml(c.armazem)} · ${escapeHtml(c.area)}</span>
+              <span class="fab-det-cc">${escapeHtml(ar ? ar.area : wh.w.id)}</span>
+              <span class="fab-mut">${escapeHtml(ar ? `${wh.w.id} · Área` : `${wh.w.tipo} · Armazém`)} · ${ccs.length} C.C.</span>
+              <span class="fab-top-saldo ${saldo < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(saldo)}</span>
             </div>
-            <div class="fab-det-linha">
-              <span class="fab-det-delta ${c.delta < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(c.delta)}</span>
-              <span class="fab-mut">${c.delta < 0 ? 'Em atraso' : 'Em avanço'} · ${fabTurnos(c.delta)} turnos</span>
-            </div>
-            <div class="fab-barra" title="Produzido ÷ planeado até hoje: ${pct}%"><i style="width: ${pct}%"></i></div>
-            <div class="fab-row"><span>Planeado até hoje</span><b>${formatHoursToHHMM(c.plan)}</b></div>
-            <div class="fab-row"><span>Produzido</span><b>${formatHoursToHHMM(c.prod)}</b></div>
-            <div class="fab-row"><span>Matéria-prima</span><b class="${mpCls}">${mpTxt}</b></div>
-            <div class="fab-row"><span>Ferramenta</span><b class="${frtCls}">${frtTxt}</b></div>
-            ${alertas.length ? `<div class="fab-alertas">${alertas.join('')}</div>` : ''}
-            <button type="button" class="fab-btn" data-fab-abrir-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
-              c.area
-            )}" data-armazem="${escapeHtml(c.armazem)}">Abrir detalhe do C.C. →</button>
-          `);
-        }
-
-        /* Indicadores de uma área (ar) ou de um armazém inteiro (ar nulo):
-           saldo, planeado/produzido, C.C. em atraso, disponibilidade,
-           cumprimento em peças dos últimos dias úteis e os piores C.C. */
-        function renderFabDetalheGrupo(d, wh, ar) {
-          const ccs = ar ? ar.ccs : wh.ccs;
-          const areas = ar ? [ar.area] : wh.areas.map((x) => x.area);
-          const soma = (f) => ccs.reduce((t, c) => t + f(c), 0);
-          const delta = soma((c) => c.delta);
-          const plan = soma((c) => c.plan);
-          const prod = soma((c) => c.prod);
-          const pct = plan > 0 ? Math.min(100, Math.round((prod / plan) * 100)) : prod > 0 ? 100 : 0;
-          const emAtraso = ccs.filter((c) => c.delta < 0).length;
-          const acima8h = ccs.filter((c) => c.delta <= -FAB_LIMITE_VERMELHO).length;
-          const acimaTurno = ccs.filter((c) => c.delta < -HORAS_POR_TURNO).length;
-          const comFalha = ccs.filter((c) => c.mf).length;
-          const semMP = areas.every((a) => AREAS_SEM_MP.indexOf(String(a).toUpperCase()) !== -1);
-          const [mpTxt, mpCls] = semMP
-            ? ['Não se aplica', 'fab-mut']
-            : textoDisponibilidade(soma((c) => c.disp.nMP), soma((c) => c.disp.mp));
-          const [frtTxt, frtCls] = textoDisponibilidade(soma((c) => c.disp.n), soma((c) => c.disp.frt));
-
-          // Cumprimento em peças nos últimos dias úteis (o mesmo do mapa)
-          let qp = 0;
-          let qq = 0;
-          d.mapa
-            .filter((l) => areas.indexOf(l.area) !== -1)
-            .forEach((l) =>
-              l.dias.forEach((x) => {
-                qp += x.plan;
-                qq += x.prod;
-              })
-            );
-          const cumpr = qp > 0 ? Math.round((qq / qp) * 100) : null;
-          const cumprCls = cumpr === null ? 'fab-mut' : cumpr >= 95 ? 'fab-pos' : cumpr >= 85 ? 'fab-amb' : 'fab-neg';
-
-          const piores = ccs
-            .filter((c) => c.delta < 0)
-            .sort((a, b) => a.delta - b.delta)
-            .slice(0, 2);
-          const kpi = (rotulo, valor, cls, extra, dica) =>
-            `<div class="fab-det-kpi"${dica ? ` title="${dica}"` : ''}><span>${rotulo}</span><b class="${cls}">${valor}</b>${
-              extra ? `<small>${extra}</small>` : ''
-            }</div>`;
-          const nome = ar ? ar.area : wh.w.id;
-          const sub = ar ? `${wh.w.id} · Área` : `${wh.w.tipo} · Armazém`;
-          $('#fab-detalhe').html(`
-            <div class="fab-det-topo">
-              <span class="fab-det-cc">${escapeHtml(nome)}</span>
-              <span class="fab-mut">${escapeHtml(sub)} · ${ccs.length} C.C.</span>
-            </div>
-            <div class="fab-det-linha">
-              <span class="fab-det-delta ${delta < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(delta)}</span>
-              <span class="fab-mut">${delta < 0 ? 'Total em atraso' : 'Total em avanço'} · ${fabTurnos(delta)} turnos</span>
-            </div>
-            <div class="fab-det-grelha">
-              ${kpi(
-                'Produzido / planeado',
-                pct + '%',
-                pct >= 95 ? 'fab-pos' : pct >= 85 ? 'fab-amb' : 'fab-neg',
-                `${formatHoursToHHMM(prod)} de ${formatHoursToHHMM(plan)}`,
-                'Horas produzidas ÷ horas planeadas até hoje'
-              )}
-              ${kpi('C.C. em atraso', `${emAtraso} de ${ccs.length}`, emAtraso ? 'fab-neg' : 'fab-pos')}
-              ${kpi(
-                `C.C. em atraso &gt; ${FAB_LIMITE_VERMELHO} h`,
-                String(acima8h),
-                acima8h ? 'fab-neg' : 'fab-pos',
-                acimaTurno ? 'avaliar TE' : '',
-                acimaTurno ? `${acimaTurno} C.C. com mais de 1 turno de atraso` : ''
-              )}
-              ${kpi(
-                `Cumprimento ${FAB_DIAS_MAPA} dias`,
-                cumpr === null ? 'Sem plano' : cumpr + '%',
-                cumprCls,
-                'peças',
-                `Peças produzidas ÷ planeadas nos últimos ${FAB_DIAS_MAPA} dias úteis`
-              )}
-              ${kpi('Matéria-prima', mpTxt, mpCls)}
-              ${kpi('Ferramenta', frtTxt, frtCls)}
-            </div>
-            ${
-              comFalha
-                ? `<div class="fab-alertas"><span class="fab-alerta fab-alerta-mf">${comFalha} C.C. com material em falha (MD07)</span></div>`
-                : ''
-            }
-            ${
-              piores.length
-                ? `<div class="fab-det-piores"><span class="fab-mut">Mais atraso:</span>${piores
-                    .map(
-                      (c) =>
-                        `<span class="fab-det-cc-link" role="button" tabindex="0" title="Ver o C.C. ${escapeHtml(
-                          c.cc
-                        )} (${escapeHtml(c.area)})" data-fab-escolher-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
-                          c.area
-                        )}"><b>${escapeHtml(c.cc)}</b><span class="fab-neg">${fabHoras(c.delta)}</span></span>`
-                    )
-                    .join('')}</div>`
-                : ''
-            }
+            ${bloco('Top 3 · C.C. em atraso', atraso, 'Nenhum C.C. em atraso')}
+            ${bloco('Top 3 · C.C. em avanço', avanco, 'Nenhum C.C. em avanço')}
             <button type="button" class="fab-btn" data-fab-abrir-zona="1" data-armazem="${escapeHtml(wh.w.id)}"${
-            ar ? ` data-fab-area="${escapeHtml(ar.area)}"` : ''
-          }>${ar ? `Abrir área ${escapeHtml(ar.area)} no ${escapeHtml(wh.w.id)}` : `Abrir ${escapeHtml(wh.w.id)}`} →</button>
+              ar ? ` data-fab-area="${escapeHtml(ar.area)}"` : ''
+            }>${ar ? `Abrir área ${escapeHtml(ar.area)} no ${escapeHtml(wh.w.id)}` : `Abrir ${escapeHtml(wh.w.id)}`} →</button>
           `);
         }
 
