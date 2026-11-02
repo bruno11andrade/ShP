@@ -2075,7 +2075,7 @@
         gap: 8px;
         align-items: center;
         font-size: 0.85rem;
-        padding: 4px 8px;
+        padding: 3px 8px;
         border-radius: 6px;
         background: var(--bg-inset);
         border: 1px solid transparent;
@@ -2095,7 +2095,7 @@
         text-align: center;
       }
       .fab-top-barra {
-        height: 6px;
+        height: 8px;
         border-radius: 3px;
         background: var(--border-color);
         overflow: hidden;
@@ -2107,6 +2107,49 @@
       }
       .fab-top-barra i.neg {
         background: var(--st-r);
+      }
+      .fab-top-barra i.neg-total {
+        display: flex;
+        background: none;
+      }
+      .fab-top-barra i.neg-total b {
+        display: block;
+        height: 100%;
+      }
+      .fab-top-barra b.neg,
+      .fab-top-leg i.neg {
+        background: var(--st-r);
+      }
+      /* Parte do atraso em ordem Em curso: riscas amarelas e pretas */
+      .fab-top-barra b.curso,
+      .fab-top-leg i.curso {
+        background: repeating-linear-gradient(135deg, #fbbf24 0 3px, #111827 3px 6px);
+      }
+      .fab-top-tit {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .fab-top-leg {
+        display: flex;
+        gap: 10px;
+        white-space: nowrap;
+        font-size: 0.68rem;
+        font-weight: 400;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+      .fab-top-leg span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .fab-top-leg i {
+        width: 16px;
+        height: 6px;
+        border-radius: 3px;
+        display: inline-block;
       }
       .fab-top-barra i.pos {
         background: var(--st-ok);
@@ -7141,9 +7184,53 @@
           $(document).off('click.colFilter');
         }
 
+        /* Nas tabelas dos Detalhes, Armazém e Área antes da coluna do C.C.
+           (a partir das linhas do plano desse C.C.). Uma coluna Área que já
+           exista passa para antes do C.C. */
+        function acrescentarArmazemArea($table) {
+          const $ths = $table.find('thead tr').first().children('th');
+          const nomes = $ths.map((i, th) => $(th).text().trim()).get();
+          const iCC = nomes.findIndex((t) => t === 'CC' || t === 'C.C.');
+          if (iCC === -1 || nomes.indexOf('Armazém') !== -1) return;
+          const iArea = nomes.indexOf('Área');
+          const cache = {};
+          const deCC = (texto) => {
+            const k = normalizeCC(texto);
+            if (!(k in cache)) {
+              const it = rawListItems.find((i) => areCCsEqual(i.CC, texto));
+              const w = it ? armazemDoItem(it) : null;
+              cache[k] = { armazem: w ? w.id : '', area: it ? String(it.Area || '').trim() : '' };
+            }
+            return cache[k];
+          };
+          const $thCC = $ths.eq(iCC);
+          const $thArea = iArea !== -1 ? $ths.eq(iArea).detach() : $('<th>Área</th>');
+          $thCC.before('<th>Armazém</th>').before($thArea);
+          $table.find('tbody tr').each(function () {
+            const $tds = $(this).children('td');
+            if ($tds.filter('[colspan]').length) {
+              // Linha de total ou aviso: alarga a célula unida
+              if (iArea === -1) {
+                const $c = $tds.filter('[colspan]').first();
+                $c.attr('colspan', (parseInt($c.attr('colspan'), 10) || 1) + 2);
+              } else {
+                const $c = $tds.filter('[colspan]').first();
+                $c.attr('colspan', (parseInt($c.attr('colspan'), 10) || 1) + 1);
+              }
+              return;
+            }
+            const $tdCC = $tds.eq(iCC);
+            if (!$tdCC.length) return;
+            const info = deCC($tdCC.text().trim());
+            const $tdArea = iArea !== -1 ? $tds.eq(iArea).detach() : $('<td></td>').text(info.area || '—');
+            $tdCC.before($('<td></td>').text(info.armazem || '—')).before($tdArea);
+          });
+        }
+
         function attachSharePointFilters() {
           const $table = $('#opt-kpiModalBody table').first();
           if ($table.length === 0) return;
+          acrescentarArmazemArea($table);
 
           const $thead = $table.find('thead tr').first();
           const $tbody = $table.find('tbody');
@@ -11126,11 +11213,14 @@
                 const areaClean = area.toLowerCase();
                 const ccs = getCCsForArea(area).map((cc) => {
                   const r = calcularResumoCC(cc, areaClean);
+                  // Parte do atraso explicada pela ordem Em curso
+                  const ordem = r.delta < 0 ? ordemEmCurso(r.ccItems.concat(r.ccBacklog || [])) : null;
                   const o = {
                     cc: cc,
                     area: area,
                     armazem: w.id,
                     delta: r.delta,
+                    emCurso: ordem ? Math.min(-r.delta, ordem.HorasPlaneadas || 0) : 0,
                     mf: false,
                   };
                   todos.push(o);
@@ -12060,16 +12150,24 @@
           const linha = (c, i) => {
             const neg = c.delta < 0;
             const ligado = ccSel && areCCsEqual(ccSel, c.cc) && c.area === sel.area;
+            const largura = Math.max(4, Math.round((Math.abs(c.delta) / maxAbs) * 100));
+            // Atraso com ordem em curso: confirmado a cheio, em curso às riscas
+            const pctCurso = neg && c.emCurso > 0 ? Math.round((c.emCurso / -c.delta) * 100) : 0;
+            const barra = !neg
+              ? `<i class="pos" style="width: ${largura}%"></i>`
+              : `<i class="neg-total" style="width: ${largura}%"><b class="neg" style="width: ${100 - pctCurso}%"></b>${
+                  pctCurso ? `<b class="curso" style="width: ${pctCurso}%"></b>` : ''
+                }</i>`;
+            const dica = pctCurso
+              ? ` · confirmado ${formatHoursToHHMM(c.delta + c.emCurso)} · em curso ${formatHoursToHHMM(c.emCurso)}`
+              : '';
             return `<div class="fab-top-l${ligado ? ' fab-top-sel' : ''}" role="button" tabindex="0" title="Abrir o C.C. ${escapeHtml(
               c.cc
-            )} no ${escapeHtml(c.armazem)}" data-fab-abrir-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
+            )} no ${escapeHtml(c.armazem)}${dica}" data-fab-abrir-cc="${escapeHtml(c.cc)}" data-fab-area="${escapeHtml(
               c.area
             )}" data-armazem="${escapeHtml(c.armazem)}"><span class="fab-top-n">${i + 1}</span><b>${escapeHtml(c.cc)}${
               ar ? '' : ` <span class="fab-mut">${escapeHtml(c.area)}</span>`
-            }</b><span class="fab-top-barra"><i class="${neg ? 'neg' : 'pos'}" style="width: ${Math.max(
-              4,
-              Math.round((Math.abs(c.delta) / maxAbs) * 100)
-            )}%"></i></span><span class="${neg ? 'fab-neg' : 'fab-pos'} fab-top-h">${fabHoras(c.delta)}</span></div>`;
+            }</b><span class="fab-top-barra">${barra}</span><span class="${neg ? 'fab-neg' : 'fab-pos'} fab-top-h">${fabHoras(c.delta)}</span></div>`;
           };
           const bloco = (tit, lista, vazio) =>
             `<div class="fab-top-tit">${tit}</div>${
@@ -12083,8 +12181,16 @@
               )} · ${ccs.length} C.C.</span>
               <span class="fab-top-saldo ${saldo < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(saldo)}</span>
             </div>
-            ${bloco('Top 3 · C.C. em atraso', atraso, 'Nenhum C.C. em atraso')}
-            ${bloco('Top 3 · C.C. em avanço', avanco, 'Nenhum C.C. em avanço')}
+            ${bloco(
+              `Top 3 · em atraso${
+                atraso.some((c) => c.emCurso > 0)
+                  ? '<span class="fab-top-leg"><span><i class="neg"></i>Confirmado</span><span><i class="curso"></i>Em curso</span></span>'
+                  : ''
+              }`,
+              atraso,
+              'Nenhum C.C. em atraso'
+            )}
+            ${bloco('Top 3 · em avanço', avanco, 'Nenhum C.C. em avanço')}
             ${
               planta
                 ? ''
