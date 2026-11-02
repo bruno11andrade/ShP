@@ -1739,72 +1739,168 @@
         font-variant-numeric: tabular-nums;
         line-height: 1.2;
       }
-      /* Menu de gestão */
-      .fab-menu {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 10px;
+      /* Menu Gestão: gaveta lateral à direita, o dashboard fica visível */
+      .fab-gaveta-fundo {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.35);
+        z-index: 4990;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
       }
-      .fab-menu-item {
+      .fab-gaveta {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(380px, 92vw);
+        background: var(--bg-card);
+        border-left: 1px solid var(--border-color);
+        box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45);
+        z-index: 5000;
         display: flex;
-        gap: 12px;
-        align-items: flex-start;
-        padding: 12px 14px;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        background: var(--bg-inset);
+        flex-direction: column;
+        transform: translateX(105%);
+        transition: transform 0.22s ease;
         color: var(--text-main);
-        text-decoration: none;
-        min-width: 0;
+        font-family: inherit;
       }
-      a.fab-menu-item:hover,
-      a.fab-menu-item:focus-visible,
-      .fab-menu-grupo:hover {
-        border-color: var(--cyan-accent);
-        color: var(--text-main);
+      .fab-gaveta-fundo.aberta {
+        opacity: 1;
+        pointer-events: auto;
       }
-      .fab-menu-item i.fa-solid {
-        font-size: 1.3rem;
+      .fab-gaveta.aberta {
+        transform: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .fab-gaveta,
+        .fab-gaveta-fundo {
+          transition: none;
+        }
+      }
+      .fab-g-cab {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-color);
         color: var(--cyan-accent);
-        width: 26px;
-        text-align: center;
-        margin-top: 2px;
+        font-size: 1.05rem;
       }
-      .fab-menu-item b {
-        display: block;
-        font-size: 0.95rem;
-      }
-      .fab-menu-item small {
-        display: block;
+      .fab-g-fechar {
         color: var(--text-muted);
-        font-size: 0.78rem;
+        cursor: pointer;
+        font-size: 1.15rem;
+        padding: 2px 6px;
+        border-radius: 6px;
       }
-      .fab-menu-item.fab-menu-off {
-        opacity: 0.5;
-        cursor: not-allowed;
+      .fab-g-fechar:hover,
+      .fab-g-fechar:focus-visible {
+        color: var(--text-main);
+        background: var(--fab-sel-fundo);
+        outline: none;
       }
-      .fab-menu-opcoes {
+      .fab-g-corpo {
+        padding: 6px 12px 16px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .fab-g-sec {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        padding: 12px 6px 4px;
+      }
+      /* Ligações sem a cor de «visitada» do SharePoint */
+      #fab-gaveta .fab-g-item,
+      #fab-gaveta .fab-g-item:visited,
+      #fab-gaveta .fab-g-item:hover {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 7px 6px;
+        margin: 0;
+        border-radius: 8px;
+        color: var(--text-main) !important;
+        text-decoration: none !important;
+        cursor: pointer;
+        font-weight: 400;
+      }
+      #fab-gaveta .fab-g-item:hover,
+      #fab-gaveta .fab-g-item:focus-visible {
+        background: var(--fab-sel-fundo);
+        outline: none;
+      }
+      #fab-gaveta .fab-g-fixo {
+        cursor: default;
+      }
+      #fab-gaveta .fab-g-fixo:hover {
+        background: none;
+      }
+      .fab-g-ico {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: var(--fab-sel-fundo);
+        color: var(--cyan-accent);
+      }
+      .fab-g-txt b {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+      .fab-g-txt small {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+      .fab-g-seta {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+      }
+      .fab-g-sub {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        margin-top: 8px;
+        padding: 0 6px 6px 48px;
       }
-      .fab-menu-opcoes a {
-        font-size: 0.8rem;
+      #fab-gaveta .fab-g-btn,
+      #fab-gaveta .fab-g-btn:visited {
+        font-size: 0.78rem;
         font-weight: 700;
         padding: 4px 10px;
         border-radius: 6px;
         border: 1px solid var(--cyan-accent);
-        color: var(--cyan-accent);
-        text-decoration: none;
+        color: var(--cyan-accent) !important;
+        text-decoration: none !important;
+        background: none;
       }
-      .fab-menu-opcoes a:hover {
+      #fab-gaveta .fab-g-btn:hover,
+      #fab-gaveta .fab-g-btn:focus-visible {
         background: var(--fab-sel-fundo);
+        outline: none;
       }
-      .fab-menu-opcoes .fab-menu-off {
+      #fab-gaveta .fab-g-btn-2,
+      #fab-gaveta .fab-g-btn-2:visited {
         border-color: var(--border-color);
-        color: var(--text-muted);
+        color: var(--text-label) !important;
+      }
+      #fab-gaveta .fab-g-espera {
+        opacity: 0.5;
         pointer-events: none;
+      }
+      .fab-g-nota {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        padding: 0 6px 4px 48px;
       }
       /* Cartões ainda sem indicador */
       .fab-vazio {
@@ -11275,51 +11371,66 @@
            Os endereços das listas são pedidos ao SharePoint quando o menu
            abre, para os links já estarem prontos ao clicar (abrem num
            separador novo). Um destino ainda por definir aparece apagado. */
+        /* Menu Gestão (gaveta lateral). Cada ação abre num separador novo:
+           `url` fixo, ou `lista` (+ `vista`) resolvida ao abrir o menu.
+           `md07: true` = carregar o ficheiro da cobertura. */
         const MENU_GESTAO = [
           {
-            titulo: 'Lançar Planos',
-            icone: 'fa-calendar-plus',
-            texto: 'Atualizar o plano de produção',
-            opcoes: [
-              { nome: 'OV2 · Estampagem', lista: LIST_GUID, vista: 'Update_Plano' },
-              { nome: 'OV9 · Hot forming', lista: LIST_OV9_GUID, vista: 'Update_Plano' },
+            grupo: 'Planeamento',
+            acoes: [
+              {
+                titulo: 'Lançar planos',
+                icone: 'fa-calendar-plus',
+                texto: 'Vista Update_Plano da lista',
+                opcoes: [
+                  { nome: 'OV2 · Estampagem', lista: LIST_GUID, vista: 'Update_Plano' },
+                  { nome: 'OV9 · Hot forming', lista: LIST_OV9_GUID, vista: 'Update_Plano' },
+                ],
+              },
+              { titulo: 'Carregar cobertura (MD07)', icone: 'fa-file-arrow-up', md07: true },
             ],
           },
           {
-            titulo: 'Trabalho Extra',
-            icone: 'fa-user-clock',
-            texto: 'Criar / consultar pedidos de TE',
-            url: null, // página do Trabalho Extra: por definir
+            grupo: 'Recursos',
+            acoes: [
+              {
+                titulo: 'Trabalho Extra',
+                icone: 'fa-user-clock',
+                texto: 'Criar e consultar pedidos',
+                url: 'https://pt.sps.automotive.local/departments/logistica/Lists/Trabalho%20Extra/AllItems.aspx',
+              },
+              { titulo: 'MOD planeada', icone: 'fa-users', texto: 'Turnos planeados por C.C.', lista: LIST_MOD_GUID },
+              { titulo: 'Abertura dos C.C.', icone: 'fa-door-open', texto: 'Turnos de abertura', lista: LIST_ABERTURA_GUID },
+            ],
           },
           {
-            titulo: 'MOD Planeada',
-            icone: 'fa-users',
-            texto: 'Turnos planeados por C.C.',
-            lista: LIST_MOD_GUID,
+            grupo: 'Qualidade e dados',
+            acoes: [
+              { titulo: 'Ensaios de ferramenta', icone: 'fa-flask', texto: 'Checklist de ensaios', lista: LIST_ENSAIOS_GUID },
+              {
+                titulo: 'Pares KA ↔ CO KA',
+                icone: 'fa-link',
+                texto: 'Lista KA CO',
+                url: 'https://pt.sps.automotive.local/departments/logistica/Lists/KA%20CO/Update%20CO%20KA.aspx',
+              },
+            ],
           },
           {
-            titulo: 'Abertura dos C.C.',
-            icone: 'fa-door-open',
-            texto: 'Turnos de abertura de cada C.C.',
-            lista: LIST_ABERTURA_GUID,
-          },
-          {
-            titulo: 'Ensaios de Ferramenta',
-            icone: 'fa-flask',
-            texto: 'Checklist de ensaios',
-            lista: LIST_ENSAIOS_GUID,
-          },
-          {
-            titulo: 'Pares KA ↔ CO KA',
-            icone: 'fa-link',
-            texto: 'Lista KA CO',
-            url: 'https://pt.sps.automotive.local/departments/logistica/Lists/KA%20CO/Update%20CO%20KA.aspx',
-          },
-          {
-            titulo: 'Escalação KPT – Top 5',
-            icone: 'fa-triangle-exclamation',
-            texto: 'Réplica da lista do SFM',
-            url: ESCALACAO_LIST_URL + '/AllItems.aspx',
+            grupo: 'Escalação',
+            acoes: [
+              {
+                titulo: 'Escalação KPT – Top 5',
+                icone: 'fa-triangle-exclamation',
+                texto: 'Lista original (SFM)',
+                url: 'https://sfm.sps.automotive.local/Lists/KPT%20%20TOP%205/Vermelho.aspx',
+                secundario: {
+                  nome: 'Réplica',
+                  url: ESCALACAO_LIST_URL + '/AllItems.aspx',
+                  dica: 'Editar a réplica só se houver alguma inconformidade com a lista original',
+                },
+                nota: 'A réplica só se edita se houver alguma inconformidade com a original.',
+              },
+            ],
           },
         ];
 
@@ -11343,53 +11454,111 @@
           );
         }
 
+        function textoUltimoMd07() {
+          return md07Data && md07Data.uploadedAt
+            ? `Último: ${md07Data.uploadedAt}`
+            : 'Nenhum ficheiro carregado';
+        }
+
+        function fecharMenuGestao() {
+          $('#fab-gaveta, #fab-gaveta-fundo').removeClass('aberta');
+          $(document).off('keydown.gaveta');
+        }
+
+        /* Gaveta lateral do menu Gestão: abre já com as ações; as que
+           apontam para listas ficam ligadas quando o endereço da vista é
+           conhecido (links reais, para não serem bloqueados como pop-up). */
         function abrirMenuGestao() {
-          const destinos = [];
-          MENU_GESTAO.forEach((acao) => (acao.opcoes || [acao]).forEach((d) => destinos.push(d)));
-          const pendentes = destinos.map((d) => {
-            if (d.url !== undefined || !d.lista) return $.Deferred().resolve(d.url || null);
-            const p = $.Deferred();
-            urlDestinoLista(d.lista, d.vista).then(
-              (u) => p.resolve(u),
-              () => p.resolve(null)
+          if (!$('#fab-gaveta').length) {
+            $('body').append(
+              '<div class="fab-gaveta-fundo" id="fab-gaveta-fundo"></div>' +
+                '<aside class="fab-gaveta" id="fab-gaveta" role="dialog" aria-modal="true" aria-label="Gestão">' +
+                '<div class="fab-g-cab"><b><i class="fa-solid fa-sliders me-2"></i>Gestão</b>' +
+                '<span class="fab-g-fechar" role="button" tabindex="0" title="Fechar" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></span></div>' +
+                '<div class="fab-g-corpo" id="fab-g-corpo"></div></aside>'
             );
-            return p.promise();
-          });
-          const desenhar = (urls) => {
-            let i = 0;
-            const link = () => urls[i++];
-            const html = MENU_GESTAO.map((acao) => {
-              if (acao.opcoes) {
-                const botoes = acao.opcoes
-                  .map((o) => {
-                    const u = link();
-                    return u
-                      ? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener">${escapeHtml(o.nome)}</a>`
-                      : `<span class="fab-menu-off" title="Destino por definir">${escapeHtml(o.nome)}</span>`;
-                  })
-                  .join('');
-                return `<div class="fab-menu-item fab-menu-grupo"><i class="fa-solid ${acao.icone}"></i><div><b>${escapeHtml(
-                  acao.titulo
-                )}</b><small>${escapeHtml(acao.texto)}</small><div class="fab-menu-opcoes">${botoes}</div></div></div>`;
-              }
-              const u = link();
-              const corpo = `<i class="fa-solid ${acao.icone}"></i><div><b>${escapeHtml(acao.titulo)}</b><small>${escapeHtml(
-                u ? acao.texto : 'Destino por definir'
-              )}</small></div>`;
-              return u
-                ? `<a class="fab-menu-item" href="${escapeHtml(u)}" target="_blank" rel="noopener">${corpo}</a>`
-                : `<div class="fab-menu-item fab-menu-off">${corpo}</div>`;
-            }).join('');
-            $('#opt-kpiModalBody').html(`<div class="fab-menu">${html}</div>`);
+            $('#fab-gaveta-fundo').on('click', fecharMenuGestao);
+            $('#fab-gaveta')
+              .on('click', '.fab-g-fechar', fecharMenuGestao)
+              .on('keydown', '.fab-g-fechar', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  fecharMenuGestao();
+                }
+              })
+              // Depois de escolher um ficheiro do MD07, fecha a gaveta
+              .on('click', 'label[for="opt-riskFileInput"]', function () {
+                setTimeout(fecharMenuGestao, 300);
+              });
+          }
+
+          const ligacoes = []; // [{ id, destino }] por resolver
+          let n = 0;
+          const icone = (ic) => `<span class="fab-g-ico"><i class="fa-solid ${ic}"></i></span>`;
+          const destino = (d, cls, conteudo, dica) => {
+            const id = `fab-g-l${n++}`;
+            const titulo = dica ? ` title="${escapeHtml(dica)}"` : '';
+            if (d.url) {
+              return `<a class="${cls}" id="${id}" href="${escapeHtml(d.url)}" target="_blank" rel="noopener"${titulo}>${conteudo}</a>`;
+            }
+            ligacoes.push({ id: id, d: d });
+            return `<a class="${cls} fab-g-espera" id="${id}" aria-disabled="true"${titulo}>${conteudo}</a>`;
           };
-          $('#opt-kpiModalTitle').html('<i class="fa-solid fa-sliders me-2"></i>Gestão');
-          $('#opt-kpiModalBody').html(
-            '<div class="text-center text-muted py-4"><i class="fa-solid fa-spinner fa-spin me-2"></i>A preparar o menu...</div>'
-          );
-          bootstrap.Modal.getOrCreateInstance(document.getElementById('opt-kpiModal')).show();
-          $.when.apply($, pendentes).done(function () {
-            desenhar(Array.prototype.slice.call(arguments));
+          const html = MENU_GESTAO.map((g) => {
+            const itens = g.acoes
+              .map((a) => {
+                if (a.md07) {
+                  return `<label class="fab-g-item" for="opt-riskFileInput">${icone(a.icone)}<span class="fab-g-txt"><b>${escapeHtml(
+                    a.titulo
+                  )}</b><small>${escapeHtml(textoUltimoMd07())}</small></span><i class="fa-solid fa-upload fab-g-seta"></i></label>`;
+                }
+                if (a.opcoes) {
+                  return `<div class="fab-g-item fab-g-fixo">${icone(a.icone)}<span class="fab-g-txt"><b>${escapeHtml(
+                    a.titulo
+                  )}</b><small>${escapeHtml(a.texto)}</small></span></div><div class="fab-g-sub">${a.opcoes
+                    .map((o) => destino(o, 'fab-g-btn', escapeHtml(o.nome)))
+                    .join('')}</div>`;
+                }
+                const corpo = `${icone(a.icone)}<span class="fab-g-txt"><b>${escapeHtml(a.titulo)}</b><small>${escapeHtml(
+                  a.texto
+                )}</small></span><i class="fa-solid fa-arrow-up-right-from-square fab-g-seta"></i>`;
+                let extra = '';
+                if (a.secundario) {
+                  extra += `<div class="fab-g-sub">${destino(
+                    a.secundario,
+                    'fab-g-btn fab-g-btn-2',
+                    escapeHtml(a.secundario.nome),
+                    a.secundario.dica
+                  )}</div>`;
+                }
+                if (a.nota) extra += `<div class="fab-g-nota">${escapeHtml(a.nota)}</div>`;
+                return destino(a, 'fab-g-item', corpo) + extra;
+              })
+              .join('');
+            return `<div class="fab-g-sec">${escapeHtml(g.grupo)}</div>${itens}`;
+          }).join('');
+          $('#fab-g-corpo').html(html);
+
+          ligacoes.forEach((l) => {
+            urlDestinoLista(l.d.lista, l.d.vista).then(
+              (u) => {
+                if (!u) return;
+                $('#' + l.id)
+                  .attr({ href: u, target: '_blank', rel: 'noopener' })
+                  .removeAttr('aria-disabled')
+                  .removeClass('fab-g-espera');
+              },
+              () => $('#' + l.id).attr('title', 'Não foi possível encontrar a lista')
+            );
           });
+
+          $('#fab-gaveta, #fab-gaveta-fundo').addClass('aberta');
+          $(document)
+            .off('keydown.gaveta')
+            .on('keydown.gaveta', (e) => {
+              if (e.key === 'Escape') fecharMenuGestao();
+            });
+          setTimeout(() => $('#fab-gaveta .fab-g-fechar').trigger('focus'), 50);
         }
 
         // ---------------------------------------------------------------- escalação
