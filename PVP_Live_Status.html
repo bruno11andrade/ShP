@@ -7032,9 +7032,13 @@
             }
           });
 
+          // Linhas de total ou de aviso (células unidas) não são dados: não
+          // entram nos valores do filtro e ficam sempre visíveis
+          const linhasDeDados = () => $tbody.find('tr').filter((i, tr) => !$(tr).find('td[colspan]').length);
+
           function getColumnValues(colIndex) {
             const values = new Set();
-            $tbody.find('tr').each(function () {
+            linhasDeDados().each(function () {
               const $cells = $(this).find('td');
               if ($cells.length > colIndex) {
                 const text = $($cells[colIndex]).text().trim();
@@ -7047,7 +7051,7 @@
           }
 
           function applyColumnFilters() {
-            $tbody.find('tr').each(function () {
+            linhasDeDados().each(function () {
               const $cells = $(this).find('td');
               let visible = true;
               Object.keys(columnFilters).forEach((colIndexStr) => {
@@ -7117,7 +7121,10 @@
                 `);
               });
 
-              $('body').append($panel);
+              // Dentro do modal: fora dele o Bootstrap devolve o foco ao
+              // modal e não deixa escrever na pesquisa
+              const $modal = $btn.closest('.modal');
+              ($modal.length ? $modal : $('body')).append($panel);
               const rect = $btn[0].getBoundingClientRect();
               const panelWidth = $panel.outerWidth();
               const left = Math.min(
@@ -7131,6 +7138,7 @@
               });
 
               activeColFilterPanel = $panel;
+              $panel.find('.opt-col-filter-search').trigger('focus');
 
               $panel.find('.opt-col-filter-search').on('input', function () {
                 const q = $(this).val().toLowerCase();
