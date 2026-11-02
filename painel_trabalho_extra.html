@@ -3208,7 +3208,8 @@
                 ]),
               ]
                 .filter((x) => x && x !== 'N/A')
-                .sort();
+                .sort()
+                .reverse(); // mais recente primeiro
 
               const meses = [
                 ...new Set([
@@ -3218,7 +3219,8 @@
                 ]),
               ]
                 .filter((x) => x && x !== 'N/A')
-                .sort();
+                .sort()
+                .reverse(); // mais recente primeiro
 
               const tiposDia = [
                 ...new Set([
@@ -3289,9 +3291,10 @@
                 ),
               ]
                 .filter((x) => x && x !== 'N/A')
+                // Mais recente primeiro
                 .sort(
                   (a, b) =>
-                    parseInt(a.replace('S', '')) - parseInt(b.replace('S', ''))
+                    parseInt(b.replace('S', '')) - parseInt(a.replace('S', ''))
                 );
               buildMultiSelect('filterSemanaContainer', semanas, 'Todas');
             }
@@ -4734,8 +4737,13 @@
             function attachColumnFilters(dt, tableId) {
               const filters = columnFiltersByTable[tableId];
 
-              const getColumnValues = (colIndex) =>
-                [
+              // Colunas temporais: valores do mais recente para o mais antigo
+              const dataKey = (v) => {
+                const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                return m ? `${m[3]}${m[2]}${m[1]}` : v;
+              };
+              const getColumnValues = (colIndex) => {
+                const values = [
                   ...new Set(
                     dt
                       .column(colIndex)
@@ -4743,7 +4751,15 @@
                       .toArray()
                       .map((v) => cellFilterText(v))
                   ),
-                ].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
+                ];
+                const titulo = $(dt.column(colIndex).header()).text().trim();
+                if (['Data', 'Ano', 'Mês', 'Semana'].includes(titulo)) {
+                  return values.sort((a, b) =>
+                    dataKey(b).localeCompare(dataKey(a), 'pt', { numeric: true })
+                  );
+                }
+                return values.sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
+              };
 
               // Descarta seleções que já não têm nenhum valor nos dados atuais
               Object.keys(filters).forEach((col) => {
