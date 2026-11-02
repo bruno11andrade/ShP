@@ -1740,42 +1740,67 @@
         line-height: 1.2;
       }
       /* Menu Gestão: gaveta lateral à direita, o dashboard fica visível */
-      .fab-gaveta-fundo {
+      /* Aba na margem esquerda (para teclado e ecrã tátil) */
+      .fab-gaveta-aba {
         position: fixed;
-        inset: 0;
-        background: rgba(2, 6, 23, 0.35);
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
         z-index: 4990;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 5px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-left: 0;
+        border-radius: 0 8px 8px 0;
+        color: var(--cyan-accent);
+        cursor: pointer;
+        opacity: 0.75;
+        transition: opacity 0.15s;
+      }
+      .fab-gaveta-aba span {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .fab-gaveta-aba:hover,
+      .fab-gaveta-aba:focus-visible {
+        opacity: 1;
+        outline: none;
+      }
+      .fab-gaveta-aba.escondida {
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.2s;
       }
       .fab-gaveta {
         position: fixed;
         top: 0;
-        right: 0;
+        left: 0;
         bottom: 0;
-        width: min(380px, 92vw);
+        width: min(360px, 92vw);
         background: var(--bg-card);
-        border-left: 1px solid var(--border-color);
-        box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45);
+        border-right: 1px solid var(--border-color);
+        box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
         z-index: 5000;
         display: flex;
         flex-direction: column;
-        transform: translateX(105%);
+        transform: translateX(-105%);
         transition: transform 0.22s ease;
         color: var(--text-main);
         font-family: inherit;
-      }
-      .fab-gaveta-fundo.aberta {
-        opacity: 1;
-        pointer-events: auto;
       }
       .fab-gaveta.aberta {
         transform: none;
       }
       @media (prefers-reduced-motion: reduce) {
         .fab-gaveta,
-        .fab-gaveta-fundo {
+        .fab-gaveta-aba {
           transition: none;
         }
       }
@@ -2611,6 +2636,13 @@
             ></div>
             <div
               class="fab-card fab-kpi fab-vazio"
+              id="fab-kpiEmCurso"
+              role="button"
+              tabindex="0"
+              title="Clique para ver as ordens em curso"
+            ></div>
+            <div
+              class="fab-card fab-kpi fab-vazio"
               id="fab-kpiAtraso8h"
               role="button"
               tabindex="0"
@@ -2624,18 +2656,6 @@
               title="Clique para ver detalhes"
             ></div>
             <div class="fab-card fab-vazio"></div>
-            <!-- Menu de gestão da aplicação -->
-            <div
-              class="fab-card fab-kpi fab-gestao"
-              id="fab-gestao"
-              role="button"
-              tabindex="0"
-              title="Abrir o menu de gestão"
-            >
-              <div class="fab-kpi-tit">Gestão</div>
-              <div class="fab-kpi-val fab-cy"><i class="fa-solid fa-sliders"></i></div>
-              <div class="opt-kpi-sub">Planos, Trabalho Extra, MOD…</div>
-            </div>
           </section>
 
           <!-- Planta e detalhe do C.C. com a mesma altura: o detalhe não
@@ -4438,13 +4458,14 @@
               showKpiDetails('deltaTotal');
             });
           // Na Fábrica, o mesmo detalhe com os C.C. de todos os armazéns
-          $('#fab-gestao')
+          prepararMenuGestao();
+          $('#fab-kpiEmCurso')
             .off('click keydown')
-            .on('click', abrirMenuGestao)
+            .on('click', mostrarOrdensEmCurso)
             .on('keydown', function (e) {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                abrirMenuGestao();
+                mostrarOrdensEmCurso();
               }
             });
 
@@ -11303,23 +11324,90 @@
         /* Total em atraso da fábrica: soma do avanço/atraso de todos os
            C.C. dos armazéns — a mesma conta do cartão do armazém sem área
            escolhida, e a mesma do detalhe que abre ao clicar. */
+        /* Ordens «Em curso» de um C.C. com data até hoje (ou no backlog).
+           Um C.C. só produz uma ordem de cada vez: conta a mais recente; as
+           outras marcadas Em curso são registos por fechar e ficam no
+           atraso confirmado. */
+        function ordemEmCurso(itens) {
+          const fim = getTodayZero();
+          fim.setHours(23, 59, 59, 999);
+          let atual = null;
+          itens.forEach((i) => {
+            if (i.RawDateObj && i.RawDateObj > fim) return;
+            if (String(i.Status || '').trim().toLowerCase() !== 'em curso') return;
+            if (!atual || (i.RawDateObj || 0) > (atual.RawDateObj || 0)) atual = i;
+          });
+          return atual;
+        }
+
+        /* Atraso da fábrica separado em confirmado e em curso: a parte do
+           atraso de cada C.C. explicada pela ordem em curso ainda pode
+           desaparecer quando a ordem fechar. */
+        function atrasoFabricaSeparado() {
+          const res = { total: 0, emCurso: 0, ccs: [] };
+          getCCsForArea('').forEach((cc) => {
+            const r = calcularResumoCC(cc, null);
+            res.total += r.delta;
+            const ordem = ordemEmCurso(r.ccItems.concat(r.ccBacklog || []));
+            if (!ordem || r.delta >= 0) return;
+            const horas = Math.min(-r.delta, ordem.HorasPlaneadas || 0);
+            if (horas <= 0) return;
+            res.emCurso += horas;
+            res.ccs.push({ cc: cc, ordem: ordem, horas: horas, delta: r.delta });
+          });
+          res.confirmado = res.total + res.emCurso;
+          return res;
+        }
+
         function renderFabKpiTotal() {
-          const total = getCCsForArea('').reduce(
-            (soma, cc) => soma + calcularResumoCC(cc, null).delta,
-            0
-          );
+          const a = atrasoFabricaSeparado();
+          const total = a.confirmado;
           const cfg =
             Math.abs(total) < 1 / 120
               ? { color: '#34d399', icon: 'fa-solid fa-circle-check', valueText: '0:00' }
               : getDelayCardConfig(total);
           $('#fab-kpiTotal').html(`
-            <div class="fab-kpi-tit">${total >= 0 ? 'Total avanço' : 'Total em atraso'} Fábrica</div>
+            <div class="fab-kpi-tit">${total >= 0 ? 'Avanço' : 'Atraso confirmado'} Fábrica</div>
             <div class="fab-kpi-val" style="color: ${cfg.color}">${cfg.valueText}
               <i class="${cfg.icon}" style="font-size: 0.9rem"></i></div>
-            <div class="opt-kpi-sub">soma dos C.C. · ${ARMAZENS.filter((w) => w.ativo)
-              .map((w) => w.id)
-              .join(' + ')}</div>
+            <div class="opt-kpi-sub" title="Atraso total ${formatHoursToHHMM(a.total, a.total > 0)} = confirmado + em curso">ordens já atrasadas, sem a ordem em curso</div>
           `);
+          $('#fab-kpiEmCurso').html(`
+            <div class="fab-kpi-tit">Em curso (por confirmar)</div>
+            <div class="fab-kpi-val" style="color: ${a.emCurso > 0 ? 'var(--st-y)' : 'var(--text-muted)'}">${formatHoursToHHMM(
+              a.emCurso
+            )}</div>
+            <div class="opt-kpi-sub">${a.ccs.length} ordens em curso · 1 por C.C.</div>
+          `);
+        }
+
+        // Lista das ordens em curso que entram no cartão «Em curso»
+        function mostrarOrdensEmCurso() {
+          const a = atrasoFabricaSeparado();
+          let html = `<div class="mb-2 text-muted" style="font-size: 0.85rem">Atraso total ${formatHoursToHHMM(
+            a.total
+          )} = confirmado ${formatHoursToHHMM(a.confirmado)} + em curso ${formatHoursToHHMM(
+            a.emCurso
+          )}. Conta só a ordem Em curso mais recente de cada C.C., com data até hoje.</div>
+          <div class="table-responsive"><table class="table table-bordered table-striped table-opt w-100">
+          <thead><tr><th>C.C.</th><th>Área</th><th>KA</th><th>Data</th><th>Horas planeadas</th><th>Em curso (por confirmar)</th><th>Atraso do C.C.</th></tr></thead><tbody>`;
+          if (!a.ccs.length) {
+            html += '<tr><td colspan="7" class="text-muted">Sem ordens em curso com data até hoje.</td></tr>';
+          }
+          a.ccs
+            .sort((x, y) => y.horas - x.horas)
+            .forEach((c) => {
+              html += `<tr><td><b>${escapeHtml(c.cc)}</b></td><td>${escapeHtml(c.ordem.Area || '')}</td><td>${escapeHtml(
+                c.ordem.KA || ''
+              )}</td><td>${escapeHtml(c.ordem.DataFormatted || '—')}</td><td>${formatHoursToHHMM(
+                c.ordem.HorasPlaneadas || 0
+              )}</td><td>${formatHoursToHHMM(c.horas)}</td><td>${formatHoursToHHMM(c.delta)}</td></tr>`;
+            });
+          html += '</tbody></table></div>';
+          $('#opt-kpiModalTitle').html('<i class="fa-solid fa-hourglass-half me-2"></i>Ordens em curso (por confirmar)');
+          $('#opt-kpiModalBody').html(html);
+          attachSharePointFilters();
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('opt-kpiModal')).show();
         }
 
         /* % de C.C. com mais de 8 h de atraso, em toda a fábrica — a mesma
@@ -11460,38 +11548,69 @@
             : 'Nenhum ficheiro carregado';
         }
 
+        let gavetaFecharTimer = null;
+
         function fecharMenuGestao() {
-          $('#fab-gaveta, #fab-gaveta-fundo').removeClass('aberta');
-          $(document).off('keydown.gaveta');
+          clearTimeout(gavetaFecharTimer);
+          $('#fab-gaveta').removeClass('aberta');
+          $('#fab-gaveta-aba').removeClass('escondida');
+          $(document).off('keydown.gaveta click.gaveta');
         }
 
-        /* Gaveta lateral do menu Gestão: abre já com as ações; as que
-           apontam para listas ficam ligadas quando o endereço da vista é
-           conhecido (links reais, para não serem bloqueados como pop-up). */
-        function abrirMenuGestao() {
-          if (!$('#fab-gaveta').length) {
-            $('body').append(
-              '<div class="fab-gaveta-fundo" id="fab-gaveta-fundo"></div>' +
-                '<aside class="fab-gaveta" id="fab-gaveta" role="dialog" aria-modal="true" aria-label="Gestão">' +
-                '<div class="fab-g-cab"><b><i class="fa-solid fa-sliders me-2"></i>Gestão</b>' +
-                '<span class="fab-g-fechar" role="button" tabindex="0" title="Fechar" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></span></div>' +
-                '<div class="fab-g-corpo" id="fab-g-corpo"></div></aside>'
-            );
-            $('#fab-gaveta-fundo').on('click', fecharMenuGestao);
-            $('#fab-gaveta')
-              .on('click', '.fab-g-fechar', fecharMenuGestao)
-              .on('keydown', '.fab-g-fechar', function (e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  fecharMenuGestao();
-                }
-              })
-              // Depois de escolher um ficheiro do MD07, fecha a gaveta
-              .on('click', 'label[for="opt-riskFileInput"]', function () {
-                setTimeout(fecharMenuGestao, 300);
-              });
-          }
+        /* Barra de ferramentas à esquerda: abre ao encostar o rato à margem
+           esquerda (ou na aba, para teclado e ecrã tátil) e fecha quando o
+           rato sai dela. */
+        function prepararMenuGestao() {
+          if ($('#fab-gaveta').length) return;
+          $('body').append(
+            '<div class="fab-gaveta-aba" id="fab-gaveta-aba" role="button" tabindex="0" title="Gestão" aria-label="Abrir o menu de gestão"><i class="fa-solid fa-sliders"></i><span>Gestão</span></div>' +
+              '<aside class="fab-gaveta" id="fab-gaveta" role="dialog" aria-label="Gestão">' +
+              '<div class="fab-g-cab"><b><i class="fa-solid fa-sliders me-2"></i>Gestão</b>' +
+              '<span class="fab-g-fechar" role="button" tabindex="0" title="Fechar" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></span></div>' +
+              '<div class="fab-g-corpo" id="fab-g-corpo"></div></aside>'
+          );
+          $('#fab-gaveta-aba')
+            .on('click mouseenter', abrirMenuGestao)
+            .on('keydown', function (e) {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                abrirMenuGestao();
+              }
+            });
+          $('#fab-gaveta')
+            .on('click', '.fab-g-fechar', fecharMenuGestao)
+            .on('keydown', '.fab-g-fechar', function (e) {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fecharMenuGestao();
+              }
+            })
+            .on('mouseenter', () => clearTimeout(gavetaFecharTimer))
+            .on('mouseleave', () => {
+              clearTimeout(gavetaFecharTimer);
+              gavetaFecharTimer = setTimeout(fecharMenuGestao, 350);
+            })
+            // Depois de escolher o ficheiro do MD07, fecha a barra
+            .on('click', 'label[for="opt-riskFileInput"]', function () {
+              setTimeout(fecharMenuGestao, 300);
+            });
+          // Rato encostado à margem esquerda (sem um pop-up aberto)
+          $(document)
+            .off('mousemove.gaveta')
+            .on('mousemove.gaveta', function (e) {
+              if (e.clientX > 6 || $('#fab-gaveta').hasClass('aberta')) return;
+              if ($('.modal.show').length) return;
+              abrirMenuGestao();
+            });
+        }
 
+        /* Abre a barra do menu Gestão com as ações; as que apontam para
+           listas ficam ligadas quando o endereço da vista é conhecido (links
+           reais, para não serem bloqueados como pop-up). */
+        function abrirMenuGestao() {
+          prepararMenuGestao();
+          clearTimeout(gavetaFecharTimer);
+          if ($('#fab-gaveta').hasClass('aberta')) return;
           const ligacoes = []; // [{ id, destino }] por resolver
           let n = 0;
           const icone = (ic) => `<span class="fab-g-ico"><i class="fa-solid ${ic}"></i></span>`;
@@ -11552,13 +11671,16 @@
             );
           });
 
-          $('#fab-gaveta, #fab-gaveta-fundo').addClass('aberta');
+          $('#fab-gaveta').addClass('aberta');
+          $('#fab-gaveta-aba').addClass('escondida');
           $(document)
-            .off('keydown.gaveta')
+            .off('keydown.gaveta click.gaveta')
             .on('keydown.gaveta', (e) => {
               if (e.key === 'Escape') fecharMenuGestao();
+            })
+            .on('click.gaveta', (e) => {
+              if (!$(e.target).closest('#fab-gaveta, #fab-gaveta-aba').length) fecharMenuGestao();
             });
-          setTimeout(() => $('#fab-gaveta .fab-g-fechar').trigger('focus'), 50);
         }
 
         // ---------------------------------------------------------------- escalação
