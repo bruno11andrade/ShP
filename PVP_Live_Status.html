@@ -1827,6 +1827,15 @@
         position: relative;
         min-width: 0;
       }
+      .fab-planta {
+        cursor: pointer;
+      }
+      .fab-planta-sel {
+        box-shadow: inset 0 0 0 2px var(--cyan-accent);
+      }
+      .fab-planta-sel .fab-planta-lbl {
+        color: var(--cyan-accent);
+      }
       .fab-planta-lbl,
       .fab-al {
         font-family: Consolas, ui-monospace, monospace;
@@ -2528,7 +2537,7 @@
           <!-- Planta e detalhe do C.C. com a mesma altura: o detalhe não
                estica a linha, acompanha a planta -->
           <section class="fab-meio">
-            <div class="fab-planta">
+            <div class="fab-planta" id="fab-planta" title="Ver o Top 3 da planta toda">
               <div class="fab-planta-lbl">PLANTA · OVAR</div>
               <div class="fab-edificios" id="fab-edificios"></div>
             </div>
@@ -4114,9 +4123,10 @@
               irParaArmazem(String($(this).data('ir-armazem')));
             });
 
-          // Planta: C.C. (mosaico), área (zona da área fora dos C.C.) ou
-          // armazém (resto do edifício); a etiqueta do armazém abre-o
-          $('#fab-edificios')
+          // Planta: C.C. (mosaico), área (zona da área fora dos C.C.),
+          // armazém (resto do edifício) ou a planta toda (fora dos
+          // edifícios); a etiqueta do armazém abre-o
+          $('#fab-planta')
             .off('click')
             .on('click', function (e) {
               const $t = $(e.target);
@@ -4139,7 +4149,7 @@
               } else if ($wh.length) {
                 fabSelecionado = { tipo: 'armazem', armazem: String($wh.data('fab-armazem')) };
               } else {
-                return;
+                fabSelecionado = { tipo: 'planta' };
               }
               if (fabUltimosDados) {
                 renderFabPlanta(fabUltimosDados);
@@ -11690,6 +11700,7 @@
               } <b class="${a.saldo < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(a.saldo)}</b></span></div><div class="fab-areas">${areas}</div></div>`;
             })
             .join('');
+          $('#fab-planta').toggleClass('fab-planta-sel', !fabSelecionado || fabSelecionado.tipo === 'planta');
           $('#fab-edificios')
             .html(html)
             .css(
@@ -11699,8 +11710,9 @@
         }
 
         /* Painel ao lado da planta: Top 3 de C.C. em atraso e Top 3 em
-           avanço da área escolhida (clique na área ou num C.C. dela) ou do
-           armazém (clique no edifício). Por defeito, a área com mais atraso. */
+           avanço da planta toda (por defeito, ou clique fora dos edifícios),
+           da área escolhida (clique na área ou num C.C. dela) ou do armazém
+           (clique no edifício). */
         function renderFabDetalhe(d) {
           const $det = $('#fab-detalhe');
           const ativos = d.armazens.filter((a) => a.ativo);
@@ -11725,16 +11737,12 @@
               ar = x.ar;
             }
           }
-          if (!wh) {
-            const pior = areas
-              .filter((y) => y.ar.ccs.length)
-              .sort((a, b) => a.ar.saldo - b.ar.saldo)[0];
-            wh = pior.wh;
-            ar = pior.ar;
-            fabSelecionado = { tipo: 'area', area: ar.area, armazem: wh.w.id };
+          const planta = !wh;
+          if (planta && sel.tipo !== 'planta') {
+            fabSelecionado = { tipo: 'planta' };
             renderFabPlanta(d);
           }
-          const ccs = ar ? ar.ccs : wh.ccs;
+          const ccs = ar ? ar.ccs : planta ? ativos.reduce((l, a) => l.concat(a.ccs), []) : wh.ccs;
           const saldo = ccs.reduce((t, c) => t + c.delta, 0);
           const atraso = ccs.filter((c) => c.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 3);
           const avanco = ccs.filter((c) => c.delta > 0).sort((a, b) => b.delta - a.delta).slice(0, 3);
@@ -11760,15 +11768,21 @@
             }`;
           $det.html(`
             <div class="fab-det-topo">
-              <span class="fab-det-cc">${escapeHtml(ar ? ar.area : wh.w.id)}</span>
-              <span class="fab-mut">${escapeHtml(ar ? `${wh.w.id} · Área` : `${wh.w.tipo} · Armazém`)} · ${ccs.length} C.C.</span>
+              <span class="fab-det-cc">${escapeHtml(planta ? 'Planta' : ar ? ar.area : wh.w.id)}</span>
+              <span class="fab-mut">${escapeHtml(
+                planta ? `Ovar · ${ativos.map((a) => a.w.id).join(' + ')}` : ar ? `${wh.w.id} · Área` : `${wh.w.tipo} · Armazém`
+              )} · ${ccs.length} C.C.</span>
               <span class="fab-top-saldo ${saldo < 0 ? 'fab-neg' : 'fab-pos'}">${fabHoras(saldo)}</span>
             </div>
             ${bloco('Top 3 · C.C. em atraso', atraso, 'Nenhum C.C. em atraso')}
             ${bloco('Top 3 · C.C. em avanço', avanco, 'Nenhum C.C. em avanço')}
-            <button type="button" class="fab-btn" data-fab-abrir-zona="1" data-armazem="${escapeHtml(wh.w.id)}"${
-              ar ? ` data-fab-area="${escapeHtml(ar.area)}"` : ''
-            }>${ar ? `Abrir área ${escapeHtml(ar.area)} no ${escapeHtml(wh.w.id)}` : `Abrir ${escapeHtml(wh.w.id)}`} →</button>
+            ${
+              planta
+                ? ''
+                : `<button type="button" class="fab-btn" data-fab-abrir-zona="1" data-armazem="${escapeHtml(wh.w.id)}"${
+                    ar ? ` data-fab-area="${escapeHtml(ar.area)}"` : ''
+                  }>${ar ? `Abrir área ${escapeHtml(ar.area)} no ${escapeHtml(wh.w.id)}` : `Abrir ${escapeHtml(wh.w.id)}`} →</button>`
+            }
           `);
         }
 
