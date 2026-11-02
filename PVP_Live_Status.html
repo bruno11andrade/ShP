@@ -2563,7 +2563,7 @@
               <div class="fab-esc-cols" id="fab-escalacao"></div>
             </div>
             <div class="fab-card">
-              <h2 class="fab-h2">Cumprimento do plano · últimos 10 dias úteis</h2>
+              <h2 class="fab-h2">Cumprimento do plano · horas · últimos 10 dias úteis</h2>
               <div class="fab-mapa" id="fab-mapa"></div>
               <div class="fab-legenda" style="margin-top: 10px">
                 <span><span class="fab-sw fab-h-g" style="border-color: var(--fab-h-g)"></span>≥ 95%</span>
@@ -11073,8 +11073,9 @@
               qProd += i.QtdProduzida || 0;
             });
 
-            // Mapa dos últimos dias úteis: peças produzidas ÷ planeadas das
-            // linhas planeadas para cada dia, por área
+            // Mapa dos últimos dias úteis, em horas: das horas planeadas
+            // para cada dia, quantas estavam produzidas até ao fim desse dia
+            // (Status Produzido e Data Produção até esse dia), por área
             const dias = ultimosDiasUteis(FAB_DIAS_MAPA);
             const mapa = [];
             armazens
@@ -11095,8 +11096,11 @@
                           i.RawDateObj.getDate() !== d.getDate()
                         )
                           return;
-                        p += i.QtdPlaneada || 0;
-                        q += i.QtdProduzida || 0;
+                        p += i.HorasPlaneadas || 0;
+                        const fimDoDia = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+                        if (i.Status === 'Produzido' && (!i.RawDataProducaoObj || i.RawDataProducaoObj <= fimDoDia)) {
+                          q += i.HorasPlaneadas || 0;
+                        }
                       });
                       return { dia: d, plan: p, prod: q };
                     }),
@@ -11809,7 +11813,9 @@
                 const k = pct >= 95 ? 'g' : pct >= 85 ? 'o' : 'r';
                 return `<span class="fab-hc fab-h-${k}" title="${escapeHtml(linha.area)} · ${fabDataCurta(
                   x.dia
-                )}: ${pct}% (${formatQtd(x.prod)} de ${formatQtd(x.plan)} peças)"></span>`;
+                )}: ${pct}% (${formatHoursToHHMM(x.prod)} de ${formatHoursToHHMM(
+                  x.plan
+                )} h planeadas para o dia, produzidas até ao fim do dia)"></span>`;
               })
               .join('');
           });
