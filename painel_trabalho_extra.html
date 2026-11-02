@@ -3642,10 +3642,10 @@
                 qtdPlaneada > 0 ? ((qtdProduzida / qtdPlaneada) * 100).toFixed(1) : 0;
 
               $('#kpiQtdPlaneada').text(
-                qtdPlaneada.toLocaleString('pt-PT', { maximumFractionDigits: 1 })
+                qtdPlaneada.toLocaleString('pt-PT', { maximumFractionDigits: 0 })
               );
               $('#kpiQtdProduzida').text(
-                qtdProduzida.toLocaleString('pt-PT', { maximumFractionDigits: 1 })
+                qtdProduzida.toLocaleString('pt-PT', { maximumFractionDigits: 0 })
               );
               $('#kpiAdesaoPct').text(`${adesaoPct}%`);
 
@@ -4843,9 +4843,15 @@
 
               const rect = $btn[0].getBoundingClientRect();
               const left = Math.min(rect.left, window.innerWidth - $panel.outerWidth() - 10);
+              // Abre para cima quando não há espaço por baixo do cabeçalho
+              const panelHeight = $panel.outerHeight();
+              let top = rect.bottom + 4;
+              if (top + panelHeight > window.innerHeight - 10) {
+                top = Math.max(10, rect.top - panelHeight - 4);
+              }
               $panel.css({
                 position: 'fixed',
-                top: rect.bottom + 4 + 'px',
+                top: top + 'px',
                 left: Math.max(10, left) + 'px',
               });
               activeColFilterPanel = $panel;
@@ -5013,8 +5019,8 @@
                           <td>${d.Area}</td>
                           <td>${d.CC}</td>
                           <td>${d.KA}</td>
-                          <td data-order="${d.QtdPlaneada}">${d.QtdPlaneada.toLocaleString('pt-PT')}</td>
-                          <td data-order="${d.QtdProduzida}">${d.QtdProduzida.toLocaleString('pt-PT')}</td>
+                          <td data-order="${d.QtdPlaneada}">${d.QtdPlaneada.toLocaleString('pt-PT', { maximumFractionDigits: 0 })}</td>
+                          <td data-order="${d.QtdProduzida}">${d.QtdProduzida.toLocaleString('pt-PT', { maximumFractionDigits: 0 })}</td>
                           <td data-order="${pct}"><span class="badge ${badgeClass}">${pct}%</span></td>
                       </tr>
                   `;
