@@ -477,6 +477,12 @@
         margin-top: 8px;
       }
 
+      /* Produzido/Planeado acima de 110% */
+      .badge-excesso {
+        background-color: #9a3412;
+        color: #fff;
+      }
+
       .nav-tabs .nav-link {
         font-weight: 600;
         color: #495057;
@@ -557,7 +563,7 @@
           </h2>
           <small class="text-muted"
             >Análise de Turnos Adicionais e Cumprimento do Plano de Produção (A
-            partir da Semana 34 / 2026)</small
+            partir da Semana 44 / 2026)</small
           >
         </div>
         <div>
@@ -1203,15 +1209,6 @@
                                 style="font-size: 1.8rem"
                               >
                                 0
-                              </div>
-                              <div class="text-muted" style="font-size: 0.68rem">
-                                <span title="Produzido acima do planeado"
-                                  >Bónus <b id="kpiQtdBonus">0</b></span
-                                >
-                                ·
-                                <span title="Produzido em KAs sem plano nesse fim de semana"
-                                  >Não planeado <b id="kpiQtdNaoPlaneada">0</b></span
-                                >
                               </div>
                             </div>
                           </div>
@@ -1919,24 +1916,18 @@
                           >
                             <thead class="table-dark">
                               <tr>
+                                <th>Planeado</th>
                                 <th>Fábrica</th>
-                                <th>Data</th>
-                                <th>Tipo de Dia</th>
-                                <th>Ano</th>
-                                <th>Mês</th>
                                 <th>Semana</th>
-                                <th>Armazém</th>
+                                <th>Tipo de Dia</th>
                                 <th>Área</th>
                                 <th>C.C.</th>
                                 <th>Material / KA</th>
                                 <th>Qtd. Planeada</th>
-                                <th>Sáb</th>
-                                <th>Dom</th>
-                                <th>Fer</th>
                                 <th>Qtd. Produzida</th>
-                                <th>Bónus</th>
-                                <th>Cumprimento (%)</th>
-                                <th>Estado</th>
+                                <th>Produzido/Planeado (%)</th>
+                                <th>Responsável</th>
+                                <th>Motivo</th>
                               </tr>
                             </thead>
                             <tbody></tbody>
@@ -2003,9 +1994,20 @@
 
     <script>
             const LIST_TITLE_TURNOS = 'Trabalho Extra - Registos';
+            // Primeira semana analisada em todo o dashboard
+            // (S44/2026 = fim de semana de 31/10 e 01/11/2026)
+            const INICIO_DADOS = { ano: 2026, semana: 44 };
             const LIST_MAE_GUID = '1F063A39-05DB-4B27-BA57-25863ACBBE21';
             const LIST_PLANO_GUID = 'CD99073E-D4CE-473F-B642-4ABAE4DF01CB';
             const LIST_OPERADORES_GUID = '4D3F991F-ADEF-4436-BC10-0C702CC73D08';
+
+            // Colunas Escolha da lista do plano, editáveis na tabela de
+            // detalhe. "nome" é o nome interno; se não existir com esse nome,
+            // procura-se a coluna pelo título.
+            const CAMPOS_PLANO = {
+              responsavel: { nome: 'Responsavel', titulo: 'Responsável', tipo: 'Choice', opcoes: [] },
+              motivo: { nome: 'Motivo', titulo: 'Motivo', tipo: 'Choice', opcoes: [] },
+            };
 
             const COLOR_AREA = '#005a9e';
             const COLOR_CC = '#10b981';
@@ -2437,7 +2439,7 @@
               const semNum = parseInt(String(weekStr).replace('S', ''), 10) || 0;
               if (isNaN(anoNum)) return false;
               if (anoNum > 2026) return true;
-              if (anoNum === 2026 && semNum >= 34) return true;
+              if (anoNum === INICIO_DADOS.ano && semNum >= INICIO_DADOS.semana) return true;
               return false;
             }
 
@@ -2681,6 +2683,12 @@
 
                   $('#loadingSpinner').hide();
                   $('#dashboardContent').fadeIn();
+
+                  // As opções das colunas Escolha chegam à parte; quando
+                  // chegam, a tabela do plano volta a ser desenhada com elas
+                  carregarCamposEscolhaPlano().always(function () {
+                    renderPlanoTable(currentPlanoData);
+                  });
                 })
                 .fail(function () {
                   reqTurnos
@@ -3179,21 +3187,30 @@
                 const ka = extractValue(item.Title) || 'N/A';
 
                 const qtdPlaneada = parseFloat(item.Quantidade) || 0;
-                const qtdProduzida = parseFloat(item.Quantidade_x0020_Produzida) || 0;
                 const numOuNull = (v) =>
                   v === null || v === undefined || v === '' || isNaN(parseFloat(v))
                     ? null
                     : parseFloat(v);
-                const naoPlaneadoRaw = item.N_x00e3_o_x0020_Planeado;
 
                 rawProcessed.push({
                   KeyFDS: extractValue(item.KeyFDS) || '',
                   QtdSab: numOuNull(item.QtdSab),
                   QtdDom: numOuNull(item.QtdDom),
                   QtdFer: numOuNull(item.QtdFer),
-                  NaoPlaneado:
-                    naoPlaneadoRaw === true ||
-                    /^(sim|yes|true|1)$/i.test(String(naoPlaneadoRaw || '').trim()),
+                  // Para gravar Responsável / Motivo diretamente no item
+                  ID: item.Id || item.ID,
+                  TipoEntidade: item.__metadata ? item.__metadata.type : '',
+                  // Item original: se o nome interno das colunas Escolha só
+                  // se souber depois, os valores voltam a ler-se daqui
+                  ItemOriginal: item,
+                  // Coluna Sim/Não "Não Planeado" (o REST devolve true/false)
+                  NaoPlaneado: [true, 'true', 'sim', '1', 1].includes(
+                    typeof item.N_x00e3_o_x0020_Planeado === 'string'
+                      ? item.N_x00e3_o_x0020_Planeado.trim().toLowerCase()
+                      : item.N_x00e3_o_x0020_Planeado
+                  ),
+                  Responsavel: valorEscolha(item[CAMPOS_PLANO.responsavel.nome]),
+                  Motivo: valorEscolha(item[CAMPOS_PLANO.motivo.nome]),
                   Fabrica: fabrica,
                   DataRaw: rawData,
                   DataRef: dataPlano,
@@ -3206,7 +3223,6 @@
                   CC: cc,
                   KA: ka,
                   QtdPlaneada: qtdPlaneada,
-                  QtdProduzida: qtdProduzida,
                   Feriado: eFeriado,
                   TipoDia: eFeriado ? 'Feriado' : 'Fim de Semana',
                 });
@@ -3234,18 +3250,27 @@
               ).padStart(2, '0')}/${d.getFullYear()}`;
             }
 
+            // Primeiro valor preenchido de uma coluna Escolha entre os itens
+            function primeiraEscolha(itens, campo) {
+              for (const r of itens) {
+                const v = valorEscolha(r.ItemOriginal ? r.ItemOriginal[campo] : '');
+                if (v) return v;
+              }
+              return '';
+            }
+
             // Junta as linhas do Plano por fim de semana (KeyFDS = CC-KA-âncora).
-            // Produzido: maior QtdSab + maior QtdDom + maior QtdFer do grupo, para
-            // que linhas repetidas não somem duas vezes. Sem campos novos (fins de
-            // semana anteriores à recolha da Hydra) usa a Quantidade Produzida antiga.
-            // As linhas "Não Planeado" só contam se a chave não tiver plano.
+            // Planeado = soma das linhas planeadas. Produzido = maior QtdSab +
+            // maior QtdDom + maior QtdFer do grupo (as linhas repetidas não somam
+            // duas vezes). As linhas "Não Planeado" só contam se a chave não
+            // tiver nenhuma linha planeada.
             function agruparPlanoFDS(linhas) {
               const grupos = new Map();
               linhas.forEach((r) => {
-                const dataValida = r.DataRef && !isNaN(r.DataRef.getTime());
                 let chave = r.KeyFDS;
                 if (!chave) {
-                  const a = dataValida ? ancoraFDS(r.DataRef) : null;
+                  const valida = r.DataRef && !isNaN(r.DataRef.getTime());
+                  const a = valida ? ancoraFDS(r.DataRef) : null;
                   chave = `${r.CC}-${r.KA}-${
                     a
                       ? a.getFullYear() * 10000 + (a.getMonth() + 1) * 100 + a.getDate()
@@ -3260,32 +3285,20 @@
               grupos.forEach((rows, chave) => {
                 const planeadas = rows.filter((r) => !r.NaoPlaneado);
                 const naoPlaneado = planeadas.length === 0;
-                const ordenadas = (naoPlaneado ? rows : planeadas)
+                // Linhas que a tabela edita (Responsável / Motivo)
+                const editaveis = (naoPlaneado ? rows : planeadas)
                   .slice()
                   .sort((a, b) => (a.DataRef || 0) - (b.DataRef || 0));
-                const base = ordenadas[0];
+                const base = editaveis[0];
 
-                const temNovo = rows.some(
-                  (r) => r.QtdSab !== null || r.QtdDom !== null || r.QtdFer !== null
-                );
                 const maxCampo = (campo) =>
                   Math.max(0, ...rows.map((r) => r[campo] || 0));
-                const sab = temNovo ? maxCampo('QtdSab') : null;
-                const dom = temNovo ? maxCampo('QtdDom') : null;
-                const fer = temNovo ? maxCampo('QtdFer') : null;
-                const produzido = temNovo
-                  ? sab + dom + fer
-                  : planeadas.reduce((a, r) => a + r.QtdProduzida, 0);
+                const sab = maxCampo('QtdSab');
+                const dom = maxCampo('QtdDom');
+                const fer = maxCampo('QtdFer');
+                const produzido = sab + dom + fer;
                 const planeado = planeadas.reduce((a, r) => a + r.QtdPlaneada, 0);
 
-                let estado;
-                if (naoPlaneado) estado = 'Não planeado';
-                else if (produzido <= 0) estado = 'Não produzido';
-                else if (produzido >= planeado) estado = 'Cumprido';
-                else estado = 'Parcial';
-
-                const dataValida = base.DataRef && !isNaN(base.DataRef.getTime());
-                const ancora = dataValida ? ancoraFDS(base.DataRef) : null;
                 const datas = [
                   ...new Map(
                     rows
@@ -3297,12 +3310,14 @@
                       })
                   ).values(),
                 ];
+                const valida = base.DataRef && !isNaN(base.DataRef.getTime());
 
                 resultado.push({
                   ...base,
                   Chave: chave,
-                  DataRef: ancora,
-                  DataFormatada: ancora ? formatDataPT(ancora) : base.DataFormatada,
+                  IDs: editaveis.map((r) => r.ID).filter(Boolean),
+                  Itens: editaveis,
+                  DataRef: valida ? ancoraFDS(base.DataRef) : base.DataRef,
                   _dates: datas,
                   TipoDia: rows.some((r) => !r.Feriado) ? 'Fim de Semana' : 'Feriado',
                   QtdSab: sab,
@@ -3310,11 +3325,11 @@
                   QtdFer: fer,
                   QtdPlaneada: planeado,
                   QtdProduzida: produzido,
+                  // Cumprimento: cada KA conta só até ao planeado
                   QtdCumprida: naoPlaneado ? 0 : Math.min(produzido, planeado),
-                  QtdBonus: naoPlaneado ? 0 : Math.max(0, produzido - planeado),
-                  QtdNaoPlaneada: naoPlaneado ? produzido : 0,
                   NaoPlaneado: naoPlaneado,
-                  Estado: estado,
+                  Responsavel: primeiraEscolha(editaveis, CAMPOS_PLANO.responsavel.nome),
+                  Motivo: primeiraEscolha(editaveis, CAMPOS_PLANO.motivo.nome),
                 });
               });
               return resultado;
@@ -3663,11 +3678,14 @@
               currentLogisticaData = filteredLogistica;
               currentMasterData = filteredMaster;
 
-              updateKPIs(filteredTurnos, filteredPlano);
+              // KPIs e gráficos só com o que estava planeado; o produzido não
+              // planeado aparece apenas na tabela de detalhe
+              const planoPlaneado = filteredPlano.filter((p) => !p.NaoPlaneado);
+              updateKPIs(filteredTurnos, planoPlaneado);
               updateLogisticaKPIAndChart(filteredLogistica);
               updateComplianceKPIs(filteredMaster);
 
-              renderCharts(filteredTurnos, filteredPlano);
+              renderCharts(filteredTurnos, planoPlaneado);
               renderTable(filteredTurnos);
               renderPlanoTable(filteredPlano);
             }
@@ -3770,20 +3788,13 @@
                 });
               }
 
-              // Cumprimento: por KA conta só até ao planeado; o resto é bónus.
-              // O produzido não planeado aparece à parte.
-              const soma = (campo) => plano.reduce((a, b) => a + (b[campo] || 0), 0);
-              const qtdPlaneada = soma('QtdPlaneada');
-              const qtdProduzida = soma('QtdProduzida');
-              const qtdCumprida = soma('QtdCumprida');
+              // Peças produzidas: tudo o que se produziu nos KAs planeados.
+              // Cumprimento: cada KA conta só até ao seu planeado.
+              const qtdPlaneada = plano.reduce((a, b) => a + b.QtdPlaneada, 0);
+              const qtdProduzida = plano.reduce((a, b) => a + b.QtdProduzida, 0);
+              const qtdCumprida = plano.reduce((a, b) => a + b.QtdCumprida, 0);
               const adesaoPct =
                 qtdPlaneada > 0 ? ((qtdCumprida / qtdPlaneada) * 100).toFixed(1) : 0;
-              $('#kpiQtdBonus').text(
-                soma('QtdBonus').toLocaleString('pt-PT', { maximumFractionDigits: 0 })
-              );
-              $('#kpiQtdNaoPlaneada').text(
-                soma('QtdNaoPlaneada').toLocaleString('pt-PT', { maximumFractionDigits: 0 })
-              );
 
               $('#kpiQtdPlaneada').text(
                 qtdPlaneada.toLocaleString('pt-PT', { maximumFractionDigits: 0 })
@@ -4341,7 +4352,7 @@
                     : p.Mes && p.Mes.includes('-')
                     ? p.Mes.split('-')[1]
                     : p.Mes;
-                if (key && key !== 'N/A' && p.QtdPlaneada > 0) {
+                if (key && key !== 'N/A' && !p.NaoPlaneado) {
                   if (!mapData[key]) mapData[key] = { plan: 0, prod: 0 };
                   mapData[key].plan += p.QtdPlaneada;
                   mapData[key].prod += p.QtdCumprida;
@@ -4682,7 +4693,7 @@
             function renderAdesaoArea(planoData) {
               const mapArea = {};
               planoData.forEach((p) => {
-                if (p.Area && p.Area !== 'N/A' && p.QtdPlaneada > 0) {
+                if (p.Area && p.Area !== 'N/A' && !p.NaoPlaneado) {
                   if (!mapArea[p.Area]) mapArea[p.Area] = { plan: 0, prod: 0 };
                   mapArea[p.Area].plan += p.QtdPlaneada;
                   mapArea[p.Area].prod += p.QtdCumprida;
@@ -4762,7 +4773,7 @@
             function renderAdesaoCC(planoData) {
               const mapCC = {};
               planoData.forEach((p) => {
-                if (p.CC && p.CC !== 'N/A' && p.QtdPlaneada > 0) {
+                if (p.CC && p.CC !== 'N/A' && !p.NaoPlaneado) {
                   if (!mapCC[p.CC]) mapCC[p.CC] = { plan: 0, prod: 0 };
                   mapCC[p.CC].plan += p.QtdPlaneada;
                   mapCC[p.CC].prod += p.QtdCumprida;
@@ -4849,8 +4860,13 @@
             function cellFilterText(html) {
               // Células com data-order chegam como { display, '@data-order' }
               if (html && typeof html === 'object') html = html.display;
-              const text = $('<div>')
-                .html(html == null ? '' : String(html))
+              const $celula = $('<div>').html(html == null ? '' : String(html));
+              // Célula com dropdown: conta só a opção escolhida
+              const $select = $celula.find('select');
+              if ($select.length) {
+                return $select.find('option[selected]').attr('value') || '(vazio)';
+              }
+              const text = $celula
                 .text()
                 .replace(/\s+/g, ' ')
                 .trim();
@@ -4881,7 +4897,9 @@
               // Colunas temporais: valores do mais recente para o mais antigo
               const dataKey = (v) => {
                 const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-                return m ? `${m[3]}${m[2]}${m[1]}` : v;
+                if (m) return `${m[3]}${m[2]}${m[1]}`;
+                const w = v.match(/^S(\d{1,2})\/(\d{4})$/);
+                return w ? `${w[2]}${w[1].padStart(2, '0')}` : v;
               };
               const getColumnValues = (colIndex) => {
                 const values = [
@@ -5138,6 +5156,186 @@
               });
             }
 
+            // =========================================================
+            // RESPONSÁVEL / MOTIVO: colunas Escolha editáveis no plano
+            // =========================================================
+
+            // Valor de uma coluna Escolha (simples ou múltipla) como texto
+            function valorEscolha(v) {
+              if (v == null) return '';
+              if (typeof v === 'object' && Array.isArray(v.results)) {
+                return v.results.join('; ');
+              }
+              return String(v).trim();
+            }
+
+            const PROP_ESCOLHA = { responsavel: 'Responsavel', motivo: 'Motivo' };
+            // Posição das duas colunas na tabela do plano (as duas últimas)
+            const COL_ESCOLHA = { responsavel: 10, motivo: 11 };
+
+            // Lê da lista o nome interno, o tipo e as opções das duas colunas
+            function carregarCamposEscolhaPlano() {
+              const campos = Object.values(CAMPOS_PLANO);
+              const filtro = campos
+                .map((c) => `InternalName eq '${c.nome}' or Title eq '${c.titulo}'`)
+                .join(' or ');
+              const url =
+                `${getWebUrl()}/_api/web/lists(guid'${LIST_PLANO_GUID}')/fields` +
+                `?$select=InternalName,Title,TypeAsString,Choices&$filter=${encodeURIComponent(filtro)}`;
+              return $.ajax({
+                url: url,
+                type: 'GET',
+                headers: { Accept: 'application/json; odata=verbose' },
+              })
+                .done(function (res) {
+                  const encontrados = res?.d?.results || [];
+                  campos.forEach((c) => {
+                    const f =
+                      encontrados.find((x) => x.InternalName === c.nome) ||
+                      encontrados.find((x) => x.Title === c.titulo);
+                    if (!f) {
+                      console.warn(`[Plano] Coluna "${c.titulo}" não encontrada na lista.`);
+                      return;
+                    }
+                    c.nome = f.InternalName;
+                    c.tipo = f.TypeAsString;
+                    c.opcoes = (f.Choices && f.Choices.results) || [];
+                  });
+                  // Com o nome interno confirmado, relê os valores dos itens
+                  allPlanoData.forEach((d) => {
+                    const itens = d.Itens || [d];
+                    d.Responsavel = primeiraEscolha(itens, CAMPOS_PLANO.responsavel.nome);
+                    d.Motivo = primeiraEscolha(itens, CAMPOS_PLANO.motivo.nome);
+                  });
+                })
+                .fail(function () {
+                  console.error('[Plano] Não foi possível ler as opções de Responsável / Motivo.');
+                });
+            }
+
+            // Dropdown de uma célula. Um valor que já não está nas opções da
+            // coluna continua a aparecer, para não se perder ao gravar outra.
+            function htmlSelectEscolha(d, chave) {
+              const campo = CAMPOS_PLANO[chave];
+              const atual = d[PROP_ESCOLHA[chave]] || '';
+              if (!d.ID) return escapeHtml(atual);
+              const opcoes = campo.opcoes.slice();
+              if (atual && !opcoes.includes(atual)) opcoes.unshift(atual);
+              return (
+                `<select class="form-select form-select-sm plano-escolha" style="min-width: 140px"` +
+                ` data-id="${d.ID}" data-campo="${chave}" aria-label="${escapeHtml(campo.titulo)}">` +
+                `<option value=""${atual ? '' : ' selected'}>—</option>` +
+                opcoes
+                  .map(
+                    (o) =>
+                      `<option value="${escapeHtml(o)}"${o === atual ? ' selected' : ''}>${escapeHtml(o)}</option>`
+                  )
+                  .join('') +
+                `</select>`
+              );
+            }
+
+            function obterDigest() {
+              return $.ajax({
+                url: `${getWebUrl()}/_api/contextinfo`,
+                type: 'POST',
+                headers: { Accept: 'application/json; odata=verbose' },
+              }).then((r) => r.d.GetContextWebInformation.FormDigestValue);
+            }
+
+            // Volta a escrever a célula com o valor gravado, para que o
+            // filtro e a ordenação da coluna passem a usar o novo valor
+            function atualizarCelulaEscolha(d, chave) {
+              const dt = dataTablePlanoInstance;
+              if (!dt) return;
+              const col = COL_ESCOLHA[chave];
+              dt.rows().every(function () {
+                const linha = this.data();
+                const cel = linha[col];
+                const html = cel && typeof cel === 'object' ? cel.display : cel;
+                if (!String(html).includes(`data-id="${d.ID}"`)) return;
+                // A célula guarda { display, '@data-order' } (veio do HTML
+                // com data-order): muda-se cada parte, não o objeto inteiro,
+                // senão o DataTables escreve "[object Object]" na célula
+                const novoHtml = htmlSelectEscolha(d, chave);
+                if (cel && typeof cel === 'object') {
+                  cel.display = novoHtml;
+                  cel['@data-order'] = d[PROP_ESCOLHA[chave]] || '';
+                } else {
+                  linha[col] = novoHtml;
+                }
+                this.invalidate('data');
+              });
+              dt.draw(false);
+            }
+
+            function gravarEscolhaPlano($sel) {
+              const id = Number($sel.data('id'));
+              const chave = $sel.data('campo');
+              const campo = CAMPOS_PLANO[chave];
+              const d = allPlanoData.find((x) => x.ID === id);
+              if (!d || !campo) return;
+
+              const prop = PROP_ESCOLHA[chave];
+              const anterior = d[prop] || '';
+              const valor = $sel.val() || '';
+
+              const corpo = { __metadata: { type: d.TipoEntidade } };
+              corpo[campo.nome] =
+                campo.tipo === 'MultiChoice'
+                  ? { __metadata: { type: 'Collection(Edm.String)' }, results: valor ? [valor] : [] }
+                  : valor || null;
+
+              $sel.prop('disabled', true).removeClass('is-invalid');
+              // Uma linha da tabela junta os itens do fim de semana (sábado,
+              // domingo, feriado): o valor é gravado em todos
+              const ids = d.IDs && d.IDs.length ? d.IDs : [id];
+              obterDigest()
+                .then((digest) =>
+                  $.when(
+                    ...ids.map((idItem) =>
+                      $.ajax({
+                        url: `${getWebUrl()}/_api/web/lists(guid'${LIST_PLANO_GUID}')/items(${idItem})`,
+                        type: 'POST',
+                        contentType: 'application/json; odata=verbose',
+                        data: JSON.stringify(corpo),
+                        headers: {
+                          Accept: 'application/json; odata=verbose',
+                          'X-RequestDigest': digest,
+                          'X-HTTP-Method': 'MERGE',
+                          'IF-MATCH': '*',
+                        },
+                      })
+                    )
+                  )
+                )
+                .done(function () {
+                  d[prop] = valor;
+                  (d.Itens || [d]).forEach((r) => {
+                    if (r.ItemOriginal) r.ItemOriginal[campo.nome] = valor;
+                  });
+                  atualizarCelulaEscolha(d, chave);
+                  const $novo = $(
+                    `#tablePlano select.plano-escolha[data-id="${id}"][data-campo="${chave}"]`
+                  ).addClass('is-valid');
+                  setTimeout(() => $novo.removeClass('is-valid'), 1500);
+                })
+                .fail(function (xhr) {
+                  $sel.val(anterior).prop('disabled', false).addClass('is-invalid');
+                  const motivo =
+                    xhr && (xhr.status === 401 || xhr.status === 403)
+                      ? 'sem permissão para editar a lista do plano'
+                      : xhr?.responseJSON?.error?.message?.value || 'erro do SharePoint';
+                  alert(`Não foi possível gravar ${campo.titulo}: ${motivo}.`);
+                });
+            }
+
+            // Um só handler serve todas as linhas, incluindo as redesenhadas
+            // e as que o modo responsivo mostra por baixo da linha
+            $(document).on('change', '#tablePlano select.plano-escolha', function () {
+              gravarEscolhaPlano($(this));
+            });
+
             function renderPlanoTable(data) {
               closeColFilterPanel();
               if (dataTablePlanoInstance) {
@@ -5147,26 +5345,36 @@
               const tbody = $('#tablePlano tbody');
               tbody.empty();
 
-              const fmtQtd = (v) =>
-                v === null || v === undefined
-                  ? '<span class="text-muted">-</span>'
-                  : v.toLocaleString('pt-PT', { maximumFractionDigits: 0 });
-              const estadoBadge = {
-                Cumprido: 'bg-success',
-                Parcial: 'bg-warning text-dark',
-                'Não produzido': 'bg-danger',
-                'Não planeado': 'bg-info text-dark',
-              };
+              // Uma linha por CC + KA + fim de semana, incluindo o produzido
+              // não planeado; os KA de teste ficam de fora
+              const linhasDetalhe = data.filter(
+                (d) => !/^TESTE/i.test(String(d.KA || '').trim())
+              );
+              const fmt = (v) => (v || 0).toLocaleString('pt-PT', { maximumFractionDigits: 0 });
 
-              data.forEach((d) => {
+              linhasDetalhe.forEach((d) => {
+                // Percentagem real (pode passar de 100%)
                 const pct =
                   d.QtdPlaneada > 0
-                    ? ((d.QtdCumprida / d.QtdPlaneada) * 100).toFixed(1)
+                    ? ((d.QtdProduzida / d.QtdPlaneada) * 100).toFixed(1)
                     : null;
                 let badgeClass = 'bg-danger';
-                if (pct >= 90) badgeClass = 'bg-success';
+                if (pct > 110) badgeClass = 'badge-excesso';
+                else if (pct >= 90) badgeClass = 'bg-success';
                 else if (pct >= 80) badgeClass = 'bg-warning text-dark';
-                const diasGrupo = (d._dates || []).map(formatDataPT).join(' + ');
+
+                const planeadoBadge = d.NaoPlaneado
+                  ? '<span class="badge bg-info text-dark">Não</span>'
+                  : '<span class="badge bg-primary">Sim</span>';
+                const semNum = parseInt(String(d.Semana).replace('S', ''), 10) || 0;
+                const detalheDias = [
+                  ['Sáb', d.QtdSab],
+                  ['Dom', d.QtdDom],
+                  ['Fer', d.QtdFer],
+                ]
+                  .filter(([, v]) => v > 0)
+                  .map(([n, v]) => `${n}: ${fmt(v)}`)
+                  .join(' · ');
 
                 const tipoDiaBadge =
                   d.TipoDia === 'Feriado'
@@ -5175,30 +5383,22 @@
 
                 const row = `
                       <tr>
+                          <td>${planeadoBadge}</td>
                           <td>${d.Fabrica}</td>
-                          <td data-order="${
-                            d.DataRef && !isNaN(d.DataRef.getTime()) ? d.DataRef.getTime() : 0
-                          }" title="${diasGrupo}">${d.DataFormatada}</td>
+                          <td data-order="${(parseInt(d.Ano, 10) || 0) * 100 + semNum}">${d.Semana}/${d.Ano}</td>
                           <td>${tipoDiaBadge}</td>
-                          <td>${d.Ano}</td>
-                          <td>${d.Mes}</td>
-                          <td>${d.Semana}</td>
-                          <td>${d.Armazem}</td>
                           <td>${d.Area}</td>
                           <td>${d.CC}</td>
                           <td>${d.KA}</td>
-                          <td data-order="${d.QtdPlaneada}">${fmtQtd(d.QtdPlaneada)}</td>
-                          <td data-order="${d.QtdSab || 0}">${fmtQtd(d.QtdSab)}</td>
-                          <td data-order="${d.QtdDom || 0}">${fmtQtd(d.QtdDom)}</td>
-                          <td data-order="${d.QtdFer || 0}">${fmtQtd(d.QtdFer)}</td>
-                          <td data-order="${d.QtdProduzida}">${fmtQtd(d.QtdProduzida)}</td>
-                          <td data-order="${d.QtdBonus}">${fmtQtd(d.QtdBonus)}</td>
+                          <td data-order="${d.QtdPlaneada}">${fmt(d.QtdPlaneada)}</td>
+                          <td data-order="${d.QtdProduzida}" title="${detalheDias}">${fmt(d.QtdProduzida)}</td>
                           <td data-order="${pct === null ? -1 : pct}">${
                             pct === null
                               ? '<span class="text-muted">-</span>'
                               : `<span class="badge ${badgeClass}">${pct}%</span>`
                           }</td>
-                          <td><span class="badge ${estadoBadge[d.Estado] || 'bg-secondary'}">${d.Estado}</span></td>
+                          <td data-order="${escapeHtml(d.Responsavel || '')}">${htmlSelectEscolha(d, 'responsavel')}</td>
+                          <td data-order="${escapeHtml(d.Motivo || '')}">${htmlSelectEscolha(d, 'motivo')}</td>
                       </tr>
                   `;
                 tbody.append(row);
@@ -5214,7 +5414,7 @@
                 },
                 pageLength: 10,
                 responsive: true,
-                order: [[1, 'desc']],
+                order: [[2, 'desc']],
               });
             }
     </script>
