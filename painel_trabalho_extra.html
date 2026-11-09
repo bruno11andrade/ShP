@@ -1055,7 +1055,7 @@
                           class="kpi-title fw-bold text-uppercase text-dark"
                           style="font-size: 0.8rem"
                         >
-                          PRODUZIDO/PLANEADO (%)
+                          CUMPRIMENTO DO PLANO (%)
                         </div>
                         <div
                           class="fw-bolder text-dark my-1"
@@ -1203,6 +1203,15 @@
                                 style="font-size: 1.8rem"
                               >
                                 0
+                              </div>
+                              <div class="text-muted" style="font-size: 0.68rem">
+                                <span title="Produzido acima do planeado"
+                                  >Bónus <b id="kpiQtdBonus">0</b></span
+                                >
+                                ·
+                                <span title="Produzido em KAs sem plano nesse fim de semana"
+                                  >Não planeado <b id="kpiQtdNaoPlaneada">0</b></span
+                                >
                               </div>
                             </div>
                           </div>
@@ -1921,8 +1930,13 @@
                                 <th>C.C.</th>
                                 <th>Material / KA</th>
                                 <th>Qtd. Planeada</th>
+                                <th>Sáb</th>
+                                <th>Dom</th>
+                                <th>Fer</th>
                                 <th>Qtd. Produzida</th>
-                                <th>Produzido/Planeado (%)</th>
+                                <th>Bónus</th>
+                                <th>Cumprimento (%)</th>
+                                <th>Estado</th>
                               </tr>
                             </thead>
                             <tbody></tbody>
@@ -2615,6 +2629,27 @@
               return encontrouLigacao ? false : null;
             }
 
+            // Lê todos os itens de uma lista, seguindo as páginas (__next) para
+            // não ficar limitado aos primeiros 5000
+            function fetchAllItems(url) {
+              const dfd = $.Deferred();
+              let todos = [];
+              const pedir = (u) =>
+                $.ajax({
+                  url: u,
+                  type: 'GET',
+                  headers: { Accept: 'application/json; odata=verbose' },
+                })
+                  .done((data) => {
+                    todos = todos.concat(data?.d?.results || []);
+                    if (data?.d?.__next) pedir(data.d.__next);
+                    else dfd.resolve(todos);
+                  })
+                  .fail((...args) => dfd.reject(...args));
+              pedir(url);
+              return dfd.promise();
+            }
+
             function loadData() {
               $('#loadingSpinner').show();
               $('#dashboardContent').hide();
@@ -2626,33 +2661,13 @@
               const endpointOperadores = `${getWebUrl()}/_api/web/lists(guid'${LIST_OPERADORES_GUID}')/items?$top=5000`;
               const endpointMaster = `${getWebUrl()}/_api/web/lists(guid'${LIST_MAE_GUID}')/items?$top=5000`;
 
-              const reqTurnos = $.ajax({
-                url: endpointTurnos,
-                type: 'GET',
-                headers: { Accept: 'application/json; odata=verbose' },
-              });
-              const reqPlano = $.ajax({
-                url: endpointPlano,
-                type: 'GET',
-                headers: { Accept: 'application/json; odata=verbose' },
-              });
-              const reqOperadores = $.ajax({
-                url: endpointOperadores,
-                type: 'GET',
-                headers: { Accept: 'application/json; odata=verbose' },
-              });
-              const reqMaster = $.ajax({
-                url: endpointMaster,
-                type: 'GET',
-                headers: { Accept: 'application/json; odata=verbose' },
-              });
+              const reqTurnos = fetchAllItems(endpointTurnos);
+              const reqPlano = fetchAllItems(endpointPlano);
+              const reqOperadores = fetchAllItems(endpointOperadores);
+              const reqMaster = fetchAllItems(endpointMaster);
 
               $.when(reqTurnos, reqPlano, reqOperadores, reqMaster)
-                .done(function (resTurnos, resPlano, resOperadores, resMaster) {
-                  const turnosResults = resTurnos[0]?.d?.results || [];
-                  const planoResults = resPlano[0]?.d?.results || [];
-                  const operadoresResults = resOperadores[0]?.d?.results || [];
-                  const masterResults = resMaster[0]?.d?.results || [];
+                .done(function (turnosResults, planoResults, operadoresResults, masterResults) {
 
                   // A lista mãe é processada primeiro: os Registos dependem dela
                   buildMapaMae(masterResults);
@@ -2669,10 +2684,10 @@
                 })
                 .fail(function () {
                   reqTurnos
-                    .done(function (data) {
-                      if (data?.d?.results) {
-                        allData = processTurnosData(data.d.results);
-                        allLogisticaData = processLogisticaData(data.d.results);
+                    .done(function (results) {
+                      if (results) {
+                        allData = processTurnosData(results);
+                        allLogisticaData = processLogisticaData(results);
                         allPlanoData = [];
                         populateAllMultiSelects();
                         applyFilters();
@@ -3165,8 +3180,20 @@
 
                 const qtdPlaneada = parseFloat(item.Quantidade) || 0;
                 const qtdProduzida = parseFloat(item.Quantidade_x0020_Produzida) || 0;
+                const numOuNull = (v) =>
+                  v === null || v === undefined || v === '' || isNaN(parseFloat(v))
+                    ? null
+                    : parseFloat(v);
+                const naoPlaneadoRaw = item.N_x00e3_o_x0020_Planeado;
 
                 rawProcessed.push({
+                  KeyFDS: extractValue(item.KeyFDS) || '',
+                  QtdSab: numOuNull(item.QtdSab),
+                  QtdDom: numOuNull(item.QtdDom),
+                  QtdFer: numOuNull(item.QtdFer),
+                  NaoPlaneado:
+                    naoPlaneadoRaw === true ||
+                    /^(sim|yes|true|1)$/i.test(String(naoPlaneadoRaw || '').trim()),
                   Fabrica: fabrica,
                   DataRaw: rawData,
                   DataRef: dataPlano,
@@ -3185,8 +3212,112 @@
                 });
               });
 
-              // Retorna os dados puros, sem aplicar regras de divisão por KA / Data
-              return rawProcessed;
+              return agruparPlanoFDS(rawProcessed);
+            }
+
+            // Data âncora do grupo: sábado = o próprio; domingo = sábado anterior;
+            // feriado à segunda = sábado anterior; à sexta = sábado seguinte;
+            // de terça a quinta = o próprio dia (grupo independente)
+            function ancoraFDS(data) {
+              const d = new Date(data);
+              d.setHours(0, 0, 0, 0);
+              const dia = d.getDay();
+              if (dia === 0) d.setDate(d.getDate() - 1);
+              else if (dia === 1) d.setDate(d.getDate() - 2);
+              else if (dia === 5) d.setDate(d.getDate() + 1);
+              return d;
+            }
+
+            function formatDataPT(d) {
+              return `${String(d.getDate()).padStart(2, '0')}/${String(
+                d.getMonth() + 1
+              ).padStart(2, '0')}/${d.getFullYear()}`;
+            }
+
+            // Junta as linhas do Plano por fim de semana (KeyFDS = CC-KA-âncora).
+            // Produzido: maior QtdSab + maior QtdDom + maior QtdFer do grupo, para
+            // que linhas repetidas não somem duas vezes. Sem campos novos (fins de
+            // semana anteriores à recolha da Hydra) usa a Quantidade Produzida antiga.
+            // As linhas "Não Planeado" só contam se a chave não tiver plano.
+            function agruparPlanoFDS(linhas) {
+              const grupos = new Map();
+              linhas.forEach((r) => {
+                const dataValida = r.DataRef && !isNaN(r.DataRef.getTime());
+                let chave = r.KeyFDS;
+                if (!chave) {
+                  const a = dataValida ? ancoraFDS(r.DataRef) : null;
+                  chave = `${r.CC}-${r.KA}-${
+                    a
+                      ? a.getFullYear() * 10000 + (a.getMonth() + 1) * 100 + a.getDate()
+                      : 'NA'
+                  }`;
+                }
+                if (!grupos.has(chave)) grupos.set(chave, []);
+                grupos.get(chave).push(r);
+              });
+
+              const resultado = [];
+              grupos.forEach((rows, chave) => {
+                const planeadas = rows.filter((r) => !r.NaoPlaneado);
+                const naoPlaneado = planeadas.length === 0;
+                const ordenadas = (naoPlaneado ? rows : planeadas)
+                  .slice()
+                  .sort((a, b) => (a.DataRef || 0) - (b.DataRef || 0));
+                const base = ordenadas[0];
+
+                const temNovo = rows.some(
+                  (r) => r.QtdSab !== null || r.QtdDom !== null || r.QtdFer !== null
+                );
+                const maxCampo = (campo) =>
+                  Math.max(0, ...rows.map((r) => r[campo] || 0));
+                const sab = temNovo ? maxCampo('QtdSab') : null;
+                const dom = temNovo ? maxCampo('QtdDom') : null;
+                const fer = temNovo ? maxCampo('QtdFer') : null;
+                const produzido = temNovo
+                  ? sab + dom + fer
+                  : planeadas.reduce((a, r) => a + r.QtdProduzida, 0);
+                const planeado = planeadas.reduce((a, r) => a + r.QtdPlaneada, 0);
+
+                let estado;
+                if (naoPlaneado) estado = 'Não planeado';
+                else if (produzido <= 0) estado = 'Não produzido';
+                else if (produzido >= planeado) estado = 'Cumprido';
+                else estado = 'Parcial';
+
+                const dataValida = base.DataRef && !isNaN(base.DataRef.getTime());
+                const ancora = dataValida ? ancoraFDS(base.DataRef) : null;
+                const datas = [
+                  ...new Map(
+                    rows
+                      .filter((r) => r.DataRef && !isNaN(r.DataRef.getTime()))
+                      .map((r) => {
+                        const c = new Date(r.DataRef);
+                        c.setHours(0, 0, 0, 0);
+                        return [c.getTime(), c];
+                      })
+                  ).values(),
+                ];
+
+                resultado.push({
+                  ...base,
+                  Chave: chave,
+                  DataRef: ancora,
+                  DataFormatada: ancora ? formatDataPT(ancora) : base.DataFormatada,
+                  _dates: datas,
+                  TipoDia: rows.some((r) => !r.Feriado) ? 'Fim de Semana' : 'Feriado',
+                  QtdSab: sab,
+                  QtdDom: dom,
+                  QtdFer: fer,
+                  QtdPlaneada: planeado,
+                  QtdProduzida: produzido,
+                  QtdCumprida: naoPlaneado ? 0 : Math.min(produzido, planeado),
+                  QtdBonus: naoPlaneado ? 0 : Math.max(0, produzido - planeado),
+                  QtdNaoPlaneada: naoPlaneado ? produzido : 0,
+                  NaoPlaneado: naoPlaneado,
+                  Estado: estado,
+                });
+              });
+              return resultado;
             }
 
             function populateAllMultiSelects() {
@@ -3639,10 +3770,20 @@
                 });
               }
 
-              const qtdPlaneada = plano.reduce((a, b) => a + b.QtdPlaneada, 0);
-              const qtdProduzida = plano.reduce((a, b) => a + b.QtdProduzida, 0);
+              // Cumprimento: por KA conta só até ao planeado; o resto é bónus.
+              // O produzido não planeado aparece à parte.
+              const soma = (campo) => plano.reduce((a, b) => a + (b[campo] || 0), 0);
+              const qtdPlaneada = soma('QtdPlaneada');
+              const qtdProduzida = soma('QtdProduzida');
+              const qtdCumprida = soma('QtdCumprida');
               const adesaoPct =
-                qtdPlaneada > 0 ? ((qtdProduzida / qtdPlaneada) * 100).toFixed(1) : 0;
+                qtdPlaneada > 0 ? ((qtdCumprida / qtdPlaneada) * 100).toFixed(1) : 0;
+              $('#kpiQtdBonus').text(
+                soma('QtdBonus').toLocaleString('pt-PT', { maximumFractionDigits: 0 })
+              );
+              $('#kpiQtdNaoPlaneada').text(
+                soma('QtdNaoPlaneada').toLocaleString('pt-PT', { maximumFractionDigits: 0 })
+              );
 
               $('#kpiQtdPlaneada').text(
                 qtdPlaneada.toLocaleString('pt-PT', { maximumFractionDigits: 0 })
@@ -3653,7 +3794,7 @@
               $('#kpiAdesaoPct').text(`${adesaoPct}%`);
 
               const adesaoCard = $('#kpiAdesaoCard');
-              if (adesaoPct >= 90 && adesaoPct <= 110) {
+              if (adesaoPct >= 90) {
                 adesaoCard.css({
                   'background-color': '#d1e7dd',
                   'border-left-color': '#198754',
@@ -4200,10 +4341,10 @@
                     : p.Mes && p.Mes.includes('-')
                     ? p.Mes.split('-')[1]
                     : p.Mes;
-                if (key && key !== 'N/A') {
+                if (key && key !== 'N/A' && p.QtdPlaneada > 0) {
                   if (!mapData[key]) mapData[key] = { plan: 0, prod: 0 };
                   mapData[key].plan += p.QtdPlaneada;
-                  mapData[key].prod += p.QtdProduzida;
+                  mapData[key].prod += p.QtdCumprida;
                 }
               });
 
@@ -4233,7 +4374,7 @@
                     labels: labels,
                     datasets: [
                       {
-                        label: '% Adesão (Produzido / Planeado)',
+                        label: '% Cumprimento (Cumprido / Planeado)',
                         data: percentages,
                         borderColor: '#005a9e',
                         backgroundColor: 'rgba(0, 90, 158, 0.1)',
@@ -4541,10 +4682,10 @@
             function renderAdesaoArea(planoData) {
               const mapArea = {};
               planoData.forEach((p) => {
-                if (p.Area && p.Area !== 'N/A') {
+                if (p.Area && p.Area !== 'N/A' && p.QtdPlaneada > 0) {
                   if (!mapArea[p.Area]) mapArea[p.Area] = { plan: 0, prod: 0 };
                   mapArea[p.Area].plan += p.QtdPlaneada;
-                  mapArea[p.Area].prod += p.QtdProduzida;
+                  mapArea[p.Area].prod += p.QtdCumprida;
                 }
               });
 
@@ -4621,10 +4762,10 @@
             function renderAdesaoCC(planoData) {
               const mapCC = {};
               planoData.forEach((p) => {
-                if (p.CC && p.CC !== 'N/A') {
+                if (p.CC && p.CC !== 'N/A' && p.QtdPlaneada > 0) {
                   if (!mapCC[p.CC]) mapCC[p.CC] = { plan: 0, prod: 0 };
                   mapCC[p.CC].plan += p.QtdPlaneada;
-                  mapCC[p.CC].prod += p.QtdProduzida;
+                  mapCC[p.CC].prod += p.QtdCumprida;
                 }
               });
 
@@ -5006,15 +5147,26 @@
               const tbody = $('#tablePlano tbody');
               tbody.empty();
 
+              const fmtQtd = (v) =>
+                v === null || v === undefined
+                  ? '<span class="text-muted">-</span>'
+                  : v.toLocaleString('pt-PT', { maximumFractionDigits: 0 });
+              const estadoBadge = {
+                Cumprido: 'bg-success',
+                Parcial: 'bg-warning text-dark',
+                'Não produzido': 'bg-danger',
+                'Não planeado': 'bg-info text-dark',
+              };
+
               data.forEach((d) => {
                 const pct =
                   d.QtdPlaneada > 0
-                    ? ((d.QtdProduzida / d.QtdPlaneada) * 100).toFixed(1)
-                    : 0;
+                    ? ((d.QtdCumprida / d.QtdPlaneada) * 100).toFixed(1)
+                    : null;
                 let badgeClass = 'bg-danger';
-                if (pct > 101) badgeClass = 'bg-warning text-dark';
-                else if (pct >= 90) badgeClass = 'bg-success';
+                if (pct >= 90) badgeClass = 'bg-success';
                 else if (pct >= 80) badgeClass = 'bg-warning text-dark';
+                const diasGrupo = (d._dates || []).map(formatDataPT).join(' + ');
 
                 const tipoDiaBadge =
                   d.TipoDia === 'Feriado'
@@ -5026,7 +5178,7 @@
                           <td>${d.Fabrica}</td>
                           <td data-order="${
                             d.DataRef && !isNaN(d.DataRef.getTime()) ? d.DataRef.getTime() : 0
-                          }">${d.DataFormatada}</td>
+                          }" title="${diasGrupo}">${d.DataFormatada}</td>
                           <td>${tipoDiaBadge}</td>
                           <td>${d.Ano}</td>
                           <td>${d.Mes}</td>
@@ -5035,9 +5187,18 @@
                           <td>${d.Area}</td>
                           <td>${d.CC}</td>
                           <td>${d.KA}</td>
-                          <td data-order="${d.QtdPlaneada}">${d.QtdPlaneada.toLocaleString('pt-PT', { maximumFractionDigits: 0 })}</td>
-                          <td data-order="${d.QtdProduzida}">${d.QtdProduzida.toLocaleString('pt-PT', { maximumFractionDigits: 0 })}</td>
-                          <td data-order="${pct}"><span class="badge ${badgeClass}">${pct}%</span></td>
+                          <td data-order="${d.QtdPlaneada}">${fmtQtd(d.QtdPlaneada)}</td>
+                          <td data-order="${d.QtdSab || 0}">${fmtQtd(d.QtdSab)}</td>
+                          <td data-order="${d.QtdDom || 0}">${fmtQtd(d.QtdDom)}</td>
+                          <td data-order="${d.QtdFer || 0}">${fmtQtd(d.QtdFer)}</td>
+                          <td data-order="${d.QtdProduzida}">${fmtQtd(d.QtdProduzida)}</td>
+                          <td data-order="${d.QtdBonus}">${fmtQtd(d.QtdBonus)}</td>
+                          <td data-order="${pct === null ? -1 : pct}">${
+                            pct === null
+                              ? '<span class="text-muted">-</span>'
+                              : `<span class="badge ${badgeClass}">${pct}%</span>`
+                          }</td>
+                          <td><span class="badge ${estadoBadge[d.Estado] || 'bg-secondary'}">${d.Estado}</span></td>
                       </tr>
                   `;
                 tbody.append(row);
