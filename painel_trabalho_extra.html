@@ -477,6 +477,13 @@
         margin-top: 8px;
       }
 
+      /* Coluna Planeado: "Não" com contorno laranja, para se distinguir do "Sim" */
+      .badge-nao-planeado {
+        background-color: #fff7ed;
+        color: #9a3412;
+        border: 1px solid #fb923c;
+      }
+
       /* Produzido/Planeado acima de 110% */
       .badge-excesso {
         background-color: #9a3412;
@@ -5364,8 +5371,8 @@
                 else if (pct >= 80) badgeClass = 'bg-warning text-dark';
 
                 const planeadoBadge = d.NaoPlaneado
-                  ? '<span class="badge bg-info text-dark">Não</span>'
-                  : '<span class="badge bg-primary">Sim</span>';
+                  ? '<span class="badge badge-nao-planeado"><i class="fa-solid fa-xmark me-1"></i>Não</span>'
+                  : '<span class="badge bg-primary"><i class="fa-solid fa-check me-1"></i>Sim</span>';
                 const semNum = parseInt(String(d.Semana).replace('S', ''), 10) || 0;
                 const detalheDias = [
                   ['Sáb', d.QtdSab],
