@@ -4657,6 +4657,18 @@
               ? formatarTurnos(pedidoNum)
               : '—';
             const real = trabalhoExtraDisponivel ? formatarTurnos(realNum) : '—';
+            // Real TE contra o pedido: igual a verde, acima a laranja,
+            // abaixo a vermelho (sem a lista de registos fica sem cor)
+            let corReal = 'color: #0f172a !important; background-color: #ffffff !important;';
+            if (trabalhoExtraDisponivel) {
+              const dif = realNum - pedidoNum;
+              corReal =
+                Math.abs(dif) < 1e-9
+                  ? 'color: #14532d !important; background-color: #bbf7d0 !important;'
+                  : dif > 0
+                  ? 'color: #9a3412 !important; background-color: #fdc98d !important;'
+                  : 'color: #991b1b !important; background-color: #fca5a5 !important;';
+            }
 
             $tbody.append(`
               <tr>
@@ -4670,7 +4682,7 @@
                   ${turnosPrevistos}
                 </td>
                 <td style="${estiloCelula} color: #0f172a !important;">${pedido}</td>
-                <td style="${estiloCelula} color: #0f172a !important;">${real}</td>
+                <td style="${estiloCelula.replace('background-color: #ffffff !important;', '')} ${corReal}" title="Pedido ${pedido} · Real ${real}">${real}</td>
               </tr>
             `);
           });
