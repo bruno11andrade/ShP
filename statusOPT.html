@@ -1324,8 +1324,12 @@
         text-align: center;
         padding: 6px 4px;
         vertical-align: middle;
-        cursor: pointer;
+        cursor: default;
         white-space: nowrap;
+      }
+      /* Ordenar pelos cabeçalhos só no modo edição (lápis) */
+      .opt-risk-editando th[data-sort] {
+        cursor: pointer;
       }
       .table-risk tbody {
         background-color: #ffffff !important;
@@ -1917,9 +1921,9 @@
                 <table class="table table-risk" id="opt-tableRisk">
                   <thead>
                     <tr>
-                      <th data-sort="CC">CC</th>
-                      <th data-sort="KA">KA</th>
-                      <th data-sort="Cobertura">Cobertura</th>
+                      <th data-sort="CC" title="Ative o lápis para ordenar">CC</th>
+                      <th data-sort="KA" title="Ative o lápis para ordenar">KA</th>
+                      <th data-sort="Cobertura" title="Ative o lápis para ordenar">Cobertura</th>
                       <th style="text-align: left">Comentários</th>
                     </tr>
                   </thead>
@@ -3071,6 +3075,9 @@
           $('#opt-tableRisk thead th[data-sort]')
             .off('click')
             .on('click', function () {
+              // Só com o lápis (modo edição) ativo: ordenar apaga a ordem
+              // personalizada, que é partilhada por toda a gente
+              if (!riskEditMode) return;
               const field = $(this).data('sort');
               if (riskSort.field === field) {
                 riskSort.dir = riskSort.dir === 'asc' ? 'desc' : 'asc';
@@ -7599,6 +7606,10 @@
                 : '<i class="fa-solid fa-pen me-1"></i>'
             );
           $('#opt-tableRisk').toggleClass('opt-risk-editando', ativo);
+          $('#opt-tableRisk thead th[data-sort]').attr(
+            'title',
+            ativo ? 'Ordenar por esta coluna (substitui a ordem personalizada)' : 'Ative o lápis para ordenar'
+          );
           renderRiskTable();
           updateRiskOrderUI();
           // A releitura automática esteve adiada enquanto se editava
