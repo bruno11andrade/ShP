@@ -477,6 +477,77 @@
         margin-top: 8px;
       }
 
+      /* Métricas e Indicadores Globais: linhas com destaque, fábricas e acumulados */
+      .mt-linha {
+        display: grid;
+        grid-template-columns:
+          minmax(210px, 1.1fr) repeat(var(--mt-fabs), minmax(190px, 1fr))
+          minmax(240px, 1.15fr);
+        gap: 12px;
+        align-items: stretch;
+        margin-bottom: 16px;
+      }
+      .mt-linha > .kpi-card,
+      .mt-prazos > .kpi-card {
+        box-sizing: border-box;
+        height: auto;
+      }
+      @media (max-width: 1200px) {
+        .mt-linha {
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+      }
+      .mt-destaque {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border-left: 8px solid #cbd5e1;
+      }
+      .mt-s-ok { background-color: #d1e7dd !important; border-left-color: #198754 !important; }
+      .mt-s-warn { background-color: #fff3cd !important; border-left-color: #ffc107 !important; }
+      .mt-s-bad { background-color: #f8d7da !important; border-left-color: #dc3545 !important; }
+      .mt-s-neutro { background-color: #fff; }
+      .mt-b-ok { border-left: 5px solid #198754 !important; }
+      .mt-b-warn { border-left: 5px solid #ffc107 !important; }
+      .mt-b-bad { border-left: 5px solid #dc3545 !important; }
+      .mt-b-neutro { border-left: 5px solid #cbd5e1 !important; }
+      .mt-c-ok { color: #0f5132; }
+      .mt-c-warn { color: #856404; }
+      .mt-c-bad { color: #842029; }
+      .mt-c-neutro { color: #64748b; }
+      .mt-bar { height: 7px; background: #e9eef5; border-radius: 6px; overflow: hidden; margin-top: 4px; }
+      .mt-bar > i { display: block; height: 100%; border-radius: 6px; }
+      .mt-f-ok { background: #198754; }
+      .mt-f-warn { background: #ffc107; }
+      .mt-f-bad { background: #dc3545; }
+      .mt-f-neutro { background: #cbd5e1; }
+      .mt-fab { cursor: pointer; padding: 10px 12px; }
+      .mt-fab:hover, .mt-fab:focus { outline: 2px solid rgba(0, 90, 158, 0.25); }
+      .mt-aberto { outline: 2px solid #005a9e; }
+      .mt-areas { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #e2e8f0; }
+      .mt-area { display: grid; grid-template-columns: 52px 1fr 48px; gap: 6px; align-items: center; font-size: 0.74rem; margin: 2px 0; }
+      .mt-area .mt-bar { margin-top: 0; }
+      .mt-area b { text-align: right; }
+      .mt-acum { border-left: 5px solid #cbd5e1; padding: 10px 12px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+      .mt-acum-it { border-left: 3px solid #cbd5e1; padding-left: 8px; }
+      .mt-tab { width: 100%; font-size: 0.74rem; border-collapse: collapse; }
+      .mt-tab th, .mt-tab td { padding: 2px 4px; text-align: right; }
+      .mt-tab thead th { font-size: 0.6rem; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+      .mt-tab tbody th { text-align: left; font-size: 0.62rem; text-transform: uppercase; color: #64748b; font-weight: 700; }
+      .mt-tab td:last-child { border-left: 1px solid #e2e8f0; }
+      .mt-acum-pe { display: flex; justify-content: space-between; gap: 6px; border-top: 1px solid #e2e8f0; padding-top: 6px; }
+      .mt-acum-pe > div { display: flex; flex-direction: column; }
+      .mt-acum-pe b { font-size: 1.05rem; color: #1e293b; }
+      .mt-acum-pe b.mt-c-bad { color: #842029; }
+      .mt-acum-pe b.mt-c-ok { color: #0f5132; }
+      .mt-prazos { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+      .mt-prazo { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: center; padding: 10px 14px; border-left: 5px solid #cbd5e1; }
+      .mt-prazo-fabs { display: flex; flex-direction: column; gap: 4px; }
+      .mt-prazo-fab { display: grid; grid-template-columns: 70px 1fr 42px 54px; gap: 8px; align-items: center; font-size: 0.76rem; }
+      .mt-prazo-fab .mt-bar { margin-top: 0; }
+      .mt-prazo-fab b { text-align: right; }
+      .mt-prazo-fab span:last-child { font-size: 0.68rem; text-align: right; }
+
       /* Coluna Planeado: "Não" com contorno laranja, para se distinguir do "Sim" */
       .badge-nao-planeado {
         background-color: #fff7ed;
@@ -1053,422 +1124,9 @@
                 aria-labelledby="headingMetrics"
               >
                 <div class="accordion-body">
-                  <!-- LINHA SUPERIOR: PLANEAMENTO, CUMPRIMENTO DE PRAZOS E HC -->
-                  <div class="row g-3 mb-3 align-items-stretch">
-                    <div class="col-xxl-3 col-xl-3 col-lg-4">
-                      <div
-                        class="kpi-card highlight-card p-2 px-3 d-flex flex-column justify-content-center h-100"
-                        id="kpiAdesaoCard"
-                        style="
-                          border-left: 8px solid #198754;
-                          background-color: #d1e7dd;
-                        "
-                      >
-                        <div
-                          class="kpi-title fw-bold text-uppercase text-dark"
-                          style="font-size: 0.8rem"
-                        >
-                          CUMPRIMENTO DO PLANO (%)
-                        </div>
-                        <div
-                          class="fw-bolder text-dark my-1"
-                          id="kpiAdesaoPct"
-                          style="font-size: 2.8rem; line-height: 1.1"
-                        >
-                          0%
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="col-xxl-9 col-xl-9 col-lg-8">
-                      <div
-                        class="d-flex flex-column h-100 justify-content-between"
-                      >
-                        <!-- LINHA 1: Planeadas + Cumprimento de Prazos -->
-                        <div
-                          class="row g-2 mb-2 flex-grow-1 align-items-stretch"
-                        >
-                          <!-- Peças Planeadas -->
-                          <div class="col-md-4 d-flex flex-column">
-                            <div
-                              class="d-none d-md-block"
-                              style="height: 26px"
-                            ></div>
-                            <div
-                              class="kpi-card p-2 d-flex flex-column justify-content-center flex-grow-1"
-                              style="border-left: 5px solid #005a9e"
-                            >
-                              <div
-                                class="kpi-title fw-bold text-dark"
-                                style="font-size: 0.65rem"
-                              >
-                                PC PLANEADAS
-                              </div>
-                              <div
-                                class="fw-bold text-dark mt-1"
-                                id="kpiQtdPlaneada"
-                                style="font-size: 1.8rem"
-                              >
-                                0
-                              </div>
-                            </div>
-                          </div>
-
-                          <!-- Cumprimento de Prazos (Agrupados) -->
-                          <div class="col-md-8 d-flex flex-column">
-                            <span
-                              class="section-tag mb-1 align-self-start"
-                              style="font-size: 0.68rem"
-                            >
-                              <i class="fa-solid fa-clock-rotate-left me-1"></i
-                              >Cumprimento de Prazos (Comunicação)
-                            </span>
-                            <div
-                              class="row g-2 flex-grow-1 align-items-stretch"
-                            >
-                              <div class="col-md-6">
-                                <div
-                                  class="kpi-card p-2 d-flex justify-content-between align-items-center h-100"
-                                  id="kpiStandardLogisticaCard"
-                                  style="border-left: 5px solid #0dcaf0"
-                                >
-                                  <div>
-                                    <div
-                                      class="kpi-title fw-bold text-dark"
-                                      style="font-size: 0.65rem"
-                                    >
-                                      LOGÍSTICA
-                                    </div>
-                                    <div
-                                      class="text-muted mt-1"
-                                      style="font-size: 0.7rem"
-                                    >
-                                      <span id="kpiLogisticaCount">0</span> de
-                                      <span id="kpiLogisticaTotal">0</span>
-                                      (QUARTA 12H00)
-                                    </div>
-                                  </div>
-                                  <div
-                                    class="fw-bolder ms-2"
-                                    id="kpiLogisticaPct"
-                                    style="font-size: 1.8rem; color: #0dcaf0"
-                                  >
-                                    0%
-                                  </div>
-                                </div>
-                              </div>
-                              <div class="col-md-6">
-                                <div
-                                  class="kpi-card p-2 d-flex justify-content-between align-items-center h-100"
-                                  id="kpiStandardProducaoCard"
-                                  style="border-left: 5px solid #fd7e14"
-                                >
-                                  <div>
-                                    <div
-                                      class="kpi-title fw-bold text-dark"
-                                      style="font-size: 0.65rem"
-                                    >
-                                      PRODUÇÃO
-                                    </div>
-                                    <div
-                                      class="text-muted mt-1"
-                                      style="font-size: 0.7rem"
-                                    >
-                                      <span id="kpiProducaoCount">0</span> de
-                                      <span id="kpiProducaoTotal">0</span>
-                                      (QUINTA 14H30)
-                                    </div>
-                                  </div>
-                                  <div
-                                    class="fw-bolder ms-2"
-                                    id="kpiProducaoPct"
-                                    style="font-size: 1.8rem; color: #fd7e14"
-                                  >
-                                    0%
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <!-- LINHA 2: Produzidas + HC -->
-                        <div class="row g-2 flex-grow-1 align-items-stretch">
-                          <!-- Peças Produzidas -->
-                          <div class="col-md-4 d-flex flex-column">
-                            <div
-                              class="d-none d-md-block"
-                              style="height: 26px"
-                            ></div>
-                            <div
-                              class="kpi-card p-2 d-flex flex-column justify-content-center flex-grow-1"
-                              style="border-left: 5px solid #10b981"
-                            >
-                              <div
-                                class="kpi-title fw-bold text-dark"
-                                style="font-size: 0.65rem"
-                              >
-                                PEÇAS PRODUZIDAS
-                              </div>
-                              <div
-                                class="fw-bold text-dark mt-1"
-                                id="kpiQtdProduzida"
-                                style="font-size: 1.8rem"
-                              >
-                                0
-                              </div>
-                            </div>
-                          </div>
-
-                          <!-- HC (Agrupados) -->
-                          <div class="col-md-8 d-flex flex-column">
-                            <span
-                              class="section-tag mb-1 align-self-start"
-                              style="font-size: 0.68rem"
-                            >
-                              <i class="fa-solid fa-users me-1"></i>#HC
-                            </span>
-                            <div
-                              class="row g-2 flex-grow-1 align-items-stretch"
-                            >
-                              <div class="col-md-6">
-                                <div
-                                  class="kpi-card p-2 d-flex flex-column justify-content-center h-100"
-                                  style="border-left: 5px solid #0284c7"
-                                >
-                                  <div
-                                    class="kpi-title"
-                                    style="font-size: 0.65rem"
-                                  >
-                                    #HC LOGÍSTICA
-                                  </div>
-                                  <div
-                                    class="fw-bold text-dark mt-1"
-                                    id="kpiOperadoresLogistica"
-                                    style="font-size: 1.8rem"
-                                  >
-                                    0
-                                  </div>
-                                </div>
-                              </div>
-                              <div class="col-md-6">
-                                <div
-                                  class="kpi-card p-2 d-flex flex-column justify-content-center h-100"
-                                  style="border-left: 5px solid #fd7e14"
-                                >
-                                  <div
-                                    class="kpi-title"
-                                    style="font-size: 0.65rem"
-                                  >
-                                    #HC PRODUÇÃO
-                                  </div>
-                                  <div
-                                    class="fw-bold text-dark mt-1"
-                                    id="kpiOperadoresProducao"
-                                    style="font-size: 1.8rem"
-                                  >
-                                    0
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- LINHA INFERIOR COMPLETA: ANÁLISE DE TURNOS -->
-                  <div class="mt-4">
-                    <span class="section-tag mb-2" style="font-size: 0.68rem"
-                      ><i class="fa-solid fa-calendar-days me-1"></i>Análise de
-                      Turnos</span
-                    >
-                    <div class="row g-2 align-items-stretch">
-                      <div class="col-xxl-3 col-xl-3 col-lg-3 col-md-6">
-                        <div
-                          class="kpi-card highlight-card p-2 px-3 d-flex flex-column justify-content-center h-100"
-                          id="kpiNecPreenchidosCard"
-                          style="
-                            border-left-color: #dc3545;
-                            background-color: #f8d7da;
-                          "
-                        >
-                          <div
-                            class="kpi-title fw-bold text-uppercase text-dark"
-                            style="font-size: 0.65rem"
-                          >
-                            COBERTURA DE TURNOS SOLICITADOS (%)
-                          </div>
-                          <div
-                            class="fw-bold text-dark my-1"
-                            id="kpiNecPreenchidosPct"
-                            style="font-size: 2.2rem; line-height: 1.1"
-                          >
-                            0%
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="col-xxl-2 col-xl-2 col-lg-2 col-md-6">
-                        <div
-                          class="kpi-card p-2 px-3 d-flex flex-column justify-content-between h-100 bg-white border-0 shadow-sm"
-                        >
-                          <div
-                            class="mb-1 ps-2"
-                            style="border-left: 3px solid #64b5f6"
-                          >
-                            <div
-                              class="kpi-title"
-                              style="font-size: 0.6rem; color: #64748b"
-                            >
-                              ∑ TURNOS SOLICITADOS
-                            </div>
-                            <div
-                              class="fw-bold text-dark"
-                              id="kpiTurnosNec"
-                              style="font-size: 1.5rem"
-                            >
-                              0
-                            </div>
-                          </div>
-                          <div
-                            class="ps-2"
-                            style="border-left: 3px solid #005a9e"
-                          >
-                            <div
-                              class="kpi-title"
-                              style="font-size: 0.6rem; color: #64748b"
-                            >
-                              ∑ TURNOS GARANTIDOS
-                            </div>
-                            <div
-                              class="fw-bold text-dark"
-                              id="kpiTotalPreenchidos"
-                              style="font-size: 1.5rem"
-                            >
-                              0
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="col-xxl-2 col-xl-2 col-lg-2 col-md-6">
-                        <div
-                          class="kpi-card p-2 px-3 d-flex flex-column justify-content-between h-100 bg-white border-0 shadow-sm"
-                        >
-                          <div
-                            class="mb-1 ps-2"
-                            style="border-left: 3px solid #81c784"
-                          >
-                            <div
-                              class="kpi-title"
-                              style="font-size: 0.6rem; color: #64748b"
-                            >
-                              TURNOS SOLICITADOS FIM DE SEMANA
-                            </div>
-                            <div
-                              class="fw-bold text-dark"
-                              id="kpiFimSemana"
-                              style="font-size: 1.5rem"
-                            >
-                              0
-                            </div>
-                          </div>
-                          <div
-                            class="ps-2"
-                            style="border-left: 3px solid #198754"
-                          >
-                            <div
-                              class="kpi-title"
-                              style="font-size: 0.6rem; color: #64748b"
-                            >
-                              TURNOS GARANTIDOS FIM DE SEMANA
-                            </div>
-                            <div
-                              class="fw-bold text-dark"
-                              id="kpiPreenchidosFimSemana"
-                              style="font-size: 1.5rem"
-                            >
-                              0
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="col-xxl-2 col-xl-2 col-lg-2 col-md-6">
-                        <div
-                          class="kpi-card p-2 px-3 d-flex flex-column justify-content-between h-100 bg-white border-0 shadow-sm"
-                        >
-                          <div
-                            class="mb-1 ps-2"
-                            style="border-left: 3px solid #ffe082"
-                          >
-                            <div
-                              class="kpi-title"
-                              style="font-size: 0.6rem; color: #64748b"
-                            >
-                              TURNOS SOLICITADOS FERIADO
-                            </div>
-                            <div
-                              class="fw-bold text-dark"
-                              id="kpiFeriado"
-                              style="font-size: 1.5rem"
-                            >
-                              0
-                            </div>
-                          </div>
-                          <div
-                            class="ps-2"
-                            style="border-left: 3px solid #ffc107"
-                          >
-                            <div
-                              class="kpi-title"
-                              style="font-size: 0.6rem; color: #64748b"
-                            >
-                              TURNOS GARANTIDOS FERIADO
-                            </div>
-                            <div
-                              class="fw-bold text-dark"
-                              id="kpiPreenchidosFeriado"
-                              style="font-size: 1.5rem"
-                            >
-                              0
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="col-xxl-3 col-xl-3 col-lg-3 col-md-6">
-                        <div
-                          class="kpi-card p-2 px-3 d-flex flex-column justify-content-center h-100"
-                          id="kpiDeltaCard"
-                          style="
-                            border-left: 5px solid #dc3545;
-                            background-color: #f8d7da;
-                          "
-                        >
-                          <div
-                            class="kpi-title text-uppercase fw-bold"
-                            style="font-size: 0.85rem; color: #842029"
-                          >
-                            &Delta; TURNOS
-                          </div>
-                          <div
-                            class="fw-bold mt-1"
-                            id="kpiDeltaTurnos"
-                            style="
-                              color: #842029;
-                              font-size: 2.2rem;
-                              line-height: 1.1;
-                            "
-                          >
-                            0
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <!-- Preenchido por renderMetricas(): Plano de Produção, Análise de
+                       Turnos e Cumprimento de Prazos, com o detalhe por fábrica -->
+                  <div id="metricasK"></div>
                 </div>
               </div>
             </div>
@@ -3688,151 +3346,11 @@
               // KPIs e gráficos só com o que estava planeado; o produzido não
               // planeado aparece apenas na tabela de detalhe
               const planoPlaneado = filteredPlano.filter((p) => !p.NaoPlaneado);
-              updateKPIs(filteredTurnos, planoPlaneado);
-              updateLogisticaKPIAndChart(filteredLogistica);
-              updateComplianceKPIs(filteredMaster);
+              renderMetricas(filteredTurnos, planoPlaneado, filteredLogistica, filteredMaster);
 
               renderCharts(filteredTurnos, planoPlaneado);
               renderTable(filteredTurnos);
               renderPlanoTable(filteredPlano);
-            }
-
-            function updateKPIs(turnos, plano) {
-              const totalTurnosNec = turnos.reduce(
-                (acc, curr) => acc + curr.TurnosNec,
-                0
-              );
-              const totalFimSemana = turnos.reduce(
-                (acc, curr) => acc + curr.TurnosFimSemana,
-                0
-              );
-              const totalFeriados = turnos.reduce(
-                (acc, curr) => acc + curr.TurnosFeriado,
-                0
-              );
-
-              const totalPreenchidos = turnos.reduce(
-                (acc, curr) => acc + curr.TurnosPreenchidos,
-                0
-              );
-              const totalPreenchidosFimSemana = turnos.reduce(
-                (acc, curr) => acc + (curr.PreenchidosFimSemana || 0),
-                0
-              );
-              const totalPreenchidosFeriado = turnos.reduce(
-                (acc, curr) => acc + (curr.PreenchidosFeriado || 0),
-                0
-              );
-
-              const totalOpsProducao = turnos.reduce(
-                (acc, curr) => acc + (curr.TotalOps || 0),
-                0
-              );
-
-              const delta = totalPreenchidos - totalTurnosNec;
-              const deltaFormatted = delta > 0 ? `+${delta}` : `${delta}`;
-
-              const necPreenchidosPct =
-                totalTurnosNec > 0
-                  ? ((totalPreenchidos / totalTurnosNec) * 100).toFixed(1)
-                  : 0;
-
-              $('#kpiTurnosNec').text(totalTurnosNec);
-              $('#kpiFimSemana').text(totalFimSemana);
-              $('#kpiFeriado').text(totalFeriados);
-
-              $('#kpiTotalPreenchidos').text(totalPreenchidos);
-              $('#kpiPreenchidosFimSemana').text(totalPreenchidosFimSemana);
-              $('#kpiPreenchidosFeriado').text(totalPreenchidosFeriado);
-              $('#kpiNecPreenchidosPct').text(`${necPreenchidosPct}%`);
-
-              $('#kpiDeltaTurnos').text(deltaFormatted);
-              $('#kpiOperadoresProducao').text(totalOpsProducao);
-
-              const deltaCard = $('#kpiDeltaCard');
-              const deltaVal = $('#kpiDeltaTurnos');
-
-              if (delta < 0) {
-                deltaCard.css({
-                  'background-color': '#f8d7da',
-                  'border-left-color': '#dc3545',
-                });
-                deltaVal.css('color', '#842029');
-              } else if (delta > 0) {
-                deltaCard.css({
-                  'background-color': '#cfe2ff',
-                  'border-left-color': '#0d6efd',
-                });
-                deltaVal.css('color', '#084298');
-              } else {
-                deltaCard.css({
-                  'background-color': '#d1e7dd',
-                  'border-left-color': '#198754',
-                });
-                deltaVal.css('color', '#0f5132');
-              }
-
-              const necPreenchidosCard = $('#kpiNecPreenchidosCard');
-              if (necPreenchidosPct > 101) {
-                necPreenchidosCard.css({
-                  'background-color': '#fff3cd',
-                  'border-left-color': '#ffc107',
-                });
-              } else if (necPreenchidosPct >= 90) {
-                necPreenchidosCard.css({
-                  'background-color': '#d1e7dd',
-                  'border-left-color': '#198754',
-                });
-              } else if (necPreenchidosPct >= 80) {
-                necPreenchidosCard.css({
-                  'background-color': '#fff3cd',
-                  'border-left-color': '#ffc107',
-                });
-              } else {
-                necPreenchidosCard.css({
-                  'background-color': '#f8d7da',
-                  'border-left-color': '#dc3545',
-                });
-              }
-
-              // Peças produzidas: tudo o que se produziu nos KAs planeados.
-              // Cumprimento: cada KA conta só até ao seu planeado.
-              const qtdPlaneada = plano.reduce((a, b) => a + b.QtdPlaneada, 0);
-              const qtdProduzida = plano.reduce((a, b) => a + b.QtdProduzida, 0);
-              const qtdCumprida = plano.reduce((a, b) => a + b.QtdCumprida, 0);
-              const adesaoPct =
-                qtdPlaneada > 0 ? ((qtdCumprida / qtdPlaneada) * 100).toFixed(1) : 0;
-
-              $('#kpiQtdPlaneada').text(
-                qtdPlaneada.toLocaleString('pt-PT', { maximumFractionDigits: 0 })
-              );
-              $('#kpiQtdProduzida').text(
-                qtdProduzida.toLocaleString('pt-PT', { maximumFractionDigits: 0 })
-              );
-              $('#kpiAdesaoPct').text(`${adesaoPct}%`);
-
-              const adesaoCard = $('#kpiAdesaoCard');
-              if (adesaoPct >= 90) {
-                adesaoCard.css({
-                  'background-color': '#d1e7dd',
-                  'border-left-color': '#198754',
-                });
-              } else if (adesaoPct >= 80 && adesaoPct < 90) {
-                adesaoCard.css({
-                  'background-color': '#fff3cd',
-                  'border-left-color': '#ffc107',
-                });
-              } else {
-                adesaoCard.css({
-                  'background-color': '#f8d7da',
-                  'border-left-color': '#dc3545',
-                });
-              }
-            }
-
-            function updateLogisticaKPIAndChart(logisticaData) {
-              const totalOperadores = logisticaData.length;
-              $('#kpiOperadoresLogistica').text(totalOperadores);
             }
 
             function setEvolucaoAdesaoGroup(group) {
@@ -3859,105 +3377,6 @@
                 $('#btnEvolTurnosSemana').removeClass('active');
               }
               renderEvolucaoTurnosChart(currentTurnosData);
-            }
-
-            function updateComplianceKPIs(masterData) {
-              let logTotal = 0,
-                logOnTime = 0;
-              let prodTotal = 0,
-                prodOnTime = 0;
-
-              masterData.forEach((item) => {
-                if (item.LogSubmitted) {
-                  logTotal++;
-                  if (item.LogOnTime) logOnTime++;
-                }
-                if (item.ProdSubmitted) {
-                  prodTotal++;
-                  if (item.ProdOnTime) prodOnTime++;
-                }
-              });
-
-              const logPct =
-                logTotal > 0 ? Math.round((logOnTime / logTotal) * 100) : 0;
-              const prodPct =
-                prodTotal > 0 ? Math.round((prodOnTime / prodTotal) * 100) : 0;
-
-              $('#kpiLogisticaCount').text(logOnTime);
-              $('#kpiLogisticaTotal').text(logTotal);
-              $('#kpiLogisticaPct').text(`${logPct}%`);
-
-              $('#kpiProducaoCount').text(prodOnTime);
-              $('#kpiProducaoTotal').text(prodTotal);
-              $('#kpiProducaoPct').text(`${prodPct}%`);
-
-              const logCard = $('#kpiStandardLogisticaCard');
-              const logText = $('#kpiLogisticaPct');
-              if (logTotal === 0) {
-                logCard.css({
-                  'border-left-color': '#0dcaf0',
-                  'background-color': '#fff',
-                });
-                logText.css('color', '#0dcaf0');
-              } else if (logPct > 101) {
-                logCard.css({
-                  'border-left-color': '#ffc107',
-                  'background-color': '#fff3cd',
-                });
-                logText.css('color', '#856404');
-              } else if (logPct >= 90) {
-                logCard.css({
-                  'border-left-color': '#198754',
-                  'background-color': '#d1e7dd',
-                });
-                logText.css('color', '#0f5132');
-              } else if (logPct >= 80) {
-                logCard.css({
-                  'border-left-color': '#ffc107',
-                  'background-color': '#fff3cd',
-                });
-                logText.css('color', '#856404');
-              } else {
-                logCard.css({
-                  'border-left-color': '#dc3545',
-                  'background-color': '#f8d7da',
-                });
-                logText.css('color', '#842029');
-              }
-
-              const prodCard = $('#kpiStandardProducaoCard');
-              const prodText = $('#kpiProducaoPct');
-              if (prodTotal === 0) {
-                prodCard.css({
-                  'border-left-color': '#fd7e14',
-                  'background-color': '#fff',
-                });
-                prodText.css('color', '#fd7e14');
-              } else if (prodPct > 101) {
-                prodCard.css({
-                  'border-left-color': '#ffc107',
-                  'background-color': '#fff3cd',
-                });
-                prodText.css('color', '#856404');
-              } else if (prodPct >= 90) {
-                prodCard.css({
-                  'border-left-color': '#198754',
-                  'background-color': '#d1e7dd',
-                });
-                prodText.css('color', '#0f5132');
-              } else if (prodPct >= 80) {
-                prodCard.css({
-                  'border-left-color': '#ffc107',
-                  'background-color': '#fff3cd',
-                });
-                prodText.css('color', '#856404');
-              } else {
-                prodCard.css({
-                  'border-left-color': '#dc3545',
-                  'background-color': '#f8d7da',
-                });
-                prodText.css('color', '#842029');
-              }
             }
 
             function setEvolucaoNecPreenchidosGroup(group) {
@@ -4847,6 +4266,186 @@
               setTopAreaFilter(null);
               applyFilters();
             }
+
+            // =========================================================
+            // MÉTRICAS E INDICADORES GLOBAIS: global + fábrica (+ área)
+            // =========================================================
+            const NOMES_FABRICA = { OVAR: 'Ovar', CUC: 'Cucujães' };
+            const nomeFabrica = (f) => NOMES_FABRICA[f] || f;
+            // Fábrica aberta (detalhe por área) em cada indicador
+            const metricasAberto = { pvp: null, cob: null };
+            let ultimasMetricas = null;
+
+            // Estado de cor: ok / warn / bad / neutro. Na cobertura, acima de
+            // 101% também fica a amarelo (turnos garantidos a mais).
+            function estadoPct(p, total, tipo) {
+              if (!total) return 'neutro';
+              if (tipo === 'cob' && p > 101) return 'warn';
+              if (p >= 90) return 'ok';
+              if (p >= 80) return 'warn';
+              return 'bad';
+            }
+            const fmtN = (v) => (v || 0).toLocaleString('pt-PT', { maximumFractionDigits: 0 });
+            const fmtP = (p) => `${p.toFixed(1)}%`;
+            const barraPct = (p, est) =>
+              `<div class="mt-bar"><i class="mt-f-${est}" style="width:${Math.min(p, 100)}%"></i></div>`;
+
+            function renderMetricas(turnos, plano, logistica, master) {
+              ultimasMetricas = [turnos, plano, logistica, master];
+              const ordem = ['OVAR', 'CUC'];
+              const fabricas = [
+                ...new Set(
+                  [...plano, ...turnos, ...master, ...logistica]
+                    .map((d) => d.Fabrica)
+                    .filter((f) => f && f !== 'N/A')
+                ),
+              ].sort((a, b) => {
+                const ia = ordem.indexOf(a), ib = ordem.indexOf(b);
+                return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+              });
+              const soma = (lista, campo) => lista.reduce((a, d) => a + (d[campo] || 0), 0);
+              const daFabrica = (lista, f) => lista.filter((d) => d.Fabrica === f);
+
+              // --- Valores de cada indicador ---
+              const pvp = (lista) => {
+                const plan = soma(lista, 'QtdPlaneada');
+                const cump = soma(lista, 'QtdCumprida');
+                return { p: plan ? (cump / plan) * 100 : 0, total: plan, plan, prod: soma(lista, 'QtdProduzida') };
+              };
+              const cob = (lista) => {
+                const sol = soma(lista, 'TurnosNec');
+                const gar = soma(lista, 'TurnosPreenchidos');
+                return { p: sol ? (gar / sol) * 100 : 0, total: sol, sol, gar };
+              };
+              const prazo = (lista, tipo) => {
+                const sub = lista.filter((d) => d[`${tipo}Submitted`]);
+                const ok = sub.filter((d) => d[`${tipo}OnTime`]).length;
+                return { p: sub.length ? (ok / sub.length) * 100 : 0, total: sub.length, ok };
+              };
+              const porArea = (lista, calc) => {
+                const areas = [...new Set(lista.map((d) => d.Area).filter((a) => a && a !== 'N/A'))];
+                return areas
+                  .map((a) => ({ nome: a, ...calc(lista.filter((d) => d.Area === a)) }))
+                  .filter((a) => a.total > 0)
+                  .sort((x, y) => x.p - y.p);
+              };
+
+              // --- Cartões ---
+              const destaque = (titulo, v, tipo) => {
+                const est = estadoPct(v.p, v.total, tipo);
+                return `<div class="kpi-card highlight-card mt-destaque mt-s-${est}">
+                    <div class="kpi-title fw-bold text-uppercase text-dark" style="font-size: 0.8rem">${titulo}</div>
+                    <div class="fw-bolder text-dark my-1" style="font-size: 2.8rem; line-height: 1.1">${fmtP(v.p)}</div>
+                    <div class="text-muted" style="font-size: 0.72rem">Global</div>
+                  </div>`;
+              };
+              const cartaoFabrica = (ind, f, v, subtexto, areas, tipo) => {
+                const est = estadoPct(v.p, v.total, tipo);
+                const aberto = metricasAberto[ind] === f;
+                const linhasArea = areas
+                  .map((a) => {
+                    const ea = estadoPct(a.p, a.total, tipo);
+                    return `<div class="mt-area"><span>${a.nome}</span>${barraPct(a.p, ea)}<b class="mt-c-${ea}">${fmtP(a.p)}</b></div>`;
+                  })
+                  .join('');
+                return `<div class="kpi-card mt-fab mt-b-${est}${aberto ? ' mt-aberto' : ''}" data-ind="${ind}" data-fab="${f}" role="button" tabindex="0">
+                    <div class="d-flex justify-content-between align-items-baseline">
+                      <div class="kpi-title fw-bold text-dark" style="font-size: 0.65rem">${nomeFabrica(f)}</div>
+                      <span class="text-muted" style="font-size: 0.68rem">${aberto ? 'esconder áreas ▴' : 'ver áreas ▾'}</span>
+                    </div>
+                    <div class="fw-bold mt-1 mt-c-${est}" style="font-size: 1.8rem; line-height: 1.1">${v.total ? fmtP(v.p) : '-'}</div>
+                    ${barraPct(v.p, est)}
+                    <div class="text-muted mt-1" style="font-size: 0.7rem">${subtexto}</div>
+                    ${aberto ? `<div class="mt-areas"><div class="kpi-title" style="font-size: 0.6rem">Áreas · ${nomeFabrica(f)}</div>${linhasArea || '<span class="text-muted small">Sem áreas</span>'}</div>` : ''}
+                  </div>`;
+              };
+              const linha = (titulo, conteudo) =>
+                `<span class="section-tag mb-1" style="font-size: 0.68rem">${titulo}</span>
+                 <div class="mt-linha mb-3" style="--mt-fabs: ${Math.max(fabricas.length, 1)}">${conteudo}</div>`;
+
+              // --- Plano de Produção ---
+              const pvpGlobal = pvp(plano);
+              let html = linha(
+                'Plano de Produção',
+                destaque('Cumprimento do Plano (%)', pvpGlobal, 'pvp') +
+                  fabricas
+                    .map((f) => {
+                      const lf = daFabrica(plano, f), v = pvp(lf);
+                      return cartaoFabrica('pvp', f, v, `${fmtN(v.plan)} plan. · ${fmtN(v.prod)} prod.`, porArea(lf, pvp), 'pvp');
+                    })
+                    .join('') +
+                  `<div class="kpi-card mt-acum">
+                    <div class="mt-acum-it" style="border-left-color: #005a9e"><div class="kpi-title" style="font-size: 0.6rem">PC Planeadas</div><div class="fw-bold text-dark" style="font-size: 1.15rem">${fmtN(pvpGlobal.plan)}</div></div>
+                    <div class="mt-acum-it" style="border-left-color: #10b981"><div class="kpi-title" style="font-size: 0.6rem">PC Produzidas</div><div class="fw-bold text-dark" style="font-size: 1.15rem">${fmtN(pvpGlobal.prod)}</div></div>
+                  </div>`
+              );
+
+              // --- Análise de Turnos ---
+              const cobGlobal = cob(turnos);
+              const fdsSol = soma(turnos, 'TurnosFimSemana');
+              const ferSol = soma(turnos, 'TurnosFeriado');
+              const fdsGar = soma(turnos, 'PreenchidosFimSemana');
+              const ferGar = soma(turnos, 'PreenchidosFeriado');
+              const delta = cobGlobal.gar - cobGlobal.sol;
+              const deltaCls = delta < 0 ? 'mt-c-bad' : delta > 0 ? 'text-primary' : 'mt-c-ok';
+              html += linha(
+                'Análise de Turnos',
+                destaque('Cobertura de Turnos Solicitados (%)', cobGlobal, 'cob') +
+                  fabricas
+                    .map((f) => {
+                      const lf = daFabrica(turnos, f), v = cob(lf);
+                      return cartaoFabrica('cob', f, v, `${v.gar} de ${v.sol} turnos garantidos`, porArea(lf, cob), 'cob');
+                    })
+                    .join('') +
+                  `<div class="kpi-card mt-acum">
+                    <table class="mt-tab">
+                      <thead><tr><th></th><th>FDS</th><th>Feriado</th><th>Total</th></tr></thead>
+                      <tbody>
+                        <tr><th>Solicitados</th><td>${fdsSol}</td><td>${ferSol}</td><td><b>${cobGlobal.sol}</b></td></tr>
+                        <tr><th>Garantidos</th><td>${fdsGar}</td><td>${ferGar}</td><td><b>${cobGlobal.gar}</b></td></tr>
+                      </tbody>
+                    </table>
+                    <div class="mt-acum-pe">
+                      <div><span class="kpi-title" style="font-size: 0.6rem">Δ Turnos</span><b class="${deltaCls}">${delta > 0 ? '+' : ''}${delta}</b></div>
+                      <div><span class="kpi-title" style="font-size: 0.6rem">#HC Logística</span><b>${logistica.length}</b></div>
+                      <div><span class="kpi-title" style="font-size: 0.6rem">#HC Produção</span><b>${fmtN(soma(turnos, 'TotalOps'))}</b></div>
+                    </div>
+                  </div>`
+              );
+
+              // --- Cumprimento de Prazos (Comunicação) ---
+              const cartaoPrazo = (titulo, tipo, limite, cor) => {
+                const g = prazo(master, tipo), est = estadoPct(g.p, g.total, 'prazo');
+                const porFab = fabricas
+                  .map((f) => {
+                    const v = prazo(daFabrica(master, f), tipo), ef = estadoPct(v.p, v.total, 'prazo');
+                    return `<div class="mt-prazo-fab"><span>${nomeFabrica(f)}</span>${barraPct(v.p, ef)}<b class="mt-c-${ef}">${v.total ? `${Math.round(v.p)}%` : '-'}</b><span class="text-muted">${v.ok} de ${v.total}</span></div>`;
+                  })
+                  .join('');
+                return `<div class="kpi-card mt-prazo mt-s-${est}" style="border-left-color: ${est === 'neutro' ? cor : ''}">
+                    <div>
+                      <div class="kpi-title fw-bold text-dark" style="font-size: 0.65rem">${titulo}</div>
+                      <div class="fw-bolder mt-c-${est}" style="font-size: 1.8rem; line-height: 1.1">${g.total ? `${Math.round(g.p)}%` : '-'}</div>
+                      <div class="text-muted" style="font-size: 0.7rem">${g.ok} de ${g.total} (${limite})</div>
+                    </div>
+                    <div class="mt-prazo-fabs">${porFab}</div>
+                  </div>`;
+              };
+              html += `<span class="section-tag mb-1" style="font-size: 0.68rem">Cumprimento de Prazos (Comunicação)</span>
+                <div class="mt-prazos">${cartaoPrazo('Logística', 'Log', 'QUARTA 12H00', '#0dcaf0')}${cartaoPrazo('Produção', 'Prod', 'QUINTA 14H30', '#fd7e14')}</div>`;
+
+              $('#metricasK').html(html);
+            }
+
+            // Clicar numa fábrica abre/fecha o detalhe por área desse indicador
+            $(document).on('click keydown', '#metricasK .mt-fab', function (e) {
+              if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+              e.preventDefault();
+              const ind = $(this).data('ind');
+              const fab = String($(this).data('fab'));
+              metricasAberto[ind] = metricasAberto[ind] === fab ? null : fab;
+              if (ultimasMetricas) renderMetricas(...ultimasMetricas);
+            });
 
             // ---- Filtro de coluna estilo cabeçalho do SharePoint / Excel nas
             // tabelas de detalhe (igual ao do Status OPT). As seleções de cada
