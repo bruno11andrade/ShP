@@ -3742,9 +3742,6 @@
         const CAMPOS_QTD_CORRIGIDA = ['QtdCorrigida', 'Qtd_x0020_corrigida', 'Qtd_x0020_Corrigida'];
         // Dados do Hydra mais antigos do que isto aparecem com aviso
         const HYDRA_MAX_MINUTOS = 30;
-        // Produção do Hydra conta como planeada se houver uma linha do mesmo
-        // C.C. + KA no plano até este nº de dias de distância
-        const HYDRA_DIAS_PLANO = 14;
         // Uma ordem em curso soma o Hydra no máximo destes dias para trás
         const HYDRA_DIAS_ORDEM = 10;
         const CAMPOS_OV9 = {
@@ -11184,24 +11181,29 @@
             }
           });
 
-          // Produção de hoje (linhas Total) sem linha do mesmo C.C. + KA no
-          // plano, só nos C.C. que o plano conhece
+          // Produção de hoje (linhas Total) sem linha correspondente no plano,
+          // só nos C.C. que o plano conhece
           producaoNaoPlaneada = [];
           if (!hydraDisponivel) return;
           const ccsPlano = new Set(rawListItems.map((i) => normalizeCC(i.CC)));
-          const margem = HYDRA_DIAS_PLANO * 864e5;
+          const mesmoDia = (a, b) => !!a && !!b && formatDateShort(a) === formatDateShort(b);
           rawHydraItems
             .filter((h) => h.turno === 'Total' && h.dia && h.dia.getTime() === hoje.getTime() && h.qtd > 0)
             .forEach((h) => {
               if (!ccsPlano.has(normalizeCC(h.cc))) return;
+              // Planeada = há uma linha do mesmo C.C. + KA com data nesse dia,
+              // Em curso / Interrompida, ou produzida nesse dia (a mesma
+              // regra da ação Infowise que marca «Sem plano»)
               const planeado =
                 !h.semPlano &&
                 rawListItems.some(
                   (i) =>
                     areCCsEqual(i.CC, h.cc) &&
                     mesmoKA(i.KA, h.ka) &&
-                    i.RawDateObj &&
-                    Math.abs(i.RawDateObj.getTime() - h.dia.getTime()) <= margem
+                    (mesmoDia(i.RawDateObj, h.dia) ||
+                      i.Status === 'Em curso' ||
+                      /^interrompid/i.test(i.Status || '') ||
+                      (i.Status === 'Produzido' && mesmoDia(i.RawDataProducaoObj, h.dia)))
                 );
               if (planeado) return;
               let linha = producaoNaoPlaneada.find((p) => areCCsEqual(p.cc, h.cc) && mesmoKA(p.ka, h.ka));
@@ -11817,7 +11819,7 @@
           const hy = textoHydraAte();
           let html = `<div class="mb-2 text-muted" style="font-size: 0.85rem">Produção de hoje no Hydra SQL (${escapeHtml(
             hy.texto
-          )}) num C.C. do plano, sem nenhuma linha do mesmo C.C. + KA no plano a menos de ${HYDRA_DIAS_PLANO} dias.</div>
+          )}) num C.C. do plano, sem nenhuma linha do mesmo C.C. + KA planeada para hoje, Em curso, Interrompida ou produzida hoje.</div>
           <div class="table-responsive"><table class="table table-bordered table-striped table-opt w-100">
           <thead><tr><th>C.C.</th><th>KA</th><th>Grupo (Hydra)</th><th>Noite</th><th>Manhã</th><th>Tarde</th><th>Total hoje</th><th>Hydra até</th></tr></thead><tbody>`;
           if (!producaoNaoPlaneada.length) {
