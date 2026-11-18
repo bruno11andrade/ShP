@@ -1900,7 +1900,6 @@
                   labels,
                   datasets: [
                     { label: '% Não planeado', data: taxa, borderColor: '#eb6834', backgroundColor: '#eb6834', borderWidth: 2, pointRadius: 5, tension: 0.2 },
-                    { label: 'Referência 5%', data: labels.map(() => 5), borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 1.5, pointRadius: 0 },
                   ],
                 },
                 plugins: [ChartDataLabels],
@@ -1909,10 +1908,10 @@
                   maintainAspectRatio: false,
                   layout: { padding: { top: 22, right: 10 } },
                   plugins: {
-                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    // Uma só série: o título do gráfico já a identifica
+                    legend: { display: false },
                     tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y}%` } },
                     datalabels: {
-                      display: (c) => c.datasetIndex === 0,
                       anchor: 'end', align: 'top', color: '#475569', font: { size: 10, weight: 'bold' },
                       formatter: (v) => `${v}%`,
                     },
