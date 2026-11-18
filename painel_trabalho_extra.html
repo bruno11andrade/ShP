@@ -525,7 +525,10 @@
       .mt-fab:hover, .mt-fab:focus { outline: 2px solid rgba(0, 90, 158, 0.25); }
       .mt-aberto { outline: 2px solid #005a9e; }
       .mt-areas { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #e2e8f0; }
-      .mt-area { display: grid; grid-template-columns: 52px 1fr 48px; gap: 6px; align-items: center; font-size: 0.74rem; margin: 2px 0; }
+      .mt-area { display: grid; grid-template-columns: 62px 1fr 48px; gap: 6px; align-items: center; font-size: 0.74rem; margin: 2px 0; }
+      .mt-area-click { cursor: pointer; border-radius: 4px; padding: 1px 2px; }
+      .mt-area-click:hover { background: #f1f5f9; }
+      .mt-cc { font-size: 0.7rem; color: #475569; padding-left: 14px; grid-template-columns: 62px 1fr 48px; }
       .mt-area .mt-bar { margin-top: 0; }
       .mt-area b { text-align: right; }
       .mt-acum { border-left: 5px solid #cbd5e1; padding: 10px 12px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
@@ -547,6 +550,10 @@
       .mt-prazo-fab .mt-bar { margin-top: 0; }
       .mt-prazo-fab b { text-align: right; }
       .mt-prazo-fab span:last-child { font-size: 0.68rem; text-align: right; }
+
+      .np-card { border-left: 5px solid #eb6834; padding: 10px 12px; }
+      .np-card.np-hero { border-left-width: 8px; background: #fff4ed; }
+      .mt-np { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
 
       /* Coluna Planeado: "Não" com contorno laranja, para se distinguir do "Sim" */
       .badge-nao-planeado {
@@ -1193,62 +1200,28 @@
                       </div>
                     </div>
                     <div class="col-md-4">
-                      <div class="chart-card border-top-area">
-                        <div
-                          class="d-flex justify-content-between align-items-center mb-3"
-                        >
+                      <div class="chart-card" style="border-top: 4px solid #eb6834">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
                           <h5 class="card-title text-dark m-0">
-                            <i
-                              class="fa-solid fa-chart-column me-2 text-area"
-                            ></i
-                            >% Planeado vs Produzido por Área
+                            <i class="fa-solid fa-chart-column me-2" style="color: #eb6834"></i
+                            >Composição da Produção por Semana
                           </h5>
-                          <small class="text-muted" style="font-size: 0.72rem"
-                            ><i
-                              class="fa-solid fa-hand-pointer me-1 text-primary"
-                            ></i
-                            >Clique para filtrar</small
-                          >
                         </div>
-                        <div class="scrollable-chart-container">
-                          <div
-                            class="scrollable-chart-inner"
-                            id="wrapperAdesaoArea"
-                          >
-                            <canvas id="chartAdesaoArea"></canvas>
-                          </div>
+                        <div style="position: relative; height: 280px">
+                          <canvas id="chartNPComposicao"></canvas>
                         </div>
                       </div>
                     </div>
                     <div class="col-md-4">
-                      <div class="chart-card border-top-cc">
-                        <div
-                          class="d-flex justify-content-between align-items-center mb-3"
-                        >
+                      <div class="chart-card" style="border-top: 4px solid #eb6834">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
                           <h5 class="card-title text-dark m-0">
-                            <i class="fa-solid fa-chart-column me-2 text-cc"></i
-                            >% Planeado vs Produzido por C.C.<span
-                              id="lblSelectedArea"
-                              class="text-cc fw-bold"
-                            ></span>
+                            <i class="fa-solid fa-chart-line me-2" style="color: #eb6834"></i
+                            >Evolução da Taxa de Não Planeado (%)
                           </h5>
-                          <button
-                            type="button"
-                            class="btn btn-xs btn-outline-secondary"
-                            id="btnResetAreaFilter"
-                            style="display: none"
-                            onclick="clearAreaFilter()"
-                          >
-                            <i class="fa-solid fa-xmark me-1"></i>Limpar filtro
-                          </button>
                         </div>
-                        <div class="scrollable-chart-container">
-                          <div
-                            class="scrollable-chart-inner"
-                            id="wrapperAdesaoCC"
-                          >
-                            <canvas id="chartAdesaoCC"></canvas>
-                          </div>
+                        <div style="position: relative; height: 280px">
+                          <canvas id="chartNPTaxa"></canvas>
                         </div>
                       </div>
                     </div>
@@ -1838,7 +1811,6 @@
             let currentLogisticaData = [];
             let allMasterData = [];
             let currentMasterData = [];
-            let selectedAreaFilter = null;
             let selectedTurnosAreaFilter = null;
             let selectedOpsAreaFilter = null;
 
@@ -1853,13 +1825,107 @@
             let chartCCInstance = null;
             let chartEvolucaoInstance = null;
             let chartEvolucaoAdesaoInstance = null;
+            let chartNPComposicaoInstance = null;
+            let chartNPTaxaInstance = null;
+
+            // Gráficos da produção não planeada, por semana
+            function renderNaoPlaneadoCharts(planoTodo) {
+              const porSemana = {};
+              planoTodo.forEach((d) => {
+                const k = `${d.Ano}|${d.Semana}`;
+                if (!porSemana[k]) porSemana[k] = { ano: d.Ano, sem: d.Semana, cump: 0, exc: 0, np: 0 };
+                const w = porSemana[k];
+                if (d.NaoPlaneado) w.np += d.QtdProduzida;
+                else {
+                  w.cump += d.QtdCumprida;
+                  w.exc += Math.max(0, d.QtdProduzida - d.QtdPlaneada);
+                }
+              });
+              const semanas = Object.values(porSemana).sort(
+                (a, b) => a.ano - b.ano || parseInt(a.sem.slice(1), 10) - parseInt(b.sem.slice(1), 10)
+              );
+              const labels = semanas.map((w) => `${w.sem}/${String(w.ano).slice(-2)}`);
+              const taxa = semanas.map((w) => {
+                const t = w.cump + w.exc + w.np;
+                return t ? parseFloat(((w.np / t) * 100).toFixed(1)) : 0;
+              });
+              const fmtPc = (v) => v.toLocaleString('pt-PT', { maximumFractionDigits: 0 });
+
+              if (chartNPComposicaoInstance) chartNPComposicaoInstance.destroy();
+              chartNPComposicaoInstance = new Chart(document.getElementById('chartNPComposicao'), {
+                type: 'bar',
+                data: {
+                  labels,
+                  datasets: [
+                    { label: 'Cumprido do plano', data: semanas.map((w) => w.cump), backgroundColor: '#2a78d6', stack: 's' },
+                    { label: 'Não planeado', data: semanas.map((w) => w.np), backgroundColor: '#eb6834', stack: 's' },
+                    { label: 'Excedente (KAs planeados)', data: semanas.map((w) => w.exc), backgroundColor: '#1baf7a', stack: 's', borderRadius: 4 },
+                  ],
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  interaction: { mode: 'index', intersect: false },
+                  layout: { padding: { top: 22 } },
+                  plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: {
+                      callbacks: {
+                        label: (c) => `${c.dataset.label}: ${fmtPc(c.parsed.y)} pç`,
+                        footer: (it) => `Total: ${fmtPc(it.reduce((a, i) => a + i.parsed.y, 0))} pç`,
+                      },
+                    },
+                    // Só a % de não planeado por cima de cada barra
+                    datalabels: {
+                      display: (c) => c.datasetIndex === 2,
+                      anchor: 'end',
+                      align: 'top',
+                      color: '#475569',
+                      font: { size: 10, weight: 'bold' },
+                      formatter: (v, c) => `${taxa[c.dataIndex]}% NP`,
+                    },
+                  },
+                  scales: {
+                    x: { stacked: true, grid: { display: false } },
+                    y: { stacked: true, beginAtZero: true, ticks: { callback: (v) => `${v / 1000}k` } },
+                  },
+                },
+              });
+
+              if (chartNPTaxaInstance) chartNPTaxaInstance.destroy();
+              chartNPTaxaInstance = new Chart(document.getElementById('chartNPTaxa'), {
+                type: 'line',
+                data: {
+                  labels,
+                  datasets: [
+                    { label: '% Não planeado', data: taxa, borderColor: '#eb6834', backgroundColor: '#eb6834', borderWidth: 2, pointRadius: 5, tension: 0.2 },
+                    { label: 'Referência 5%', data: labels.map(() => 5), borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 1.5, pointRadius: 0 },
+                  ],
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  layout: { padding: { top: 22, right: 10 } },
+                  plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y}%` } },
+                    datalabels: {
+                      display: (c) => c.datasetIndex === 0,
+                      anchor: 'end', align: 'top', color: '#475569', font: { size: 10, weight: 'bold' },
+                      formatter: (v) => `${v}%`,
+                    },
+                  },
+                  scales: { y: { beginAtZero: true, ticks: { callback: (v) => `${v}%` } } },
+                },
+              });
+            }
             let chartEvolucaoNecPreenchidosInstance = null;
             let chartOpsProducaoTurnoInstance = null;
             let chartOpsProducaoAreaInstance = null;
             let chartOpsProducaoCCInstance = null;
 
-            let chartAdesaoAreaInstance = null;
-            let chartAdesaoCCInstance = null;
 
             function setScrollWrapperWidth(
               wrapperId,
@@ -1890,7 +1956,7 @@
                   chartEvolucaoInstance, chartEvolucaoAdesaoInstance,
                   chartEvolucaoNecPreenchidosInstance, chartOpsProducaoTurnoInstance,
                   chartOpsProducaoAreaInstance, chartOpsProducaoCCInstance,
-                  chartAdesaoAreaInstance, chartAdesaoCCInstance
+                  chartNPComposicaoInstance, chartNPTaxaInstance
               ];
 
               allCharts.forEach(function(chart) {
@@ -3346,7 +3412,8 @@
               // KPIs e gráficos só com o que estava planeado; o produzido não
               // planeado aparece apenas na tabela de detalhe
               const planoPlaneado = filteredPlano.filter((p) => !p.NaoPlaneado);
-              renderMetricas(filteredTurnos, planoPlaneado, filteredLogistica, filteredMaster);
+              renderMetricas(filteredTurnos, planoPlaneado, filteredLogistica, filteredMaster, filteredPlano);
+              renderNaoPlaneadoCharts(filteredPlano);
 
               renderCharts(filteredTurnos, planoPlaneado);
               renderTable(filteredTurnos);
@@ -3765,8 +3832,6 @@
                 }
               );
 
-              renderAdesaoArea(planoData);
-              renderAdesaoCC(planoData);
             }
 
             function renderEvolucaoAdesaoChart(planoData) {
@@ -4116,145 +4181,6 @@
               );
             }
 
-            function renderAdesaoArea(planoData) {
-              const mapArea = {};
-              planoData.forEach((p) => {
-                if (p.Area && p.Area !== 'N/A' && !p.NaoPlaneado) {
-                  if (!mapArea[p.Area]) mapArea[p.Area] = { plan: 0, prod: 0 };
-                  mapArea[p.Area].plan += p.QtdPlaneada;
-                  mapArea[p.Area].prod += p.QtdCumprida;
-                }
-              });
-
-              const labels = Object.keys(mapArea).sort();
-              const values = labels.map((lbl) => {
-                const plan = mapArea[lbl].plan;
-                const prod = mapArea[lbl].prod;
-                return plan > 0 ? parseFloat(((prod / plan) * 100).toFixed(1)) : 0;
-              });
-
-              setScrollWrapperWidth('wrapperAdesaoArea', labels.length);
-
-              if (chartAdesaoAreaInstance) chartAdesaoAreaInstance.destroy();
-              chartAdesaoAreaInstance = new Chart(
-                document.getElementById('chartAdesaoArea'),
-                {
-                  type: 'bar',
-                  data: {
-                    labels: labels,
-                    datasets: [
-                      {
-                        label: '% Adesão',
-                        data: values,
-                        backgroundColor: labels.map((a) =>
-                          a === selectedAreaFilter ? '#003d6b' : COLOR_AREA
-                        ),
-                      },
-                    ],
-                  },
-                  plugins: [ChartDataLabels],
-                  options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    layout: { padding: { top: 25 } },
-                    onClick: (e, elements) => {
-                      if (elements && elements.length > 0) {
-                        const idx = elements[0].index;
-                        const clickedArea = labels[idx];
-                        if (selectedAreaFilter === clickedArea) {
-                          clearAreaFilter();
-                        } else {
-                          selectedAreaFilter = clickedArea;
-                          setTopAreaFilter(clickedArea);
-                          applyFilters();
-                        }
-                      }
-                    },
-                    plugins: {
-                      legend: { display: false },
-                      datalabels: {
-                        anchor: 'end',
-                        align: 'top',
-                        color: '#1e293b',
-                        font: { weight: 'bold', size: 11 },
-                        formatter: (v) => (v > 0 ? `${v}%` : ''),
-                      },
-                    },
-                    scales: {
-                      y: { beginAtZero: true, ticks: { callback: (v) => `${v}%` } },
-                    },
-                  },
-                }
-              );
-
-              if (selectedAreaFilter) {
-                $('#btnResetAreaFilter').show();
-                $('#lblSelectedArea').text(` (${selectedAreaFilter})`);
-              } else {
-                $('#btnResetAreaFilter').hide();
-                $('#lblSelectedArea').text('');
-              }
-            }
-
-            function renderAdesaoCC(planoData) {
-              const mapCC = {};
-              planoData.forEach((p) => {
-                if (p.CC && p.CC !== 'N/A' && !p.NaoPlaneado) {
-                  if (!mapCC[p.CC]) mapCC[p.CC] = { plan: 0, prod: 0 };
-                  mapCC[p.CC].plan += p.QtdPlaneada;
-                  mapCC[p.CC].prod += p.QtdCumprida;
-                }
-              });
-
-              const labels = Object.keys(mapCC).sort();
-              const values = labels.map((lbl) => {
-                const plan = mapCC[lbl].plan;
-                const prod = mapCC[lbl].prod;
-                return plan > 0 ? parseFloat(((prod / plan) * 100).toFixed(1)) : 0;
-              });
-
-              setScrollWrapperWidth('wrapperAdesaoCC', labels.length);
-
-              if (chartAdesaoCCInstance) chartAdesaoCCInstance.destroy();
-              chartAdesaoCCInstance = new Chart(
-                document.getElementById('chartAdesaoCC'),
-                {
-                  type: 'bar',
-                  data: {
-                    labels: labels,
-                    datasets: [
-                      { label: '% Adesão', data: values, backgroundColor: COLOR_CC },
-                    ],
-                  },
-                  plugins: [ChartDataLabels],
-                  options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    layout: { padding: { top: 25 } },
-                    plugins: {
-                      legend: { display: false },
-                      datalabels: {
-                        anchor: 'end',
-                        align: 'top',
-                        color: '#1e293b',
-                        font: { weight: 'bold', size: 11 },
-                        formatter: (v) => (v > 0 ? `${v}%` : ''),
-                      },
-                    },
-                    scales: {
-                      y: { beginAtZero: true, ticks: { callback: (v) => `${v}%` } },
-                    },
-                  },
-                }
-              );
-            }
-
-            function clearAreaFilter() {
-              selectedAreaFilter = null;
-              setTopAreaFilter(null);
-              applyFilters();
-            }
-
             function clearTurnosAreaFilter() {
               selectedTurnosAreaFilter = null;
               setTopAreaFilter(null);
@@ -4274,6 +4200,8 @@
             const nomeFabrica = (f) => NOMES_FABRICA[f] || f;
             // Fábrica aberta (detalhe por área) em cada indicador
             const metricasAberto = { pvp: null, cob: null };
+            // Área aberta (detalhe por C.C.) dentro da fábrica aberta
+            const metricasArea = { pvp: null, cob: null };
             let ultimasMetricas = null;
 
             // Estado de cor: ok / warn / bad / neutro. Na cobertura, acima de
@@ -4290,8 +4218,8 @@
             const barraPct = (p, est) =>
               `<div class="mt-bar"><i class="mt-f-${est}" style="width:${Math.min(p, 100)}%"></i></div>`;
 
-            function renderMetricas(turnos, plano, logistica, master) {
-              ultimasMetricas = [turnos, plano, logistica, master];
+            function renderMetricas(turnos, plano, logistica, master, planoTodo = []) {
+              ultimasMetricas = [turnos, plano, logistica, master, planoTodo];
               const ordem = ['OVAR', 'CUC'];
               const fabricas = [
                 ...new Set(
@@ -4322,13 +4250,14 @@
                 const ok = sub.filter((d) => d[`${tipo}OnTime`]).length;
                 return { p: sub.length ? (ok / sub.length) * 100 : 0, total: sub.length, ok };
               };
-              const porArea = (lista, calc) => {
-                const areas = [...new Set(lista.map((d) => d.Area).filter((a) => a && a !== 'N/A'))];
-                return areas
-                  .map((a) => ({ nome: a, ...calc(lista.filter((d) => d.Area === a)) }))
-                  .filter((a) => a.total > 0)
+              // Agrupa por um campo (Área ou C.C.), do pior para o melhor
+              const porCampo = (lista, campo, calc) =>
+                [...new Set(lista.map((d) => d[campo]).filter((v) => v && v !== 'N/A'))]
+                  .map((v) => ({ nome: v, lista: lista.filter((d) => d[campo] === v) }))
+                  .map((g) => ({ nome: g.nome, ...calc(g.lista), ccs: campo === 'Area' ? porCampo(g.lista, 'CC', calc) : [] }))
+                  .filter((g) => g.total > 0)
                   .sort((x, y) => x.p - y.p);
-              };
+              const porArea = (lista, calc) => porCampo(lista, 'Area', calc);
 
               // --- Cartões ---
               const destaque = (titulo, v, tipo) => {
@@ -4341,10 +4270,18 @@
               const cartaoFabrica = (ind, f, v, subtexto, areas, tipo) => {
                 const est = estadoPct(v.p, v.total, tipo);
                 const aberto = metricasAberto[ind] === f;
+                const linhaPct = (classe, nome, v, extra = '') => {
+                  const e = estadoPct(v.p, v.total, tipo);
+                  return `<div class="mt-area ${classe}" ${extra}><span>${nome}</span>${barraPct(v.p, e)}<b class="mt-c-${e}">${fmtP(v.p)}</b></div>`;
+                };
+                // Clicar numa área mostra os C.C. dessa área
                 const linhasArea = areas
                   .map((a) => {
-                    const ea = estadoPct(a.p, a.total, tipo);
-                    return `<div class="mt-area"><span>${a.nome}</span>${barraPct(a.p, ea)}<b class="mt-c-${ea}">${fmtP(a.p)}</b></div>`;
+                    const areaAberta = aberto && metricasArea[ind] === a.nome;
+                    return (
+                      linhaPct('mt-area-click', `${areaAberta ? '▾' : '▸'} ${a.nome}`, a, `data-area="${a.nome}"`) +
+                      (areaAberta ? a.ccs.map((c) => linhaPct('mt-cc', c.nome, c)).join('') : '')
+                    );
                   })
                   .join('');
                 return `<div class="kpi-card mt-fab mt-b-${est}${aberto ? ' mt-aberto' : ''}" data-ind="${ind}" data-fab="${f}" role="button" tabindex="0">
@@ -4355,7 +4292,7 @@
                     <div class="fw-bold mt-1 mt-c-${est}" style="font-size: 1.8rem; line-height: 1.1">${v.total ? fmtP(v.p) : '-'}</div>
                     ${barraPct(v.p, est)}
                     <div class="text-muted mt-1" style="font-size: 0.7rem">${subtexto}</div>
-                    ${aberto ? `<div class="mt-areas"><div class="kpi-title" style="font-size: 0.6rem">Áreas · ${nomeFabrica(f)}</div>${linhasArea || '<span class="text-muted small">Sem áreas</span>'}</div>` : ''}
+                    ${aberto ? `<div class="mt-areas"><div class="kpi-title" style="font-size: 0.6rem">Áreas · ${nomeFabrica(f)} <span class="text-muted fw-normal" style="text-transform: none">(clique numa área para ver os C.C.)</span></div>${linhasArea || '<span class="text-muted small">Sem áreas</span>'}</div>` : ''}
                   </div>`;
               };
               const linha = (titulo, conteudo) =>
@@ -4378,6 +4315,29 @@
                     <div class="mt-acum-it" style="border-left-color: #10b981"><div class="kpi-title" style="font-size: 0.6rem">PC Produzidas</div><div class="fw-bold text-dark" style="font-size: 1.15rem">${fmtN(pvpGlobal.prod)}</div></div>
                   </div>`
               );
+
+              // --- Produção Não Planeada ---
+              const np = planoTodo.filter((d) => d.NaoPlaneado);
+              const npQtd = soma(np, 'QtdProduzida');
+              const prodTotal = soma(planoTodo, 'QtdProduzida');
+              const npTaxa = prodTotal ? (npQtd / prodTotal) * 100 : 0;
+              const kasNP = new Set(np.map((d) => d.KA)).size;
+              const ccNP = new Set(np.map((d) => d.CC)).size;
+              const ccProd = new Set(planoTodo.filter((d) => d.QtdProduzida > 0).map((d) => d.CC)).size;
+              const npJust = np.filter((d) => d.Motivo).length;
+              const npCard = (titulo, valor, sub, hero) =>
+                `<div class="kpi-card np-card${hero ? ' np-hero' : ''}">
+                  <div class="kpi-title fw-bold text-dark" style="font-size: 0.65rem">${titulo}</div>
+                  <div class="fw-bold text-dark" style="font-size: ${hero ? '1.9rem' : '1.5rem'}; line-height: 1.15">${valor}</div>
+                  <div class="text-muted" style="font-size: 0.7rem">${sub}</div></div>`;
+              html += `<span class="section-tag mb-1" style="font-size: 0.68rem">Produção Não Planeada</span>
+                <div class="mt-np">
+                  ${npCard('PC não planeadas', fmtN(npQtd), `em ${np.length} linhas KA/fim de semana`, true)}
+                  ${npCard('Taxa de não planeado', `${npTaxa.toFixed(1)}%`, `de ${fmtN(prodTotal)} pç produzidas`)}
+                  ${npCard('KAs sem plano', kasNP, 'KAs diferentes')}
+                  ${npCard('C.C. com não planeado', ccNP, `de ${ccProd} C.C. com produção`)}
+                  ${npCard('Justificado (motivo)', np.length ? `${Math.round((npJust / np.length) * 100)}%` : '-', `${npJust} de ${np.length} com motivo`)}
+                </div>`;
 
               // --- Análise de Turnos ---
               const cobGlobal = cob(turnos);
@@ -4442,7 +4402,16 @@
               e.preventDefault();
               const ind = $(this).data('ind');
               const fab = String($(this).data('fab'));
-              metricasAberto[ind] = metricasAberto[ind] === fab ? null : fab;
+              const $area = $(e.target).closest('.mt-area-click');
+              if ($area.length) {
+                const area = String($area.data('area'));
+                metricasArea[ind] = metricasArea[ind] === area ? null : area;
+              } else if ($(e.target).closest('.mt-areas').length) {
+                return; // clique dentro do detalhe, fora de uma área
+              } else {
+                metricasAberto[ind] = metricasAberto[ind] === fab ? null : fab;
+                metricasArea[ind] = null;
+              }
               if (ultimasMetricas) renderMetricas(...ultimasMetricas);
             });
 
