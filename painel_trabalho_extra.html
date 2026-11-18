@@ -551,9 +551,12 @@
       .mt-prazo-fab b { text-align: right; }
       .mt-prazo-fab span:last-child { font-size: 0.68rem; text-align: right; }
 
-      .np-card { border-left: 5px solid #eb6834; padding: 10px 12px; }
-      .np-card.np-hero { border-left-width: 8px; background: #fff4ed; }
-      .mt-np { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+      .mt-acum-grid { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px; align-content: center; }
+      .mt-np-comp { margin-top: 6px; font-size: 0.68rem; color: #475569; }
+      .mt-np-bar { display: flex; height: 6px; border-radius: 4px; overflow: hidden; background: #e9eef5; gap: 2px; margin-bottom: 2px; }
+      .mt-np-bar .pl { background: #2a78d6; }
+      .mt-np-bar .np { background: #eb6834; }
+      .mt-np-comp b { color: #a33c0e; }
 
       /* Coluna Planeado: "Não" com contorno laranja, para se distinguir do "Sim" */
       .badge-nao-planeado {
@@ -4259,14 +4262,15 @@
               const porArea = (lista, calc) => porCampo(lista, 'Area', calc);
 
               // --- Cartões ---
-              const destaque = (titulo, v, tipo) => {
+              const destaque = (titulo, v, tipo, extra = '') => {
                 const est = estadoPct(v.p, v.total, tipo);
                 return `<div class="kpi-card highlight-card mt-destaque mt-s-${est}">
                     <div class="kpi-title fw-bold text-uppercase text-dark" style="font-size: 0.8rem">${titulo}</div>
                     <div class="fw-bolder text-dark my-1" style="font-size: 2.8rem; line-height: 1.1">${fmtP(v.p)}</div>
+                    ${extra}
                   </div>`;
               };
-              const cartaoFabrica = (ind, f, v, subtexto, areas, tipo) => {
+              const cartaoFabrica = (ind, f, v, subtexto, areas, tipo, extra = '') => {
                 const est = estadoPct(v.p, v.total, tipo);
                 const aberto = metricasAberto[ind] === f;
                 const linhaPct = (classe, nome, v, extra = '') => {
@@ -4291,6 +4295,7 @@
                     <div class="fw-bold mt-1 mt-c-${est}" style="font-size: 1.8rem; line-height: 1.1">${v.total ? fmtP(v.p) : '-'}</div>
                     ${barraPct(v.p, est)}
                     <div class="text-muted mt-1" style="font-size: 0.7rem">${subtexto}</div>
+                    ${extra}
                     ${aberto ? `<div class="mt-areas"><div class="kpi-title" style="font-size: 0.6rem">Áreas · ${nomeFabrica(f)} <span class="text-muted fw-normal" style="text-transform: none">(clique numa área para ver os C.C.)</span></div>${linhasArea || '<span class="text-muted small">Sem áreas</span>'}</div>` : ''}
                   </div>`;
               };
@@ -4300,43 +4305,36 @@
 
               // --- Plano de Produção ---
               const pvpGlobal = pvp(plano);
+              // Produção não planeada (linhas "Não Planeado" do plano)
+              const npLinhas = planoTodo.filter((d) => d.NaoPlaneado);
+              const npQtd = soma(npLinhas, 'QtdProduzida');
+              const kasNP = new Set(npLinhas.map((d) => d.KA)).size;
+              const prodPlan = pvpGlobal.prod;
+              // Parte da produção que não estava no plano
+              const barraNP = (planeado, naoPlaneado) => {
+                const t = planeado + naoPlaneado;
+                const pNP = t ? (naoPlaneado / t) * 100 : 0;
+                return `<div class="mt-np-comp" title="Produção: ${fmtN(planeado)} pç em KAs planeados · ${fmtN(naoPlaneado)} pç não planeadas">
+                    <div class="mt-np-bar"><i class="pl" style="width:${100 - pNP}%"></i><i class="np" style="width:${pNP}%"></i></div>
+                    <span><b>${pNP.toFixed(1)}%</b> da produção não planeada</span>
+                  </div>`;
+              };
               let html = linha(
                 'Plano de Produção',
-                destaque('Cumprimento do Plano (%)', pvpGlobal, 'pvp') +
+                destaque('Cumprimento do Plano (%)', pvpGlobal, 'pvp', barraNP(prodPlan, npQtd)) +
                   fabricas
                     .map((f) => {
                       const lf = daFabrica(plano, f), v = pvp(lf);
-                      return cartaoFabrica('pvp', f, v, `${fmtN(v.plan)} plan. · ${fmtN(v.prod)} prod.`, porArea(lf, pvp), 'pvp');
+                      return cartaoFabrica('pvp', f, v, `${fmtN(v.plan)} plan. · ${fmtN(v.prod)} prod.`, porArea(lf, pvp), 'pvp', barraNP(v.prod, soma(daFabrica(npLinhas, f), 'QtdProduzida')));
                     })
                     .join('') +
-                  `<div class="kpi-card mt-acum">
+                  `<div class="kpi-card mt-acum mt-acum-grid">
                     <div class="mt-acum-it" style="border-left-color: #005a9e"><div class="kpi-title" style="font-size: 0.6rem">PC Planeadas</div><div class="fw-bold text-dark" style="font-size: 1.15rem">${fmtN(pvpGlobal.plan)}</div></div>
                     <div class="mt-acum-it" style="border-left-color: #10b981"><div class="kpi-title" style="font-size: 0.6rem">PC Produzidas</div><div class="fw-bold text-dark" style="font-size: 1.15rem">${fmtN(pvpGlobal.prod)}</div></div>
+                    <div class="mt-acum-it" style="border-left-color: #eb6834"><div class="kpi-title" style="font-size: 0.6rem">PC Não Planeadas</div><div class="fw-bold text-dark" style="font-size: 1.15rem">${fmtN(npQtd)}</div></div>
+                    <div class="mt-acum-it" style="border-left-color: #eb6834"><div class="kpi-title" style="font-size: 0.6rem">KAs sem plano</div><div class="fw-bold text-dark" style="font-size: 1.15rem">${kasNP}</div></div>
                   </div>`
               );
-
-              // --- Produção Não Planeada ---
-              const np = planoTodo.filter((d) => d.NaoPlaneado);
-              const npQtd = soma(np, 'QtdProduzida');
-              const prodTotal = soma(planoTodo, 'QtdProduzida');
-              const npTaxa = prodTotal ? (npQtd / prodTotal) * 100 : 0;
-              const kasNP = new Set(np.map((d) => d.KA)).size;
-              const ccNP = new Set(np.map((d) => d.CC)).size;
-              const ccProd = new Set(planoTodo.filter((d) => d.QtdProduzida > 0).map((d) => d.CC)).size;
-              const npJust = np.filter((d) => d.Motivo).length;
-              const npCard = (titulo, valor, sub, hero) =>
-                `<div class="kpi-card np-card${hero ? ' np-hero' : ''}">
-                  <div class="kpi-title fw-bold text-dark" style="font-size: 0.65rem">${titulo}</div>
-                  <div class="fw-bold text-dark" style="font-size: ${hero ? '1.9rem' : '1.5rem'}; line-height: 1.15">${valor}</div>
-                  <div class="text-muted" style="font-size: 0.7rem">${sub}</div></div>`;
-              html += `<span class="section-tag mb-1" style="font-size: 0.68rem">Produção Não Planeada</span>
-                <div class="mt-np">
-                  ${npCard('PC não planeadas', fmtN(npQtd), `em ${np.length} linhas KA/fim de semana`, true)}
-                  ${npCard('Taxa de não planeado', `${npTaxa.toFixed(1)}%`, `de ${fmtN(prodTotal)} pç produzidas`)}
-                  ${npCard('KAs sem plano', kasNP, 'KAs diferentes')}
-                  ${npCard('C.C. com não planeado', ccNP, `de ${ccProd} C.C. com produção`)}
-                  ${npCard('Justificado (motivo)', np.length ? `${Math.round((npJust / np.length) * 100)}%` : '-', `${npJust} de ${np.length} com motivo`)}
-                </div>`;
 
               // --- Análise de Turnos ---
               const cobGlobal = cob(turnos);
