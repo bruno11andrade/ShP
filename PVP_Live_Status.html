@@ -3744,6 +3744,9 @@
         };
         // Correção manual da quantidade nas listas do plano (opcional)
         const CAMPOS_QTD_CORRIGIDA = ['QtdCorrigida', 'Qtd_x0020_corrigida', 'Qtd_x0020_Corrigida'];
+        // Acumulado das ordens em curso, escrito pela ação Infowise A2
+        const CAMPOS_HYDRA_FECHADOS = ['Qtd_x0020_Hydra_x0020_dias_x0020_fechados', 'QtdHydraDiasFechados'];
+        const CAMPOS_HYDRA_ULTIMO_DIA = ['_x00da_ltimo_x0020_dia_x0020_acumulado', 'UltimoDiaAcumulado', '_x00da_ltimodiaacumulado'];
         // Dados do Hydra mais antigos do que isto aparecem com aviso
         const HYDRA_MAX_MINUTOS = 30;
         // Uma ordem em curso soma o Hydra no máximo destes dias para trás
@@ -5613,6 +5616,8 @@
                 parseFloat(item.QtdInterrompido) ||
                 0,
               QtdCorrigida: numeroOuNulo(valorCampo(item, CAMPOS_QTD_CORRIGIDA)),
+              QtdHydraFechados: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_FECHADOS)),
+              UltimoDiaHydra: parseItemDate(valorCampo(item, CAMPOS_HYDRA_ULTIMO_DIA)),
               Turno: '',
             };
           });
@@ -11137,27 +11142,42 @@
                   i.HydraAte = e.ate;
                 }
               } else if (i.Status === 'Em curso') {
-                const fechados = new Set(
-                  rawListItems
-                    .filter(
-                      (o) =>
-                        o !== i &&
-                        o.Status === 'Produzido' &&
-                        o.RawDataProducaoObj &&
-                        areCCsEqual(o.CC, i.CC) &&
-                        mesmoKA(o.KA, i.KA)
-                    )
-                    .map((o) => formatDateShort(o.RawDataProducaoObj))
-                );
+                /* A Data é a planeada e a produção pode começar antes ou
+                   depois dela, por isso não serve de início. Conta-se:
+                   - o acumulado da lista (dias já fechados pela ação A2)
+                     mais os dias do Hydra depois do último acumulado; ou,
+                   - sem acumulado, os dias do Hydra desde o dia a seguir ao
+                     último fecho de outra ordem do mesmo C.C. + KA. */
                 const limite = new Date(hoje);
                 limite.setDate(limite.getDate() - HYDRA_DIAS_ORDEM);
-                const d = new Date(Math.max(Math.min(i.RawDateObj.getTime(), hoje.getTime()), limite.getTime()));
-                d.setHours(0, 0, 0, 0);
+                let inicio = limite;
                 let soma = 0;
-                let ate = null;
                 let tem = false;
+                if (i.UltimoDiaHydra) {
+                  inicio = new Date(i.UltimoDiaHydra);
+                  inicio.setHours(0, 0, 0, 0);
+                  inicio.setDate(inicio.getDate() + 1);
+                  soma = i.QtdHydraFechados || 0;
+                  tem = true;
+                } else {
+                  rawListItems.forEach((o) => {
+                    if (
+                      o !== i &&
+                      o.Status === 'Produzido' &&
+                      o.RawDataProducaoObj &&
+                      areCCsEqual(o.CC, i.CC) &&
+                      mesmoKA(o.KA, i.KA)
+                    ) {
+                      const seguinte = new Date(o.RawDataProducaoObj);
+                      seguinte.setHours(0, 0, 0, 0);
+                      seguinte.setDate(seguinte.getDate() + 1);
+                      if (seguinte > inicio) inicio = seguinte;
+                    }
+                  });
+                }
+                const d = new Date(inicio);
+                let ate = null;
                 for (; d <= hoje; d.setDate(d.getDate() + 1)) {
-                  if (fechados.has(formatDateShort(d))) continue;
                   const e = indice.get(chaveHydra(i.CC, i.KA, d, 'Total'));
                   if (!e) continue;
                   tem = true;
@@ -11194,19 +11214,16 @@
             .filter((h) => h.turno === 'Total' && h.dia && h.dia.getTime() === hoje.getTime() && h.qtd > 0)
             .forEach((h) => {
               if (!ccsPlano.has(normalizeCC(h.cc))) return;
-              // Planeada = há uma linha do mesmo C.C. + KA com data nesse dia,
-              // Em curso / Interrompida, ou produzida nesse dia (a mesma
-              // regra da ação Infowise que marca «Sem plano»)
+              // Planeada = há uma linha do mesmo C.C. + KA ainda aberta
+              // (qualquer data planeada, porque se produz antes ou depois
+              // dela) ou produzida nesse dia
               const planeado =
                 !h.semPlano &&
                 rawListItems.some(
                   (i) =>
                     areCCsEqual(i.CC, h.cc) &&
                     mesmoKA(i.KA, h.ka) &&
-                    (mesmoDia(i.RawDateObj, h.dia) ||
-                      i.Status === 'Em curso' ||
-                      /^interrompid/i.test(i.Status || '') ||
-                      (i.Status === 'Produzido' && mesmoDia(i.RawDataProducaoObj, h.dia)))
+                    (i.Status !== 'Produzido' || mesmoDia(i.RawDataProducaoObj, h.dia))
                 );
               if (planeado) return;
               let linha = producaoNaoPlaneada.find((p) => areCCsEqual(p.cc, h.cc) && mesmoKA(p.ka, h.ka));
