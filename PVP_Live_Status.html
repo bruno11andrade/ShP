@@ -3747,6 +3747,10 @@
         // Acumulado das ordens em curso, escrito pela ação Infowise A2
         const CAMPOS_HYDRA_FECHADOS = ['Qtd_x0020_Hydra_x0020_dias_x0020_fechados', 'QtdHydraDiasFechados'];
         const CAMPOS_HYDRA_ULTIMO_DIA = ['_x00da_ltimo_x0020_dia_x0020_acumulado', 'UltimoDiaAcumulado', '_x00da_ltimodiaacumulado'];
+        // Quantidade do dia que já era da ordem anterior do mesmo C.C. + KA
+        // (escrita pela ação A3 quando essa ordem fecha)
+        const CAMPOS_HYDRA_BASE = ['Qtd_x0020_Hydra_x0020_base', 'QtdHydraBase'];
+        const CAMPOS_HYDRA_DIA_BASE = ['Dia_x0020_Hydra_x0020_base', 'DiaHydraBase'];
         // Dados do Hydra mais antigos do que isto aparecem com aviso
         const HYDRA_MAX_MINUTOS = 30;
         // Uma ordem em curso soma o Hydra no máximo destes dias para trás
@@ -5618,6 +5622,8 @@
               QtdCorrigida: numeroOuNulo(valorCampo(item, CAMPOS_QTD_CORRIGIDA)),
               QtdHydraFechados: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_FECHADOS)),
               UltimoDiaHydra: parseItemDate(valorCampo(item, CAMPOS_HYDRA_ULTIMO_DIA)),
+              QtdHydraBase: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_BASE)),
+              DiaHydraBase: parseItemDate(valorCampo(item, CAMPOS_HYDRA_DIA_BASE)),
               Turno: '',
             };
           });
@@ -11042,6 +11048,10 @@
             QtdBobines: 0,
             QtdInterrompido: parseFloat(valor(CAMPOS_OV9.interrupcoes)) || 0,
             QtdCorrigida: numeroOuNulo(valorCampo(item, CAMPOS_QTD_CORRIGIDA)),
+            QtdHydraFechados: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_FECHADOS)),
+            UltimoDiaHydra: parseItemDate(valorCampo(item, CAMPOS_HYDRA_ULTIMO_DIA)),
+            QtdHydraBase: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_BASE)),
+            DiaHydraBase: parseItemDate(valorCampo(item, CAMPOS_HYDRA_DIA_BASE)),
             Turno: turnoNormalizado(extractValue(valor(CAMPOS_OV9.turno))),
           };
         }
@@ -11108,11 +11118,8 @@
         }
 
         /* Junta o Hydra SQL ao plano (o mesmo que as ações Infowise gravam):
-           - OHF: a linha de um turno recebe a quantidade desse turno
-             (C.C. + KA + data + turno);
-           - ordem Em curso sem turno (OPA/OPT): soma das linhas Total desde
-             a data do plano até hoje, sem os dias em que outra linha do
-             mesmo C.C. + KA foi dada como produzida.
+           - a linha Em curso (OPA/OPT e OHF) soma as linhas Total do mesmo
+             C.C. + KA, seja qual for a data ou o turno planeado (ver abaixo);
            A quantidade do Hydra passa a ser a Qtd Produzida (a não ser que
            haja uma Qtd corrigida) e as horas em curso contam pela fração
            já produzida. Também se apura a produção de hoje sem plano. */
@@ -11134,20 +11141,20 @@
             i.QtdHydra = null;
             i.HydraAte = null;
             i.FracHydra = 0;
-            if (hydraDisponivel && i.RawDateObj) {
-              if (i.Turno) {
-                const e = indice.get(chaveHydra(i.CC, i.KA, i.RawDateObj, i.Turno));
-                if (e) {
-                  i.QtdHydra = e.qtd;
-                  i.HydraAte = e.ate;
-                }
-              } else if (i.Status === 'Em curso') {
+            i.HydraTurnosHoje = null;
+            if (hydraDisponivel) {
+              if (i.Status === 'Em curso') {
                 /* A Data é a planeada e a produção pode começar antes ou
                    depois dela, por isso não serve de início. Conta-se:
                    - o acumulado da lista (dias já fechados pela ação A2)
                      mais os dias do Hydra depois do último acumulado; ou,
-                   - sem acumulado, os dias do Hydra desde o dia a seguir ao
-                     último fecho de outra ordem do mesmo C.C. + KA. */
+                   - sem acumulado, os dias do Hydra desde o último fecho de
+                     outra ordem do mesmo C.C. + KA: o próprio dia do fecho só
+                     entra se houver «Qtd Hydra base» desse dia, que é a parte
+                     da ordem anterior e se desconta.
+                   Vale igual para OPA/OPT e OHF: a linha em curso recebe a
+                   produção seja qual for o dia ou turno planeado. */
+                const diaBase = i.DiaHydraBase ? formatDateShort(i.DiaHydraBase) : null;
                 const limite = new Date(hoje);
                 limite.setDate(limite.getDate() - HYDRA_DIAS_ORDEM);
                 let inicio = limite;
@@ -11170,7 +11177,7 @@
                     ) {
                       const seguinte = new Date(o.RawDataProducaoObj);
                       seguinte.setHours(0, 0, 0, 0);
-                      seguinte.setDate(seguinte.getDate() + 1);
+                      if (formatDateShort(seguinte) !== diaBase) seguinte.setDate(seguinte.getDate() + 1);
                       if (seguinte > inicio) inicio = seguinte;
                     }
                   });
@@ -11182,8 +11189,17 @@
                   if (!e) continue;
                   tem = true;
                   soma += e.qtd;
+                  if (formatDateShort(d) === diaBase) soma -= i.QtdHydraBase || 0;
                   if (e.ate && (!ate || e.ate > ate)) ate = e.ate;
                 }
+                soma = Math.max(0, soma);
+                // Produção de hoje por turno, só para mostrar
+                const turnos = {};
+                ['Noite', 'Manhã', 'Tarde'].forEach((t) => {
+                  const e = indice.get(chaveHydra(i.CC, i.KA, hoje, t));
+                  turnos[t] = e ? e.qtd : null;
+                });
+                i.HydraTurnosHoje = turnos;
                 if (tem) {
                   i.QtdHydra = soma;
                   i.HydraAte = ate;
@@ -11795,9 +11811,9 @@
             textoHydraAte().texto
           )}) não contam como em curso.</div>
           <div class="table-responsive"><table class="table table-bordered table-striped table-opt w-100">
-          <thead><tr><th>C.C.</th><th>Área</th><th>KA</th><th>Data</th><th>Qtd planeada</th><th>Qtd produzida (Hydra)</th><th>%</th><th>Horas planeadas</th><th>Em curso (por confirmar)</th><th>Atraso do C.C.</th></tr></thead><tbody>`;
+          <thead><tr><th>C.C.</th><th>Área</th><th>KA</th><th>Data</th><th>Qtd planeada</th><th>Qtd produzida (Hydra)</th><th>%</th><th>Hoje N / M / T</th><th>Horas planeadas</th><th>Em curso (por confirmar)</th><th>Atraso do C.C.</th></tr></thead><tbody>`;
           if (!a.ccs.length) {
-            html += '<tr><td colspan="10" class="text-muted">Sem ordens em curso com data até hoje.</td></tr>';
+            html += '<tr><td colspan="11" class="text-muted">Sem ordens em curso com data até hoje.</td></tr>';
           }
           a.ccs
             .sort((x, y) => y.horas - x.horas)
@@ -11808,6 +11824,12 @@
                 c.ordem.QtdPlaneada || 0
               )}</td><td>${c.ordem.QtdHydra !== null && c.ordem.QtdHydra !== undefined ? formatQtd(c.ordem.QtdHydra) : '—'}</td><td>${
                 c.ordem.QtdPlaneada > 0 ? Math.round(((c.ordem.QtdProduzida || 0) / c.ordem.QtdPlaneada) * 100) + '%' : '—'
+              }</td><td class="text-nowrap">${
+                c.ordem.HydraTurnosHoje
+                  ? ['Noite', 'Manhã', 'Tarde']
+                      .map((t) => (c.ordem.HydraTurnosHoje[t] === null ? '—' : formatQtd(c.ordem.HydraTurnosHoje[t])))
+                      .join(' / ')
+                  : '—'
               }</td><td>${formatHoursToHHMM(
                 c.ordem.HorasPlaneadas || 0
               )}</td><td>${formatHoursToHHMM(c.horas)}</td><td>${formatHoursToHHMM(c.delta)}</td></tr>`;
@@ -11839,7 +11861,7 @@
           const hy = textoHydraAte();
           let html = `<div class="mb-2 text-muted" style="font-size: 0.85rem">Produção de hoje no Hydra SQL (${escapeHtml(
             hy.texto
-          )}) num C.C. do plano, sem nenhuma linha do mesmo C.C. + KA planeada para hoje, Em curso, Interrompida ou produzida hoje.</div>
+          )}) num C.C. do plano, sem nenhuma linha do mesmo C.C. + KA por fechar (qualquer data planeada) nem produzida hoje.</div>
           <div class="table-responsive"><table class="table table-bordered table-striped table-opt w-100">
           <thead><tr><th>C.C.</th><th>KA</th><th>Grupo (Hydra)</th><th>Noite</th><th>Manhã</th><th>Tarde</th><th>Total hoje</th><th>Hydra até</th></tr></thead><tbody>`;
           if (!producaoNaoPlaneada.length) {
