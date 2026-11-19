@@ -3731,10 +3731,14 @@
         const CAMPOS_HYDRA = {
           cc: ['Workplace'],
           grupo: ['Group', 'Group0'],
-          ka: ['Article'],
+          // A coluna Article é o Title da lista
+          ka: ['Title', 'Article'],
           qtd: ['Total_x0020_good_x0020_quantity', 'Totalgoodquantity', 'TotalGoodQuantity'],
           turno: ['TShift'],
-          ate: ['DataUntil', 'Data_x0020_Until'],
+          // DataUntil = dia produtivo (a Noite conta para o dia em que acaba)
+          dia: ['DataUntil', 'Data_x0020_Until'],
+          // Hora da última atualização da linha pelo job
+          ate: ['LastUpdate', 'Last_x0020_Update', 'Modified'],
           chave: ['ExternalKey', 'External_x0020_Key'],
           semPlano: ['SemPlano', 'Sem_x0020_plano', 'Sem_x0020_Plano'],
         };
@@ -11068,20 +11072,19 @@
           return '';
         }
 
-        /* Uma linha do Hydra SQL. O dia produtivo vem do ExternalKey
-           (…|aaaa-mm-dd|turno); sem ele, do DataUntil, sendo que depois das
-           23:00 já conta para o dia seguinte. */
+        /* Uma linha do Hydra SQL. O dia produtivo é o DataUntil; sem ele,
+           vem do ExternalKey (…|aaaa-mm-dd|turno). A hora dos dados é a da
+           última atualização da linha (LastUpdate ou Modificado). */
         function mapearItemHydra(item) {
           const chave = extractValue(valorCampo(item, CAMPOS_HYDRA.chave));
           const ateRaw = valorCampo(item, CAMPOS_HYDRA.ate);
           let ate = ateRaw ? new Date(ateRaw) : null;
           if (ate && isNaN(ate.getTime())) ate = null;
-          let dia = null;
-          const m = /(\d{4})-(\d{2})-(\d{2})/.exec(chave || '');
-          if (m) dia = new Date(+m[1], +m[2] - 1, +m[3]);
-          else if (ate) {
-            dia = new Date(ate.getFullYear(), ate.getMonth(), ate.getDate());
-            if (ate.getHours() >= 23) dia.setDate(dia.getDate() + 1);
+          let dia = parseItemDate(valorCampo(item, CAMPOS_HYDRA.dia));
+          if (dia) dia = new Date(dia.getFullYear(), dia.getMonth(), dia.getDate());
+          else {
+            const m = /(\d{4})-(\d{2})-(\d{2})/.exec(chave || '');
+            if (m) dia = new Date(+m[1], +m[2] - 1, +m[3]);
           }
           return {
             cc: extractValue(valorCampo(item, CAMPOS_HYDRA.cc)).trim(),
