@@ -11143,7 +11143,7 @@
             i.FracHydra = 0;
             i.HydraTurnosHoje = null;
             if (hydraDisponivel) {
-              if (i.Status === 'Em curso') {
+              if (i.Status === 'Em curso' || /^interrompid/i.test(i.Status || '')) {
                 /* A Data é a planeada e a produção pode começar antes ou
                    depois dela, por isso não serve de início. Conta-se:
                    - o acumulado da lista (dias já fechados pela ação A2)
