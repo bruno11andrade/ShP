@@ -663,6 +663,98 @@
       .opt-cc-stats-backlog {
         min-width: 0;
       }
+      /* Divisão do atraso: confirmado e em curso (Hydra) */
+      .opt-cc-stat-sub {
+        font-size: 0.66rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .opt-cc-stat-sub:empty {
+        display: none;
+      }
+      /* Ordens a correr no C.C., com o progresso do Hydra */
+      .opt-cc-curso {
+        border: 1px solid rgba(167, 139, 250, 0.45);
+        border-left: 3px solid #a78bfa;
+        background: rgba(167, 139, 250, 0.08);
+        border-radius: 8px;
+        padding: 6px 10px;
+        margin-bottom: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .opt-cc-curso-tit {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .opt-hydra-velho {
+        color: #fb923c;
+      }
+      .opt-cc-curso-linha {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-areas: 'ka st val' 'barra barra barra';
+        align-items: center;
+        column-gap: 8px;
+        row-gap: 3px;
+        font-size: 0.78rem;
+        color: var(--text-strong);
+      }
+      .opt-cc-curso-ka {
+        grid-area: ka;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 600;
+      }
+      .opt-cc-curso-st {
+        grid-area: st;
+        font-size: 0.66rem;
+        font-weight: 700;
+        color: #fbbf24;
+        white-space: nowrap;
+      }
+      .opt-cc-curso-st-int {
+        color: #f87171;
+      }
+      .opt-cc-curso-barra {
+        grid-area: barra;
+        height: 7px;
+        border-radius: 4px;
+        background: var(--border-color);
+        overflow: hidden;
+      }
+      .opt-cc-curso-barra i {
+        display: block;
+        height: 100%;
+        background: #a78bfa;
+      }
+      .opt-cc-curso-val {
+        grid-area: val;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        color: var(--text-label);
+      }
+      .opt-tag-hydra {
+        font-size: 0.66rem;
+        font-weight: 700;
+        color: #a78bfa;
+        border: 1px solid rgba(167, 139, 250, 0.6);
+        border-radius: 4px;
+        padding: 0 4px;
+        white-space: nowrap;
+      }
+      .opt-hydra-num {
+        color: #a78bfa;
+        font-weight: 700;
+      }
       .opt-cc-stat {
         background: var(--bg-card);
         border: 1px solid var(--border-color);
@@ -1641,7 +1733,7 @@
                   TOTAL EM ATRASO
                 </div>
                 <div class="value" id="opt-kpiTotalDelta">0:00</div>
-                <div class="opt-kpi-sub">soma dos C.C.</div>
+                <div class="opt-kpi-sub" id="opt-kpiTotalDeltaSub">soma dos C.C.</div>
               </div>
             </div>
 
@@ -1679,7 +1771,7 @@
                 <div class="value" id="opt-kpiQtdRatio" style="color: var(--text-muted)">
                   0%
                 </div>
-                <div class="opt-kpi-sub">até hoje</div>
+                <div class="opt-kpi-sub" id="opt-kpiQtdSub">até hoje</div>
               </div>
             </div>
 
@@ -2282,6 +2374,7 @@
                 >
                   0
                 </div>
+                <div class="opt-kpi-sub" id="hist-kpiSemQtdSub"></div>
               </div>
             </div>
             <div class="col">
@@ -2518,6 +2611,32 @@
     <script>
       (function OPTDashboardApp() {
         const LIST_GUID = '{D973A15A-A49F-406C-98AB-1D7110F753D2}';
+        // Hydra SQL: produção por C.C. + KA + dia + turno, escrita pelo job do
+        // Hydra a cada 15 minutos (uma linha por turno e uma linha Total)
+        const LIST_HYDRA_GUID = '{6A0C988B-557F-4812-A21D-A486C6B3770A}';
+        const CAMPOS_HYDRA = {
+          cc: ['Workplace'],
+          // A coluna Article é o Title da lista
+          ka: ['Title', 'Article'],
+          qtd: ['Total_x0020_good_x0020_quantity', 'Totalgoodquantity', 'TotalGoodQuantity'],
+          turno: ['TShift'],
+          // DataUntil = dia produtivo (a Noite conta para o dia em que acaba)
+          dia: ['DataUntil', 'Data_x0020_Until'],
+          // Hora da última atualização da linha pelo job
+          ate: ['LastUpdate', 'Last_x0020_Update', 'Modified'],
+          chave: ['ExternalKey', 'External_x0020_Key'],
+        };
+        // Colunas do plano escritas pelas ações Infowise (B1/B2/B3)
+        const CAMPOS_QTD_CORRIGIDA = ['QtdCorrigida', 'Qtd_x0020_corrigida', 'Qtd_x0020_Corrigida'];
+        const CAMPOS_HYDRA_FECHADOS = ['Qtd_x0020_Hydra_x0020_dias_x0020_fechados', 'QtdHydraDiasFechados'];
+        const CAMPOS_HYDRA_ULTIMO_DIA = ['_x00da_ltimo_x0020_dia_x0020_acumulado', 'UltimoDiaAcumulado', '_x00da_ltimodiaacumulado'];
+        const CAMPOS_QTD_HYDRA_LISTA = ['Qtd_x0020_Hydra', 'QtdHydra'];
+        // Dados do Hydra com mais de 30 min contam como atrasados
+        const HYDRA_MAX_MINUTOS = 30;
+        // Uma ordem em curso soma no máximo os últimos 10 dias do Hydra
+        const HYDRA_DIAS_ORDEM = 10;
+        // Diferença a partir da qual a Qtd Produzida e o Hydra não batem
+        const HYDRA_TOLERANCIA = 0.05;
         const LIST_MOD_GUID = '{39FBB04C-5B24-43ED-A31C-4F3FA104C2CE}';
         const LIST_ABERTURA_GUID = '{9AF896EE-B16A-42E4-AC6D-7DA935B5A26A}';
         // Checklist Ensaio Ferramentas — ensaios planeados que ocupam o CC
@@ -2614,6 +2733,9 @@
         }
 
         let rawListItems = [];
+        let rawHydraItems = [];
+        let hydraDisponivel = false;
+        let hydraAte = null;
         let rawModItems = [];
         let rawTrabalhoExtraItems = [];
         /* Datas (dd-mm-aaaa) com produção ou ensaios planeados. Serve para
@@ -3639,6 +3761,8 @@
             g.Planeado += item.HorasPlaneadas;
             g.IsBacklog = true;
             g.Itens = (g.Itens || 0) + 1;
+            // Ordem em curso: a parte já feita segundo o Hydra
+            if (item.FracHydra) g.Produzido += item.HorasPlaneadas * item.FracHydra;
           });
 
           (ccItems || []).forEach((item) => {
@@ -3646,6 +3770,9 @@
             g.Planeado += item.HorasPlaneadas;
             if (item.Status === 'Produzido') {
               g.Produzido += item.HorasPlaneadas;
+            } else if (item.FracHydra) {
+              // Ordem em curso: conta a fração já feita segundo o Hydra
+              g.Produzido += item.HorasPlaneadas * item.FracHydra;
             }
           });
 
@@ -4089,9 +4216,23 @@
                 });
             });
 
-          $.when(reqOpt, reqMod, reqAbertura, reqEnsaios, reqTE)
-            .done(function (resOpt, resMod, resAbertura, resEnsaios, resTE) {
-              const listas = [resOpt, resMod, resAbertura, resEnsaios, resTE];
+          // Hydra SQL: é um complemento. Se falhar, o dashboard continua com a
+          // Qtd Produzida da lista, por isso o pedido resolve sempre.
+          const reqHydra = $.Deferred();
+          hydraDisponivel = false;
+          lerListaCompleta(urlLista(LIST_HYDRA_GUID), 'Hydra SQL')
+            .done(function (res) {
+              hydraDisponivel = true;
+              reqHydra.resolve(res);
+            })
+            .fail(function (err) {
+              console.error('Erro ao carregar a lista Hydra SQL:', err);
+              reqHydra.resolve(semDados('Hydra SQL'));
+            });
+
+          $.when(reqOpt, reqMod, reqAbertura, reqEnsaios, reqTE, reqHydra)
+            .done(function (resOpt, resMod, resAbertura, resEnsaios, resTE, resHydra) {
+              const listas = [resOpt, resMod, resAbertura, resEnsaios, resTE, resHydra];
               mostrarAvisoDados(listas.filter((l) => l && l.truncado));
               console.info(
                 '[Dashboard OPT] Listas lidas: ' +
@@ -4109,13 +4250,300 @@
                 resMod.itens,
                 resAbertura.itens,
                 resEnsaios.itens,
-                resTE.itens
+                resTE.itens,
+                resHydra.itens
               );
             })
             .fail(function (err) {
               console.error('Erro ao carregar dados do SharePoint:', err);
-              processItems([], [], [], [], []);
+              processItems([], [], [], [], [], []);
             });
+        }
+
+        /* Valor de uma coluna pelo primeiro nome interno que existir; se
+           nenhum existir tal e qual, compara sem espaços codificados nem
+           maiúsculas. */
+        function valorCampo(item, nomes) {
+          for (let i = 0; i < nomes.length; i++) {
+            const n = nomes[i];
+            if (item[n] !== undefined && item[n] !== null) return item[n];
+            if (item['OData_' + n] !== undefined && item['OData_' + n] !== null) return item['OData_' + n];
+          }
+          const norm = (c) => String(c).replace(/^OData_/, '').replace(/_x0020_/g, '').toLowerCase();
+          const alvo = nomes.map(norm);
+          const k = Object.keys(item).find((c) => alvo.indexOf(norm(c)) !== -1);
+          return k ? item[k] : undefined;
+        }
+
+        function numeroOuNulo(v) {
+          if (v === undefined || v === null || String(v).trim() === '') return null;
+          const n = parseFloat(String(v).replace(/\s/g, '').replace(',', '.'));
+          return isNaN(n) ? null : n;
+        }
+
+        // Turno em português, venha em inglês (Hydra) ou português
+        function turnoNormalizado(v) {
+          const t = String(v || '').trim().toLowerCase();
+          if (/^(night|noite)/.test(t)) return 'Noite';
+          if (/^(morning|manh)/.test(t)) return 'Manhã';
+          if (/^(afternoon|tarde)/.test(t)) return 'Tarde';
+          if (/^total/.test(t)) return 'Total';
+          return '';
+        }
+
+        /* Uma linha do Hydra SQL. O dia produtivo é o DataUntil; sem ele,
+           vem do ExternalKey (…|aaaa-mm-dd|turno). A hora dos dados é a da
+           última atualização da linha (LastUpdate ou Modificado). */
+        function mapearItemHydra(item) {
+          const chave = extractValue(valorCampo(item, CAMPOS_HYDRA.chave));
+          const ateRaw = valorCampo(item, CAMPOS_HYDRA.ate);
+          let ate = ateRaw ? new Date(ateRaw) : null;
+          if (ate && isNaN(ate.getTime())) ate = null;
+          let dia = parseItemDate(valorCampo(item, CAMPOS_HYDRA.dia));
+          if (dia) dia = new Date(dia.getFullYear(), dia.getMonth(), dia.getDate());
+          else {
+            const m = /(\d{4})-(\d{2})-(\d{2})/.exec(chave || '');
+            if (m) dia = new Date(+m[1], +m[2] - 1, +m[3]);
+          }
+          return {
+            cc: String(extractValue(valorCampo(item, CAMPOS_HYDRA.cc)) || '').trim(),
+            ka: String(extractValue(valorCampo(item, CAMPOS_HYDRA.ka)) || '').trim(),
+            turno: turnoNormalizado(extractValue(valorCampo(item, CAMPOS_HYDRA.turno))),
+            qtd: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA.qtd)) || 0,
+            ate: ate,
+            dia: dia,
+          };
+        }
+
+        function chaveHydra(cc, ka, dia) {
+          return `${normalizeCC(cc)}|${String(ka || '').trim().toUpperCase()}|${dia ? formatDateShort(dia) : ''}`;
+        }
+
+        // Em curso ou Interrompida: ainda conta produção do Hydra
+        function estaEmCurso(item) {
+          return item.Status === 'Em curso' || /^interrompid/i.test(item.Status || '');
+        }
+
+        /* Junta o Hydra SQL ao plano. A Qtd Produzida da lista nunca é
+           alterada (o histórico continua a usá-la tal como vem da ação diária
+           das 02:00); o Hydra dá uma quantidade «ao vivo» enquanto ela não
+           chega:
+           - ordem Em curso ou Interrompida: o acumulado da lista (dias já
+             fechados pela ação B3) mais os dias do Hydra depois disso; sem
+             acumulado, os dias do Hydra desde o último fecho de outra ordem
+             do mesmo C.C. + KA (a Data é a planeada e a produção pode ser
+             antes ou depois dela);
+           - ordem Produzida ainda sem Qtd Produzida: a Qtd Hydra da lista ou,
+             sem ela, os mesmos dias do Hydra até ao dia em que fechou.
+           Com a quantidade ao vivo, as horas das ordens em curso contam pela
+           fração já feita. */
+        function aplicarHydraAoPlano() {
+          const indice = new Map();
+          hydraAte = null;
+          rawHydraItems.forEach((h) => {
+            if (h.turno !== 'Total') return;
+            const k = chaveHydra(h.cc, h.ka, h.dia);
+            const e = indice.get(k) || { qtd: 0, ate: null };
+            e.qtd += h.qtd;
+            if (h.ate && (!e.ate || h.ate > e.ate)) e.ate = h.ate;
+            indice.set(k, e);
+            if (h.ate && (!hydraAte || h.ate > hydraAte)) hydraAte = h.ate;
+          });
+          const hoje = getTodayZero();
+          const mesmoKA = (a, b) =>
+            String(a || '').trim().toUpperCase() === String(b || '').trim().toUpperCase();
+          const limiteDaily = new Date(hoje);
+          limiteDaily.setDate(limiteDaily.getDate() - 8);
+
+          rawListItems.forEach((i) => {
+            i.QtdHydra = null;
+            i.HydraAte = null;
+            i.FracHydra = 0;
+            i.QtdAoVivo = i.QtdProduzida || 0;
+            i.QtdProvisoria = false;
+            i.FonteAoVivo = 'Lista';
+            const emCurso = estaEmCurso(i);
+            let fimProducao = null;
+            if (i.Status === 'Produzido' && !(i.QtdProduzida > 0) && i.RawDataProducaoObj) {
+              fimProducao = new Date(i.RawDataProducaoObj);
+              fimProducao.setHours(0, 0, 0, 0);
+              if (fimProducao < limiteDaily) fimProducao = null;
+            }
+
+            if (fimProducao && i.QtdHydraLista > 0) {
+              i.QtdHydra = i.QtdHydraLista;
+            } else if ((emCurso || fimProducao) && hydraDisponivel) {
+              const fim = fimProducao || hoje;
+              const limite = new Date(hoje);
+              limite.setDate(limite.getDate() - HYDRA_DIAS_ORDEM);
+              let inicio = limite;
+              let soma = 0;
+              let tem = false;
+              if (i.UltimoDiaHydra) {
+                inicio = new Date(i.UltimoDiaHydra);
+                inicio.setHours(0, 0, 0, 0);
+                inicio.setDate(inicio.getDate() + 1);
+                soma = i.QtdHydraFechados || 0;
+                tem = true;
+              } else {
+                rawListItems.forEach((o) => {
+                  if (
+                    o !== i &&
+                    o.Status === 'Produzido' &&
+                    o.RawDataProducaoObj &&
+                    o.RawDataProducaoObj < fim &&
+                    areCCsEqual(o.CC, i.CC) &&
+                    mesmoKA(o.KA, i.KA)
+                  ) {
+                    const seguinte = new Date(o.RawDataProducaoObj);
+                    seguinte.setHours(0, 0, 0, 0);
+                    seguinte.setDate(seguinte.getDate() + 1);
+                    if (seguinte > inicio) inicio = seguinte;
+                  }
+                });
+              }
+              let ate = null;
+              for (const d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
+                const e = indice.get(chaveHydra(i.CC, i.KA, d));
+                if (!e) continue;
+                tem = true;
+                soma += e.qtd;
+                if (e.ate && (!ate || e.ate > ate)) ate = e.ate;
+              }
+              if (tem) {
+                i.QtdHydra = soma;
+                i.HydraAte = ate;
+              }
+            }
+            // Sem a lista Hydra SQL, vale a Qtd Hydra que a ação B2 grava
+            if (i.QtdHydra === null && (emCurso || fimProducao) && i.QtdHydraLista > 0) {
+              i.QtdHydra = i.QtdHydraLista;
+            }
+
+            // Referência para comparar com a Qtd Produzida (Caixa de erros)
+            i.QtdHydraRef = i.QtdHydraLista !== null ? i.QtdHydraLista : i.QtdHydra;
+
+            if (!(i.QtdProduzida > 0) && (emCurso || fimProducao)) {
+              const corrigida = i.QtdCorrigida !== null && i.QtdCorrigida !== undefined;
+              const v = corrigida ? i.QtdCorrigida : i.QtdHydra;
+              if (v !== null && v > 0) {
+                i.QtdAoVivo = v;
+                i.QtdProvisoria = true;
+                i.FonteAoVivo = corrigida ? 'Corrigida' : 'Hydra';
+              }
+            }
+            if (emCurso && i.QtdPlaneada > 0) {
+              i.FracHydra = Math.min(1, Math.max(0, i.QtdAoVivo / i.QtdPlaneada));
+            }
+          });
+        }
+
+        // «Hydra até 14:15», com aviso se os dados estiverem atrasados
+        function textoHydraAte() {
+          if (!hydraDisponivel) return { texto: 'Hydra indisponível', velho: true };
+          if (!hydraAte) return { texto: 'Hydra sem dados', velho: true };
+          const min = (Date.now() - hydraAte.getTime()) / 60000;
+          const hh = `${String(hydraAte.getHours()).padStart(2, '0')}:${String(
+            hydraAte.getMinutes()
+          ).padStart(2, '0')}`;
+          return { texto: `Hydra até ${hh}`, velho: min > HYDRA_MAX_MINUTOS };
+        }
+
+        // Horas que ainda faltam fazer de uma ordem em curso
+        function horasPorFazer(ordem) {
+          return (ordem.HorasPlaneadas || 0) * (1 - (ordem.FracHydra || 0));
+        }
+
+        function daArea(item, selAreaClean) {
+          return (
+            !selAreaClean ||
+            (item.Area && String(item.Area).trim().toLowerCase() === selAreaClean)
+          );
+        }
+
+        /* Ordens Em curso ou Interrompidas de um C.C., seja qual for a data
+           planeada: é o que está a correr na máquina. */
+        function ordensEmCursoDoCC(cc, selAreaClean) {
+          return rawListItems
+            .filter((i) => estaEmCurso(i) && areCCsEqual(i.CC, cc) && daArea(i, selAreaClean))
+            .sort((a, b) => (a.RawDateObj || 0) - (b.RawDateObj || 0));
+        }
+
+        /* Divide o atraso de um C.C. em «em curso» (o que falta das ordens a
+           correr, com data até hoje) e «confirmado» (o resto: trabalho que
+           nem começou). */
+        function divisaoAtrasoCC(resumo) {
+          if (resumo.delta >= 0) return { confirmado: 0, emCurso: 0 };
+          const fimHoje = getTodayZero();
+          fimHoje.setHours(23, 59, 59, 999);
+          const porFazer = resumo.ccItems
+            .concat(resumo.ccBacklog)
+            .filter((i) => estaEmCurso(i) && i.RawDateObj && i.RawDateObj <= fimHoje)
+            .reduce((t, i) => t + horasPorFazer(i), 0);
+          const emCurso = Math.min(-resumo.delta, porFazer);
+          return { confirmado: resumo.delta + emCurso, emCurso: emCurso };
+        }
+
+        function textoDivisaoAtraso(div) {
+          if (!(div.emCurso > 1 / 120)) return '';
+          return `confirmado ${formatHoursToHHMM(div.confirmado)} · em curso ${formatHoursToHHMM(
+            -div.emCurso
+          )}`;
+        }
+
+        /* Faixa do cartão do C.C. com as ordens a correr: quanto já está
+           feito segundo o Hydra, face ao planeado. */
+        function bandaEmCursoCC(cc, selAreaClean) {
+          const ordens = ordensEmCursoDoCC(cc, selAreaClean);
+          if (!ordens.length) return '';
+          const hy = textoHydraAte();
+          const linhas = ordens
+            .map((o) => {
+              const pct = o.QtdPlaneada > 0 ? Math.round((o.QtdAoVivo / o.QtdPlaneada) * 100) : null;
+              const interrompida = /^interrompid/i.test(o.Status || '');
+              const temQtd = o.QtdProvisoria || o.QtdProduzida > 0;
+              const valor = temQtd
+                ? `${formatQtd(o.QtdAoVivo)} / ${formatQtd(o.QtdPlaneada)}${pct !== null ? ` · ${pct}%` : ''}`
+                : 'sem produção no Hydra';
+              return `
+                <div class="opt-cc-curso-linha" title="${escapeHtml(
+                  `${o.KA} · planeada para ${o.DataFormatted}` +
+                    (o.FonteAoVivo === 'Corrigida' ? ' · Qtd corrigida' : '')
+                )}">
+                  <span class="opt-cc-curso-ka">${escapeHtml(o.KA)}</span>
+                  <span class="opt-cc-curso-st${interrompida ? ' opt-cc-curso-st-int' : ''}">${
+                interrompida ? 'Interrompida' : 'Em curso'
+              }</span>
+                  <span class="opt-cc-curso-barra"><i style="width:${Math.min(100, pct || 0)}%"></i></span>
+                  <span class="opt-cc-curso-val">${valor}</span>
+                </div>`;
+            })
+            .join('');
+          return `
+            <div class="opt-cc-curso">
+              <div class="opt-cc-curso-tit">
+                <span><i class="fa-solid fa-gears me-1"></i>A correr</span>
+                <span class="${hy.velho ? 'opt-hydra-velho' : ''}">${escapeHtml(hy.texto)}</span>
+              </div>
+              ${linhas}
+            </div>`;
+        }
+
+        // Quantidade numa tabela: a da lista, ou a provisória com etiqueta
+        function celulaQtdAoVivo(item) {
+          if (!item.QtdProvisoria) return formatQtd(item.QtdProduzida);
+          const etiqueta = item.FonteAoVivo === 'Corrigida' ? 'corrigida' : 'Hydra';
+          return `${formatQtd(item.QtdAoVivo)} <span class="opt-tag-hydra" title="Provisório: a Qtd Produzida só chega com a ação diária">${etiqueta}</span>`;
+        }
+
+        // Produzida com Qtd Produzida e Qtd Hydra que diferem mais de 5%
+        function difereDoHydra(item) {
+          return (
+            item.Status === 'Produzido' &&
+            item.QtdProduzida > 0 &&
+            item.QtdHydraRef > 0 &&
+            Math.abs(item.QtdProduzida - item.QtdHydraRef) / item.QtdHydraRef > HYDRA_TOLERANCIA
+          );
         }
 
         function processItems(
@@ -4123,7 +4551,8 @@
           modItems,
           aberturaItems,
           ensaioItems,
-          teItems
+          teItems,
+          hydraItems
         ) {
           rawListItems = optItems.map((item) => {
             const rawCC = item.CC || item.OData_CC || 'N/A';
@@ -4177,8 +4606,18 @@
                 parseFloat(item.Qtd_x0020_Interrompido) ||
                 parseFloat(item.QtdInterrompido) ||
                 0,
+              // Colunas do Hydra escritas pelas ações Infowise
+              QtdCorrigida: numeroOuNulo(valorCampo(item, CAMPOS_QTD_CORRIGIDA)),
+              QtdHydraFechados: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_FECHADOS)),
+              UltimoDiaHydra: parseItemDate(valorCampo(item, CAMPOS_HYDRA_ULTIMO_DIA)),
+              QtdHydraLista: numeroOuNulo(valorCampo(item, CAMPOS_QTD_HYDRA_LISTA)),
             };
           });
+
+          rawHydraItems = (hydraItems || [])
+            .map(mapearItemHydra)
+            .filter((h) => h.cc && h.ka && h.dia);
+          aplicarHydraAoPlano();
 
           rawModItems = modItems.map((item) => {
             const rawCC = item.CC || item.Title || item.OData_CC || 'N/A';
@@ -4821,7 +5260,7 @@
           );
           const delta = calculateCcDelta(cc, ccItems, ccEnsaios, ccBacklog);
 
-          return {
+          const resumo = {
             ccItems: ccItems,
             ccEnsaios: ccEnsaios,
             ccBacklog: ccBacklog,
@@ -4832,6 +5271,8 @@
             delta: delta,
             cfg: getDelayCardConfig(delta),
           };
+          resumo.divisao = divisaoAtrasoCC(resumo);
+          return resumo;
         }
 
         /* Centros de custo que contam para a "% CC em atraso > 8H": os da
@@ -4861,9 +5302,17 @@
           const selAreaClean = selectedArea
             ? String(selectedArea).trim().toLowerCase()
             : null;
-          const total = getCCsForArea(selectedArea).reduce(
-            (soma, cc) => soma + calcularResumoCC(cc, selAreaClean).delta,
-            0
+          let emCursoTotal = 0;
+          const total = getCCsForArea(selectedArea).reduce((soma, cc) => {
+            const resumo = calcularResumoCC(cc, selAreaClean);
+            emCursoTotal += resumo.divisao.emCurso;
+            return soma + resumo.delta;
+          }, 0);
+          // Parte do atraso que é o que falta das ordens a correr
+          $('#opt-kpiTotalDeltaSub').text(
+            emCursoTotal > 1 / 120
+              ? `soma dos C.C. · em curso ${formatHoursToHHMM(-emCursoTotal)}`
+              : 'soma dos C.C.'
           );
           const sufixoArea = selectedArea
             ? ' ' + String(selectedArea).trim().toUpperCase()
@@ -4913,7 +5362,10 @@
               .html(
                 `${resumo.cfg.valueText} <i class="${resumo.cfg.icon}" style="font-size: 0.8rem"></i>`
               );
+            const divisao = textoDivisaoAtraso(resumo.divisao);
+            $(`#cc_split_${cc}`).text(divisao);
             $(`#header_delay_${cc}`)
+              .attr('title', divisao)
               .css('color', resumo.cfg.color)
               .html(
                 `${resumo.cfg.valueText} <i class="${resumo.cfg.icon}" style="font-size:0.85rem;"></i>`
@@ -4987,6 +5439,12 @@
               if (!prod || soDia(prod) === soDia(i.RawDateObj)) grupo = 'dia';
               else if (soDia(prod) < soDia(i.RawDateObj)) grupo = 'antes';
               else grupo = 'depois';
+            }
+            if (grupo === 'pendente' && i.FracHydra > 0) {
+              // Em curso: a parte feita e a que falta
+              g.ItensPlano.push({ ka: i.KA, horas: horas * i.FracHydra, grupo: 'curso' });
+              g.ItensPlano.push({ ka: i.KA, horas: horas * (1 - i.FracHydra), grupo: 'pendente' });
+              return;
             }
             g.ItensPlano.push({
               ka: i.KA,
@@ -5080,6 +5538,7 @@
               ['dia', 'Feitas neste dia'],
               ['antes', 'Adiantadas, feitas antes', 'feito a'],
               ['depois', 'Com atraso, feitas depois', 'feito a'],
+              ['curso', 'Em curso, já feitas (Hydra)'],
               ['pendente', 'Por produzir'],
             ]
           );
@@ -5213,7 +5672,7 @@
                       <span>${escapeHtml(cc)}</span>
                       <span class="opt-cc-header-delay" id="header_delay_${cc}" style="color: ${
               headerCfg.color
-            };">
+            };" title="${escapeHtml(textoDivisaoAtraso(resumo.divisao))}">
                         ${headerCfg.valueText} <i class="${
               headerCfg.icon
             }" style="font-size:0.85rem;"></i>
@@ -5240,8 +5699,12 @@
                                 headerCfg.icon
                               }" style="font-size: 0.8rem"></i>
                             </span>
+                            <span class="opt-cc-stat-sub" id="cc_split_${cc}">${escapeHtml(
+              textoDivisaoAtraso(resumo.divisao)
+            )}</span>
                           </div>
                         </div>
+                        ${bandaEmCursoCC(cc, selAreaClean)}
                         <div class="table-responsive" style="overflow: visible;">
                             <table class="table table-bordered table-striped table-opt opt-cc-table">
                                 <thead>
@@ -5333,8 +5796,10 @@
               futuro: ehFuturo(i.RawDateObj),
               planeado: horas,
               // Mesma regra do agrupamento por data: uma linha dada como
-              // produzida conta as horas que tinha planeadas
-              produzido: i.Status === 'Produzido' ? horas : 0,
+              // produzida conta as horas que tinha planeadas; uma em curso,
+              // a fração já feita segundo o Hydra
+              produzido: i.Status === 'Produzido' ? horas : horas * (i.FracHydra || 0),
+              hydra: i.Status !== 'Produzido' && i.FracHydra > 0 ? i.FracHydra : 0,
             });
           });
 
@@ -5361,7 +5826,8 @@
               futuro: false,
               backlog: true,
               planeado: i.HorasPlaneadas || 0,
-              produzido: 0,
+              produzido: (i.HorasPlaneadas || 0) * (i.FracHydra || 0),
+              hydra: i.FracHydra || 0,
             });
           });
 
@@ -5723,6 +6189,7 @@
               `0 de ${getCCsParaAtraso8h(selectedArea).length} C.C.`
             );
             $('#opt-kpiQtdRatio').text('0%').css('color', corTema('--text-muted'));
+            $('#opt-kpiQtdSub').text('até hoje');
             return;
           }
 
@@ -5750,10 +6217,29 @@
             (acc, i) => acc + (i.QtdPlaneada || 0),
             0
           );
+          // A quantidade ao vivo é a Qtd Produzida ou, enquanto ela não
+          // chega (ação diária das 02:00), a do Hydra
           const totalQtdProduzida = qtyItemsUntilToday.reduce(
-            (acc, i) => acc + (i.QtdProduzida || 0),
+            (acc, i) => acc + (i.QtdAoVivo || 0),
             0
           );
+          const totalQtdProvisoria = qtyItemsUntilToday.reduce(
+            (acc, i) => acc + (i.QtdProvisoria ? i.QtdAoVivo : 0),
+            0
+          );
+          const hyQtd = textoHydraAte();
+          $('#opt-kpiQtdSub')
+            .text(
+              totalQtdProvisoria > 0
+                ? `até hoje · inclui ${formatQtd(totalQtdProvisoria)} do Hydra`
+                : 'até hoje'
+            )
+            .attr(
+              'title',
+              totalQtdProvisoria > 0
+                ? `${formatQtd(totalQtdProvisoria)} peças provisórias de ordens em curso ou fechadas sem Qtd Produzida (${hyQtd.texto})`
+                : ''
+            );
 
           let ratioQtdPct = 0;
           if (totalQtdPlaneada > 0) {
@@ -6088,7 +6574,7 @@
             } else {
               qtdItemsUntilToday.forEach((item) => {
                 const plan = item.QtdPlaneada || 0;
-                const prod = item.QtdProduzida || 0;
+                const prod = item.QtdAoVivo || 0;
                 let pct =
                   plan > 0
                     ? Math.round((prod / plan) * 100)
@@ -6103,7 +6589,7 @@
             <td>${escapeHtml(item.KA)}</td>
             <td>${item.DataFormatted}</td>
             <td>${formatQtd(plan)}</td>
-            <td>${formatQtd(prod)}</td>
+            <td>${celulaQtdAoVivo(item)}</td>
             <td><span class="badge ${badgeClass}">${pct}%</span></td>
           </tr>`;
               });
@@ -6245,7 +6731,13 @@
           <tr>
             <td>${l.backlog ? '—' : l.Data || '—'}${etiqueta}</td>
             ${doTotal ? `<td class="fw-bold">${escapeHtml(String(l.CC))}</td>` : ''}
-            <td>${escapeHtml(l.KA || '')}</td>
+            <td>${escapeHtml(l.KA || '')}${
+              l.hydra
+                ? ` <span class="opt-tag-hydra" title="Ordem em curso: fração já feita segundo o Hydra">Hydra ${Math.round(
+                    l.hydra * 100
+                  )}%</span>`
+                : ''
+            }</td>
             <td>${
               l.tipo === 'Ensaio'
                 ? '<i class="fa-solid fa-flask me-1" style="color:#8bb3f2"></i>Ensaio'
@@ -6574,11 +7066,12 @@
               <th>Data de Produção</th>
               <th>Status</th>
               <th>Qtd. Produzida</th>
+              <th title="Quantidade do Hydra para esta ordem: pode ser copiada para a Qtd. Produzida">Qtd. Hydra</th>
             </tr>
           </thead>
           <tbody>`;
             if (semQtd.length === 0) {
-              html += `<tr><td colspan="6" class="text-muted">Sem registos nestas condições para os filtros selecionados.</td></tr>`;
+              html += `<tr><td colspan="7" class="text-muted">Sem registos nestas condições para os filtros selecionados.</td></tr>`;
             } else {
               semQtd.forEach((item) => {
                 html += `
@@ -6589,6 +7082,44 @@
             <td>${item.DataProducaoFormatted || '—'}</td>
             <td>${badgeStatus(item.Status)}</td>
             <td>${formatQtd(item.QtdProduzida)}</td>
+            <td>${item.QtdHydraRef > 0 ? `<span class="opt-hydra-num">${formatQtd(item.QtdHydraRef)}</span>` : '—'}</td>
+          </tr>`;
+              });
+            }
+            html += `</tbody></table></div>`;
+
+            // Qtd Produzida (ação diária) e Hydra que não batem
+            const diferentes = items.filter(difereDoHydra);
+            html += `
+      <h6 class="mt-4 mb-2 fw-bold">Qtd. Produzida diferente do Hydra (mais de 5%)</h6>
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-opt w-100">
+          <thead>
+            <tr>
+              <th>CC</th>
+              <th>KA / Material</th>
+              <th>Data de Produção</th>
+              <th>Qtd. Produzida</th>
+              <th>Qtd. Hydra</th>
+              <th>Diferença</th>
+            </tr>
+          </thead>
+          <tbody>`;
+            if (diferentes.length === 0) {
+              html += `<tr><td colspan="6" class="text-muted">Sem diferenças acima de 5% para os filtros selecionados.</td></tr>`;
+            } else {
+              diferentes.forEach((item) => {
+                const dif = item.QtdProduzida - item.QtdHydraRef;
+                html += `
+          <tr>
+            <td class="fw-bold">${escapeHtml(item.CC)}</td>
+            <td>${escapeHtml(item.KA)}</td>
+            <td>${item.DataProducaoFormatted || '—'}</td>
+            <td>${formatQtd(item.QtdProduzida)}</td>
+            <td><span class="opt-hydra-num">${formatQtd(item.QtdHydraRef)}</span></td>
+            <td style="color: #f87171; font-weight: 700">${dif > 0 ? '+' : ''}${formatQtd(dif)} (${
+                  dif > 0 ? '+' : ''
+                }${Math.round((dif / item.QtdHydraRef) * 100)}%)</td>
           </tr>`;
               });
             }
@@ -8525,6 +9056,22 @@
               !isToday(i.RawDataProducaoObj)
           ).length;
 
+          const semQtdComHydra = items.filter(
+            (i) =>
+              i.Status === 'Produzido' &&
+              !(i.QtdProduzida > 0) &&
+              !isToday(i.RawDataProducaoObj) &&
+              i.QtdHydraRef > 0
+          ).length;
+          const diferencasHydra = items.filter(difereDoHydra).length;
+          $('#hist-kpiSemQtdSub').text(
+            [
+              semQtdComHydra ? `${semQtdComHydra} com qtd no Hydra` : '',
+              diferencasHydra ? `${diferencasHydra} ≠ Hydra > 5%` : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          );
           $('#hist-kpiProduzidoSemQtd')
             .text(produzidoSemQtd)
             .css('color', produzidoSemQtd === 0 ? '#34d399' : '#fb923c');
