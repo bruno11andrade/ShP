@@ -3749,6 +3749,8 @@
         const CAMPOS_HYDRA_ULTIMO_DIA = ['_x00da_ltimo_x0020_dia_x0020_acumulado', 'UltimoDiaAcumulado', '_x00da_ltimodiaacumulado'];
         // Quantidade do dia que já era da ordem anterior do mesmo C.C. + KA
         // (escrita pela ação A3 quando essa ordem fecha)
+        // Qtd Hydra calculada na lista (fica parada quando a ordem fecha)
+        const CAMPOS_QTD_HYDRA_LISTA = ['Qtd_x0020_Hydra', 'QtdHydra'];
         const CAMPOS_HYDRA_BASE = ['Qtd_x0020_Hydra_x0020_base', 'QtdHydraBase'];
         const CAMPOS_HYDRA_DIA_BASE = ['Dia_x0020_Hydra_x0020_base', 'DiaHydraBase'];
         // Dados do Hydra mais antigos do que isto aparecem com aviso
@@ -5624,6 +5626,7 @@
               UltimoDiaHydra: parseItemDate(valorCampo(item, CAMPOS_HYDRA_ULTIMO_DIA)),
               QtdHydraBase: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_BASE)),
               DiaHydraBase: parseItemDate(valorCampo(item, CAMPOS_HYDRA_DIA_BASE)),
+              QtdHydraLista: numeroOuNulo(valorCampo(item, CAMPOS_QTD_HYDRA_LISTA)),
               Turno: '',
             };
           });
@@ -11142,8 +11145,23 @@
             i.HydraAte = null;
             i.FracHydra = 0;
             i.HydraTurnosHoje = null;
-            if (hydraDisponivel) {
-              if (i.Status === 'Em curso' || /^interrompid/i.test(i.Status || '')) {
+            const emCurso = i.Status === 'Em curso' || /^interrompid/i.test(i.Status || '');
+            /* Produzida mas ainda sem Qtd Produzida: a ação diária das 02:00
+               só a preenche no dia seguinte, a partir do Daily Production.
+               Até lá mostra-se a quantidade do Hydra. */
+            let fimProducao = null;
+            if (i.Status === 'Produzido' && !(i.QtdProduzida > 0) && i.RawDataProducaoObj) {
+              fimProducao = new Date(i.RawDataProducaoObj);
+              fimProducao.setHours(0, 0, 0, 0);
+              const limiteDaily = new Date(hoje);
+              limiteDaily.setDate(limiteDaily.getDate() - 8);
+              if (fimProducao < limiteDaily) fimProducao = null;
+            }
+            if (fimProducao && i.QtdHydraLista > 0) {
+              i.QtdHydra = i.QtdHydraLista;
+            } else if (hydraDisponivel) {
+              if (emCurso || fimProducao) {
+                const fim = fimProducao || hoje;
                 /* A Data é a planeada e a produção pode começar antes ou
                    depois dela, por isso não serve de início. Conta-se:
                    - o acumulado da lista (dias já fechados pela ação A2)
@@ -11172,6 +11190,7 @@
                       o !== i &&
                       o.Status === 'Produzido' &&
                       o.RawDataProducaoObj &&
+                      o.RawDataProducaoObj < fim &&
                       areCCsEqual(o.CC, i.CC) &&
                       mesmoKA(o.KA, i.KA)
                     ) {
@@ -11184,7 +11203,7 @@
                 }
                 const d = new Date(inicio);
                 let ate = null;
-                for (; d <= hoje; d.setDate(d.getDate() + 1)) {
+                for (; d <= fim; d.setDate(d.getDate() + 1)) {
                   const e = indice.get(chaveHydra(i.CC, i.KA, d, 'Total'));
                   if (!e) continue;
                   tem = true;
@@ -11194,12 +11213,14 @@
                 }
                 soma = Math.max(0, soma);
                 // Produção de hoje por turno, só para mostrar
-                const turnos = {};
-                ['Noite', 'Manhã', 'Tarde'].forEach((t) => {
-                  const e = indice.get(chaveHydra(i.CC, i.KA, hoje, t));
-                  turnos[t] = e ? e.qtd : null;
-                });
-                i.HydraTurnosHoje = turnos;
+                if (emCurso) {
+                  const turnos = {};
+                  ['Noite', 'Manhã', 'Tarde'].forEach((t) => {
+                    const e = indice.get(chaveHydra(i.CC, i.KA, hoje, t));
+                    turnos[t] = e ? e.qtd : null;
+                  });
+                  i.HydraTurnosHoje = turnos;
+                }
                 if (tem) {
                   i.QtdHydra = soma;
                   i.HydraAte = ate;
