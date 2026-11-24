@@ -710,15 +710,11 @@
         overflow: hidden;
         background: var(--border-color);
       }
-      .opt-cc-barra-atraso .conf {
-        background: #f87171;
+      .opt-cc-atraso-barra .cur-atraso {
+        background: repeating-linear-gradient(135deg, #fb923c 0 5px, #334155 5px 10px);
       }
-      .opt-cc-barra-avanco .conf {
-        background: #34d399;
-      }
-      .opt-cc-atraso-barra .cur,
-      .opt-cc-atraso-leg i {
-        background: repeating-linear-gradient(135deg, #f59e0b 0 5px, #334155 5px 10px);
+      .opt-cc-atraso-barra .cur-avanco {
+        background: repeating-linear-gradient(135deg, #34d399 0 5px, #334155 5px 10px);
       }
       .opt-cc-atraso-leg {
         font-size: 0.7rem;
@@ -4518,68 +4514,79 @@
             .sort((a, b) => (a.RawDateObj || 0) - (b.RawDateObj || 0));
         }
 
-        /* Divide o atraso/avanço de um C.C. em «em curso» e «confirmado».
-           Só contam as ordens que aparecem no cartão: Em curso e com
-           produção no Hydra (as interrompidas ou ainda sem peças ficam no
-           confirmado).
-           - Atraso: em curso é o que falta das ordens a correr com data até
-             hoje; o resto é trabalho que nem começou.
-           - Avanço: em curso é a parte do avanço que vem de ordens ainda a
-             correr (as horas já feitas segundo o Hydra); o resto é de ordens
-             fechadas. */
+        /* Divide o atraso/avanço de um C.C. no que vem das ordens Em curso e
+           no resto («confirmado»). Cada ordem em curso conta, tal como no
+           cálculo do atraso, as horas já feitas segundo o Hydra menos as
+           planeadas se a data for até hoje: numa ordem atrasada dá o que
+           falta (atraso), numa adiantada dá o que já fez (avanço). */
         function divisaoAtrasoCC(resumo) {
           const fimHoje = getTodayZero();
           fimHoje.setHours(23, 59, 59, 999);
           const aCorrer = resumo.ccItems
             .concat(resumo.ccBacklog)
-            .filter((i) => i.Status === 'Em curso' && i.QtdAoVivo > 0);
-          if (resumo.delta < 0) {
-            const porFazer = aCorrer
-              .filter((i) => i.RawDateObj && i.RawDateObj <= fimHoje)
-              .reduce((t, i) => t + horasPorFazer(i), 0);
-            const emCurso = Math.min(-resumo.delta, porFazer);
-            return { confirmado: resumo.delta + emCurso, emCurso: emCurso };
-          }
-          const feitas = aCorrer.reduce(
-            (t, i) => t + (i.HorasPlaneadas || 0) * (i.FracHydra || 0),
-            0
-          );
-          const emCurso = Math.min(resumo.delta, feitas);
-          return { confirmado: resumo.delta - emCurso, emCurso: emCurso };
+            .filter((i) => i.Status === 'Em curso');
+          const emCurso = aCorrer.reduce((t, i) => {
+            const horas = i.HorasPlaneadas || 0;
+            const devida = i.RawDateObj && i.RawDateObj <= fimHoje ? horas : 0;
+            return t + horas * (i.FracHydra || 0) - devida;
+          }, 0);
+          return {
+            temCurso: aCorrer.length > 0,
+            emCurso: emCurso,
+            confirmado: resumo.delta - emCurso,
+          };
         }
 
-        function textoDivisaoAtraso(div, delta) {
-          if (!(div.emCurso > 1 / 120)) return '';
-          const avanco = delta >= 0;
-          return `${formatHoursToHHMM(div.confirmado, avanco)} confirmado · ${formatHoursToHHMM(
-            avanco ? div.emCurso : -div.emCurso,
-            avanco
+        function formatarSinal(horas) {
+          return formatHoursToHHMM(horas, horas > 0);
+        }
+
+        function textoDivisaoAtraso(div) {
+          if (!div.temCurso) return '';
+          return `${formatarSinal(div.confirmado)} confirmado · ${formatarSinal(
+            div.emCurso
           )} em curso`;
         }
 
-        /* Barra do atraso/avanço, sempre visível: vermelha no atraso e verde
-           no avanço, com a parte das ordens a correr riscada. */
-        function htmlBarraAtraso(resumo) {
-          const div = resumo.divisao;
-          const total = Math.abs(resumo.delta);
-          const tipo = resumo.delta < 0 ? 'atraso' : 'avanco';
-          if (!(total > 1 / 120)) {
-            return '<div class="opt-cc-atraso-barra"></div>';
-          }
-          const pctCurso = Math.min(100, Math.round((div.emCurso / total) * 100));
-          return `
-            <div class="opt-cc-atraso-barra opt-cc-barra-${tipo}"><span class="conf" style="background:${
-              resumo.cfg.color
-            };width:${
-              100 - pctCurso
-            }%"></span><span class="cur" style="width:${pctCurso}%"></span></div>`;
+        // Cor de um valor de horas: verde no avanço, laranja/vermelho no atraso
+        function corHoras(horas) {
+          return getDelayCardConfig(horas).color;
         }
 
-        /* Ordens Em curso do C.C. com produção no Hydra, por baixo do
-           atraso: KA, barra, peças e %. Sem nenhuma, não aparece nada. */
+        /* Barra do atraso/avanço, sempre visível. Com ordens em curso fica
+           dividida: a parte lisa é o confirmado e a riscada o que vem das
+           ordens em curso, cada uma com a cor do seu sinal (verde se dá
+           avanço, laranja/vermelho se dá atraso). */
+        function htmlBarraAtraso(resumo) {
+          const div = resumo.divisao;
+          const abs = (v) => (Math.abs(v) > 1 / 120 ? Math.abs(v) : 0);
+          if (!div.temCurso) {
+            if (!abs(resumo.delta)) return '<div class="opt-cc-atraso-barra"></div>';
+            return `<div class="opt-cc-atraso-barra"><span style="width:100%;background:${resumo.cfg.color}"></span></div>`;
+          }
+          const conf = abs(div.confirmado);
+          const cur = abs(div.emCurso);
+          const total = conf + cur;
+          if (!total) return '<div class="opt-cc-atraso-barra"></div>';
+          const pctCurso = Math.round((cur / total) * 100);
+          return `
+            <div class="opt-cc-atraso-barra">${
+              conf
+                ? `<span style="width:${100 - pctCurso}%;background:${corHoras(div.confirmado)}"></span>`
+                : ''
+            }${
+              cur
+                ? `<span class="cur ${div.emCurso > 0 ? 'cur-avanco' : 'cur-atraso'}" style="width:${pctCurso}%"></span>`
+                : ''
+            }</div>`;
+        }
+
+        /* Ordens Em curso do C.C., por baixo do atraso: KA, barra, peças e %
+           (0% enquanto o Hydra não tiver peças). Sem nenhuma, não aparece
+           nada. */
         function bandaEmCursoCC(cc, selAreaClean) {
           const ordens = ordensEmCursoDoCC(cc, selAreaClean).filter(
-            (o) => o.Status === 'Em curso' && o.QtdAoVivo > 0
+            (o) => o.Status === 'Em curso'
           );
           if (!ordens.length) return '';
           const hy = textoHydraAte();
@@ -4590,6 +4597,7 @@
                 return `
               <div class="opt-cc-curso-chip" title="${escapeHtml(
                 `${o.KA} · planeada para ${o.DataFormatted} · ${hy.texto}` +
+                  (o.QtdAoVivo > 0 ? '' : ' · ainda sem peças no Hydra') +
                   (o.FonteAoVivo === 'Corrigida' ? ' · Qtd corrigida' : '')
               )}">
                 <span class="opt-cc-curso-dot${hy.velho ? ' opt-cc-curso-dot-velho' : ''}"></span>
@@ -5377,15 +5385,17 @@
             ? String(selectedArea).trim().toLowerCase()
             : null;
           let emCursoTotal = 0;
+          let temCursoTotal = false;
           const total = getCCsForArea(selectedArea).reduce((soma, cc) => {
             const resumo = calcularResumoCC(cc, selAreaClean);
-            if (resumo.delta < 0) emCursoTotal += resumo.divisao.emCurso;
+            emCursoTotal += resumo.divisao.emCurso;
+            temCursoTotal = temCursoTotal || resumo.divisao.temCurso;
             return soma + resumo.delta;
           }, 0);
           // Parte do atraso que é o que falta das ordens a correr
           $('#opt-kpiTotalDeltaSub').text(
-            emCursoTotal > 1 / 120
-              ? `soma dos C.C. · em curso ${formatHoursToHHMM(-emCursoTotal)}`
+            temCursoTotal
+              ? `soma dos C.C. · em curso ${formatarSinal(emCursoTotal)}`
               : 'soma dos C.C.'
           );
           const sufixoArea = selectedArea
@@ -5436,7 +5446,7 @@
               .html(
                 `${resumo.cfg.valueText} <i class="${resumo.cfg.icon}" style="font-size: 0.8rem"></i>`
               );
-            const divisao = textoDivisaoAtraso(resumo.divisao, resumo.delta);
+            const divisao = textoDivisaoAtraso(resumo.divisao);
             $(`#cc_split_${cc}`).text(divisao);
             $(`#cc_barra_${cc}`).html(htmlBarraAtraso(resumo));
             $(`#header_delay_${cc}`)
@@ -5739,7 +5749,7 @@
                       <span>${escapeHtml(cc)}</span>
                       <span class="opt-cc-header-delay" id="header_delay_${cc}" style="color: ${
               headerCfg.color
-            };" title="${escapeHtml(textoDivisaoAtraso(resumo.divisao, resumo.delta))}">
+            };" title="${escapeHtml(textoDivisaoAtraso(resumo.divisao))}">
                         ${headerCfg.valueText} <i class="${
               headerCfg.icon
             }" style="font-size:0.85rem;"></i>
@@ -5769,7 +5779,7 @@
                               }" style="font-size: 0.8rem"></i>
                             </span>
                             <span class="opt-cc-stat-sub" id="cc_split_${cc}">${escapeHtml(
-              textoDivisaoAtraso(resumo.divisao, resumo.delta)
+              textoDivisaoAtraso(resumo.divisao)
             )}</span>
                           </div>
                           <div id="cc_barra_${cc}">${htmlBarraAtraso(resumo)}</div>
