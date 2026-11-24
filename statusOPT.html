@@ -4524,7 +4524,15 @@
           fimHoje.setHours(23, 59, 59, 999);
           const porFazer = resumo.ccItems
             .concat(resumo.ccBacklog)
-            .filter((i) => estaEmCurso(i) && i.RawDateObj && i.RawDateObj <= fimHoje)
+            // Só as ordens que aparecem no cartão: Em curso e com produção no
+            // Hydra (as interrompidas ou ainda sem peças ficam no confirmado)
+            .filter(
+              (i) =>
+                i.Status === 'Em curso' &&
+                i.QtdAoVivo > 0 &&
+                i.RawDateObj &&
+                i.RawDateObj <= fimHoje
+            )
             .reduce((t, i) => t + horasPorFazer(i), 0);
           const emCurso = Math.min(-resumo.delta, porFazer);
           return { confirmado: resumo.delta + emCurso, emCurso: emCurso };
