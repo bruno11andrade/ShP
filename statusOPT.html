@@ -710,8 +710,11 @@
         overflow: hidden;
         background: var(--border-color);
       }
-      .opt-cc-atraso-barra .conf {
+      .opt-cc-barra-atraso .conf {
         background: #f87171;
+      }
+      .opt-cc-barra-avanco .conf {
+        background: #34d399;
       }
       .opt-cc-atraso-barra .cur,
       .opt-cc-atraso-leg i {
@@ -4515,45 +4518,59 @@
             .sort((a, b) => (a.RawDateObj || 0) - (b.RawDateObj || 0));
         }
 
-        /* Divide o atraso de um C.C. em «em curso» (o que falta das ordens a
-           correr, com data até hoje) e «confirmado» (o resto: trabalho que
-           nem começou). */
+        /* Divide o atraso/avanço de um C.C. em «em curso» e «confirmado».
+           Só contam as ordens que aparecem no cartão: Em curso e com
+           produção no Hydra (as interrompidas ou ainda sem peças ficam no
+           confirmado).
+           - Atraso: em curso é o que falta das ordens a correr com data até
+             hoje; o resto é trabalho que nem começou.
+           - Avanço: em curso é a parte do avanço que vem de ordens ainda a
+             correr (as horas já feitas segundo o Hydra); o resto é de ordens
+             fechadas. */
         function divisaoAtrasoCC(resumo) {
-          if (resumo.delta >= 0) return { confirmado: 0, emCurso: 0 };
           const fimHoje = getTodayZero();
           fimHoje.setHours(23, 59, 59, 999);
-          const porFazer = resumo.ccItems
+          const aCorrer = resumo.ccItems
             .concat(resumo.ccBacklog)
-            // Só as ordens que aparecem no cartão: Em curso e com produção no
-            // Hydra (as interrompidas ou ainda sem peças ficam no confirmado)
-            .filter(
-              (i) =>
-                i.Status === 'Em curso' &&
-                i.QtdAoVivo > 0 &&
-                i.RawDateObj &&
-                i.RawDateObj <= fimHoje
-            )
-            .reduce((t, i) => t + horasPorFazer(i), 0);
-          const emCurso = Math.min(-resumo.delta, porFazer);
-          return { confirmado: resumo.delta + emCurso, emCurso: emCurso };
+            .filter((i) => i.Status === 'Em curso' && i.QtdAoVivo > 0);
+          if (resumo.delta < 0) {
+            const porFazer = aCorrer
+              .filter((i) => i.RawDateObj && i.RawDateObj <= fimHoje)
+              .reduce((t, i) => t + horasPorFazer(i), 0);
+            const emCurso = Math.min(-resumo.delta, porFazer);
+            return { confirmado: resumo.delta + emCurso, emCurso: emCurso };
+          }
+          const feitas = aCorrer.reduce(
+            (t, i) => t + (i.HorasPlaneadas || 0) * (i.FracHydra || 0),
+            0
+          );
+          const emCurso = Math.min(resumo.delta, feitas);
+          return { confirmado: resumo.delta - emCurso, emCurso: emCurso };
         }
 
-        function textoDivisaoAtraso(div) {
+        function textoDivisaoAtraso(div, delta) {
           if (!(div.emCurso > 1 / 120)) return '';
-          return `${formatHoursToHHMM(div.confirmado)} confirmado · ${formatHoursToHHMM(
-            -div.emCurso
+          const avanco = delta >= 0;
+          return `${formatHoursToHHMM(div.confirmado, avanco)} confirmado · ${formatHoursToHHMM(
+            avanco ? div.emCurso : -div.emCurso,
+            avanco
           )} em curso`;
         }
 
-        /* Barra do atraso: a parte vermelha é o atraso confirmado e a
-           riscada o que falta das ordens a correr. Só aparece se houver
-           atraso com parte em curso. */
+        /* Barra do atraso/avanço, sempre visível: vermelha no atraso e verde
+           no avanço, com a parte das ordens a correr riscada. */
         function htmlBarraAtraso(resumo) {
           const div = resumo.divisao;
-          if (!(resumo.delta < 0) || !(div.emCurso > 1 / 120)) return '';
-          const pctCurso = Math.min(100, Math.round((div.emCurso / -resumo.delta) * 100));
+          const total = Math.abs(resumo.delta);
+          const tipo = resumo.delta < 0 ? 'atraso' : 'avanco';
+          if (!(total > 1 / 120)) {
+            return '<div class="opt-cc-atraso-barra"></div>';
+          }
+          const pctCurso = Math.min(100, Math.round((div.emCurso / total) * 100));
           return `
-            <div class="opt-cc-atraso-barra"><span class="conf" style="width:${
+            <div class="opt-cc-atraso-barra opt-cc-barra-${tipo}"><span class="conf" style="background:${
+              resumo.cfg.color
+            };width:${
               100 - pctCurso
             }%"></span><span class="cur" style="width:${pctCurso}%"></span></div>`;
         }
@@ -5362,7 +5379,7 @@
           let emCursoTotal = 0;
           const total = getCCsForArea(selectedArea).reduce((soma, cc) => {
             const resumo = calcularResumoCC(cc, selAreaClean);
-            emCursoTotal += resumo.divisao.emCurso;
+            if (resumo.delta < 0) emCursoTotal += resumo.divisao.emCurso;
             return soma + resumo.delta;
           }, 0);
           // Parte do atraso que é o que falta das ordens a correr
@@ -5419,7 +5436,7 @@
               .html(
                 `${resumo.cfg.valueText} <i class="${resumo.cfg.icon}" style="font-size: 0.8rem"></i>`
               );
-            const divisao = textoDivisaoAtraso(resumo.divisao);
+            const divisao = textoDivisaoAtraso(resumo.divisao, resumo.delta);
             $(`#cc_split_${cc}`).text(divisao);
             $(`#cc_barra_${cc}`).html(htmlBarraAtraso(resumo));
             $(`#header_delay_${cc}`)
@@ -5722,7 +5739,7 @@
                       <span>${escapeHtml(cc)}</span>
                       <span class="opt-cc-header-delay" id="header_delay_${cc}" style="color: ${
               headerCfg.color
-            };" title="${escapeHtml(textoDivisaoAtraso(resumo.divisao))}">
+            };" title="${escapeHtml(textoDivisaoAtraso(resumo.divisao, resumo.delta))}">
                         ${headerCfg.valueText} <i class="${
               headerCfg.icon
             }" style="font-size:0.85rem;"></i>
@@ -5752,7 +5769,7 @@
                               }" style="font-size: 0.8rem"></i>
                             </span>
                             <span class="opt-cc-stat-sub" id="cc_split_${cc}">${escapeHtml(
-              textoDivisaoAtraso(resumo.divisao)
+              textoDivisaoAtraso(resumo.divisao, resumo.delta)
             )}</span>
                           </div>
                           <div id="cc_barra_${cc}">${htmlBarraAtraso(resumo)}</div>
