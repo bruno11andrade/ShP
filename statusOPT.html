@@ -56,9 +56,12 @@
         --btn-warning: #fbbf24;
         --btn-success: #34d399;
         --btn-danger: #f87171;
+        /* Hydra: quantidades e progresso vindos do Hydra SQL */
+        --hydra: #a78bfa;
       }
 
       :root[data-theme='light'] {
+        --hydra: #7c3aed;
         --sp-bg: #eef2f7;
         --card-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
         --bg-card: #ffffff;
@@ -666,97 +669,136 @@
         flex-direction: column;
         gap: 6px;
       }
-      /* Divisão do atraso: confirmado e em curso (Hydra) */
+      /* Quadrado do atraso/avanço com a divisão em curso (Hydra) */
+      .opt-cc-stat.opt-cc-resumo {
+        margin-bottom: 8px;
+        gap: 6px;
+      }
+      .opt-cc-resumo-linha {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 6px 10px;
+        flex-wrap: wrap;
+      }
       .opt-cc-stat-sub {
-        font-size: 0.66rem;
+        font-size: 0.72rem;
         color: var(--text-muted);
         white-space: nowrap;
       }
       .opt-cc-stat-sub:empty {
         display: none;
       }
-      /* Ordens a correr no C.C., com o progresso do Hydra */
+      .opt-cc-backlog.opt-cc-backlog-pill {
+        width: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 10px;
+        border-radius: 999px;
+        border: 1px solid #fb923c;
+        background: rgba(251, 146, 60, 0.1);
+        color: #fb923c;
+        font-size: 0.72rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .opt-cc-atraso-barra {
+        display: flex;
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+        background: var(--border-color);
+      }
+      .opt-cc-atraso-barra .conf {
+        background: #f87171;
+      }
+      .opt-cc-atraso-barra .cur,
+      .opt-cc-atraso-leg i {
+        background: repeating-linear-gradient(135deg, #f59e0b 0 5px, #334155 5px 10px);
+      }
+      .opt-cc-atraso-leg {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+      }
+      .opt-cc-atraso-leg i {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        margin-right: 4px;
+        vertical-align: -1px;
+      }
+      /* Ordens em curso, por baixo do atraso */
       .opt-cc-curso {
-        border: 1px solid rgba(167, 139, 250, 0.45);
-        border-left: 3px solid #a78bfa;
-        background: rgba(167, 139, 250, 0.08);
-        border-radius: 8px;
-        padding: 6px 10px;
+        border-top: 1px dashed var(--border-color);
+        padding-top: 6px;
         display: flex;
         flex-direction: column;
         gap: 4px;
       }
-      .opt-cc-curso-tit {
+      .opt-cc-curso-chip {
         display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        column-gap: 8px;
-        white-space: nowrap;
-        font-size: 0.66rem;
-        font-weight: 700;
-        letter-spacing: 0.4px;
-        text-transform: uppercase;
-        color: var(--text-muted);
-      }
-      .opt-hydra-velho {
-        color: #fb923c;
-      }
-      .opt-cc-curso-linha {
-        display: flex;
-        flex-wrap: wrap;
         align-items: center;
-        column-gap: 8px;
-        row-gap: 3px;
+        gap: 8px;
         font-size: 0.78rem;
         color: var(--text-strong);
+        min-width: 0;
+      }
+      .opt-cc-curso-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--hydra);
+        box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.18);
+        flex: none;
+      }
+      .opt-cc-curso-dot-velho {
+        background: #fb923c;
+        box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.18);
       }
       .opt-cc-curso-ka {
-        flex: 0 1 auto;
+        font-weight: 600;
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        font-weight: 600;
       }
-      .opt-cc-curso-st {
-        font-size: 0.66rem;
-        font-weight: 700;
-        color: #fbbf24;
-        white-space: nowrap;
-      }
-      .opt-cc-curso-st-int {
-        color: #f87171;
-      }
-      .opt-cc-curso-barra {
-        order: 3;
-        flex: 1 0 100%;
-        height: 7px;
-        border-radius: 4px;
+      .opt-cc-curso-mini {
+        width: 70px;
+        height: 4px;
+        border-radius: 3px;
         background: var(--border-color);
         overflow: hidden;
+        flex: none;
       }
-      .opt-cc-curso-barra i {
+      .opt-cc-curso-mini i {
         display: block;
         height: 100%;
-        background: #a78bfa;
+        background: var(--hydra);
       }
-      .opt-cc-curso-val {
-        margin-left: auto;
+      .opt-cc-curso-q {
+        color: var(--text-muted);
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
-        color: var(--text-label);
+      }
+      .opt-cc-curso-p {
+        margin-left: auto;
+        color: var(--hydra);
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
       }
       .opt-tag-hydra {
         font-size: 0.66rem;
         font-weight: 700;
-        color: #a78bfa;
+        color: var(--hydra);
         border: 1px solid rgba(167, 139, 250, 0.6);
         border-radius: 4px;
         padding: 0 4px;
         white-space: nowrap;
       }
       .opt-hydra-num {
-        color: #a78bfa;
+        color: var(--hydra);
         font-weight: 700;
       }
       .opt-cc-stat {
@@ -4488,53 +4530,52 @@
           return { confirmado: resumo.delta + emCurso, emCurso: emCurso };
         }
 
-        // No quadrado do atraso: confirmado numa linha, em curso noutra
-        function htmlDivisaoAtraso(div) {
-          return escapeHtml(textoDivisaoAtraso(div)).replace(' · ', '<br>');
-        }
-
         function textoDivisaoAtraso(div) {
           if (!(div.emCurso > 1 / 120)) return '';
-          return `confirmado ${formatHoursToHHMM(div.confirmado)} · em curso ${formatHoursToHHMM(
+          return `${formatHoursToHHMM(div.confirmado)} confirmado · ${formatHoursToHHMM(
             -div.emCurso
-          )}`;
+          )} em curso`;
         }
 
-        /* Faixa do cartão do C.C. com as ordens a correr: quanto já está
-           feito segundo o Hydra, face ao planeado. */
+        /* Barra do atraso: a parte vermelha é o atraso confirmado e a
+           riscada o que falta das ordens a correr. Só aparece se houver
+           atraso com parte em curso. */
+        function htmlBarraAtraso(resumo) {
+          const div = resumo.divisao;
+          if (!(resumo.delta < 0) || !(div.emCurso > 1 / 120)) return '';
+          const pctCurso = Math.min(100, Math.round((div.emCurso / -resumo.delta) * 100));
+          return `
+            <div class="opt-cc-atraso-barra"><span class="conf" style="width:${
+              100 - pctCurso
+            }%"></span><span class="cur" style="width:${pctCurso}%"></span></div>
+            <div class="opt-cc-atraso-leg"><i></i>em curso</div>`;
+        }
+
+        /* Ordens Em curso do C.C. com produção no Hydra, por baixo do
+           atraso: KA, barra, peças e %. Sem nenhuma, não aparece nada. */
         function bandaEmCursoCC(cc, selAreaClean) {
-          const ordens = ordensEmCursoDoCC(cc, selAreaClean);
+          const ordens = ordensEmCursoDoCC(cc, selAreaClean).filter(
+            (o) => o.Status === 'Em curso' && o.QtdAoVivo > 0
+          );
           if (!ordens.length) return '';
           const hy = textoHydraAte();
-          const linhas = ordens
-            .map((o) => {
-              const pct = o.QtdPlaneada > 0 ? Math.round((o.QtdAoVivo / o.QtdPlaneada) * 100) : null;
-              const interrompida = /^interrompid/i.test(o.Status || '');
-              const temQtd = o.QtdProvisoria || o.QtdProduzida > 0;
-              const valor = temQtd
-                ? `${formatQtd(o.QtdAoVivo)} / ${formatQtd(o.QtdPlaneada)}${pct !== null ? ` · ${pct}%` : ''}`
-                : 'sem produção no Hydra';
-              return `
-                <div class="opt-cc-curso-linha" title="${escapeHtml(
-                  `${o.KA} · planeada para ${o.DataFormatted}` +
-                    (o.FonteAoVivo === 'Corrigida' ? ' · Qtd corrigida' : '')
-                )}">
-                  <span class="opt-cc-curso-ka">${escapeHtml(o.KA)}</span>
-                  <span class="opt-cc-curso-st${interrompida ? ' opt-cc-curso-st-int' : ''}">${
-                interrompida ? 'Interrompida' : 'Em curso'
-              }</span>
-                  <span class="opt-cc-curso-barra"><i style="width:${Math.min(100, pct || 0)}%"></i></span>
-                  <span class="opt-cc-curso-val">${valor}</span>
-                </div>`;
-            })
-            .join('');
           return `
-            <div class="opt-cc-curso">
-              <div class="opt-cc-curso-tit">
-                <span><i class="fa-solid fa-gears me-1"></i>A correr</span>
-                <span class="${hy.velho ? 'opt-hydra-velho' : ''}">${escapeHtml(hy.texto)}</span>
-              </div>
-              ${linhas}
+            <div class="opt-cc-curso">${ordens
+              .map((o) => {
+                const pct = o.QtdPlaneada > 0 ? Math.round((o.QtdAoVivo / o.QtdPlaneada) * 100) : null;
+                return `
+              <div class="opt-cc-curso-chip" title="${escapeHtml(
+                `${o.KA} · planeada para ${o.DataFormatted} · ${hy.texto}` +
+                  (o.FonteAoVivo === 'Corrigida' ? ' · Qtd corrigida' : '')
+              )}">
+                <span class="opt-cc-curso-dot${hy.velho ? ' opt-cc-curso-dot-velho' : ''}"></span>
+                <span class="opt-cc-curso-ka">${escapeHtml(o.KA)}</span>
+                <span class="opt-cc-curso-mini"><i style="width:${Math.min(100, pct || 0)}%"></i></span>
+                <span class="opt-cc-curso-q">${formatQtd(o.QtdAoVivo)}/${formatQtd(o.QtdPlaneada)}</span>
+                <span class="opt-cc-curso-p">${pct !== null ? pct + '%' : ''}</span>
+              </div>`;
+              })
+              .join('')}
             </div>`;
         }
 
@@ -5372,7 +5413,8 @@
                 `${resumo.cfg.valueText} <i class="${resumo.cfg.icon}" style="font-size: 0.8rem"></i>`
               );
             const divisao = textoDivisaoAtraso(resumo.divisao);
-            $(`#cc_split_${cc}`).html(htmlDivisaoAtraso(resumo.divisao));
+            $(`#cc_split_${cc}`).text(divisao);
+            $(`#cc_barra_${cc}`).html(htmlBarraAtraso(resumo));
             $(`#header_delay_${cc}`)
               .attr('title', divisao)
               .css('color', resumo.cfg.color)
@@ -5648,23 +5690,15 @@
             // O backlog sai da tabela para uma faixa própria: não é uma data,
             // é trabalho arrastado de trás, e é isso que se quer ver primeiro.
             const grupoBacklog = dateGroups[BACKLOG_KEY];
+            // Backlog numa etiqueta pequena dentro do quadrado do atraso
             const backlogBandaHtml = grupoBacklog
-              ? `
-                        <button type="button" class="opt-cc-backlog" data-cc="${escapeHtml(
-                          cc
-                        )}" title="Ver os itens por produzir de datas anteriores ao período">
-                          <span class="opt-cc-backlog-titulo">
-                            <i class="fa-solid fa-layer-group"></i>Backlog
-                            <span class="opt-cc-backlog-itens">${
-                              grupoBacklog.Itens
-                            } ${
+              ? `<button type="button" class="opt-cc-backlog opt-cc-backlog-pill" data-cc="${escapeHtml(
+                  cc
+                )}" title="${grupoBacklog.Itens} ${
                   grupoBacklog.Itens === 1 ? 'item' : 'itens'
-                } por produzir</span>
-                          </span>
-                          <span class="opt-cc-backlog-horas">${formatHoursToHHMM(
-                            grupoBacklog.Planeado
-                          )}</span>
-                        </button>`
+                } por produzir de datas anteriores ao período"><i class="fa-solid fa-layer-group"></i>Backlog · ${formatHoursToHHMM(
+                  grupoBacklog.Planeado
+                )}</button>`
               : '';
 
             const isExpanded = expandedCCs.has(cc);
@@ -5693,17 +5727,16 @@
             }" aria-labelledby="heading_${cc}" data-cc="${cc}">
                     <div class="accordion-body p-2" style="background-color: var(--bg-inset);">
                       <div class="opt-cc-container border-0 p-0">
-                        <div class="opt-cc-stats">
-                          <div class="opt-cc-stats-backlog">${backlogBandaHtml}${bandaEmCursoCC(
-              cc,
-              selAreaClean
-            )}</div>
-                          <div class="opt-cc-stat opt-cc-stat-destaque" data-cc="${escapeHtml(
-                            cc
-                          )}" title="Ver o que entra nesta conta">
+                        <div class="opt-cc-stat opt-cc-stat-destaque opt-cc-resumo" data-cc="${escapeHtml(
+                          cc
+                        )}" title="Ver o que entra nesta conta">
+                          <div class="opt-cc-resumo-linha">
                             <span class="opt-cc-stat-label" id="cc_delta_label_${cc}">${
               headerCfg.title
             }</span>
+                            ${backlogBandaHtml}
+                          </div>
+                          <div class="opt-cc-resumo-linha">
                             <span class="opt-cc-stat-value" id="cc_delta_${cc}" style="color: ${
               headerCfg.color
             }">${headerCfg.valueText}
@@ -5711,10 +5744,12 @@
                                 headerCfg.icon
                               }" style="font-size: 0.8rem"></i>
                             </span>
-                            <span class="opt-cc-stat-sub" id="cc_split_${cc}">${htmlDivisaoAtraso(
-              resumo.divisao
+                            <span class="opt-cc-stat-sub" id="cc_split_${cc}">${escapeHtml(
+              textoDivisaoAtraso(resumo.divisao)
             )}</span>
                           </div>
+                          <div id="cc_barra_${cc}">${htmlBarraAtraso(resumo)}</div>
+                          ${bandaEmCursoCC(cc, selAreaClean)}
                         </div>
                         <div class="table-responsive" style="overflow: visible;">
                             <table class="table table-bordered table-striped table-opt opt-cc-table">
