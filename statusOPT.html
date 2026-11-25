@@ -4928,6 +4928,7 @@
               })
               .join('')
           );
+          attachSharePointFilters('#hist-kaTabela');
         }
 
         /* Grava um campo de um KA na lista «Análise KA»: atualiza o item se
@@ -6782,23 +6783,45 @@
           $(document).off('click.colFilter');
         }
 
-        function attachSharePointFilters() {
-          const $table = $('#opt-kpiModalBody table').first();
+        /* Valor de uma célula para o filtro: o texto, ou o valor do campo
+           de edição que lá estiver (caixa de texto, data ou escolha). */
+        function valorCelulaFiltro(cell) {
+          const $campo = $(cell).find('input, select, textarea').first();
+          if (!$campo.length) return $(cell).text().trim();
+          if ($campo.is('select')) return String($campo.val() || '').trim();
+          if ($campo.attr('type') === 'date') {
+            const v = String($campo.val() || '');
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+            return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+          }
+          return String($campo.val() || '').trim();
+        }
+
+        /* Sem argumento: a primeira tabela do popup de detalhes. Com uma
+           tabela: os filtros ficam guardados nela, por isso voltam a aplicar-se
+           quando o corpo da tabela é redesenhado. */
+        function attachSharePointFilters($tabelaAlvo) {
+          const $table = $tabelaAlvo ? $($tabelaAlvo).first() : $('#opt-kpiModalBody table').first();
           if ($table.length === 0) return;
 
           const $thead = $table.find('thead tr').first();
           const $tbody = $table.find('tbody');
-          const columnFilters = {};
+          const columnFilters = $table.data('optColFilters') || {};
+          $table.data('optColFilters', columnFilters);
 
           $thead.find('th').each(function (colIndex) {
             const $th = $(this);
-            const originalText = $th.text().trim();
+            const originalText = $th.find('.opt-th-filter-label').length
+              ? $th.find('.opt-th-filter-label').text().trim()
+              : $th.text().trim();
             $th.empty();
             $th.addClass('opt-th-filter-cell');
             $th.append(
               `<div class="opt-th-filter-wrap"><span class="opt-th-filter-label">${escapeHtml(
                 originalText
-              )}</span><i class="fa-solid fa-filter opt-th-filter-btn" data-col="${colIndex}" title="Filtrar"></i></div>`
+              )}</span><i class="fa-solid fa-filter opt-th-filter-btn${
+                columnFilters[colIndex] ? ' active' : ''
+              }" data-col="${colIndex}" title="Filtrar"></i></div>`
             );
           });
 
@@ -6820,7 +6843,7 @@
             linhasDeDados().each(function () {
               const $cells = $(this).find('td');
               if ($cells.length > colIndex) {
-                const text = $($cells[colIndex]).text().trim();
+                const text = valorCelulaFiltro($cells[colIndex]);
                 values.add(text || '(vazio)');
               }
             });
@@ -6840,13 +6863,15 @@
                 const idx = parseInt(colIndexStr, 10);
                 const cellText =
                   $cells.length > idx
-                    ? $($cells[idx]).text().trim() || '(vazio)'
+                    ? valorCelulaFiltro($cells[idx]) || '(vazio)'
                     : '(vazio)';
                 if (!allowed.has(cellText)) visible = false;
               });
               $(this).toggle(visible);
             });
           }
+
+          applyColumnFilters();
 
           $thead
             .find('.opt-th-filter-btn')
