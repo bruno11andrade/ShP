@@ -481,7 +481,63 @@
         font-weight: 500;
         font-size: 0.75rem;
       }
+      /* Ordenar no painel do filtro de coluna */
+      .opt-col-filter-sort {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      .opt-col-filter-sortbtn {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 4px 6px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-inset);
+        color: var(--text-strong);
+        cursor: pointer;
+      }
+      .opt-col-filter-sortbtn:hover,
+      .opt-col-filter-sortbtn.active {
+        border-color: var(--cyan-accent);
+        color: var(--cyan-accent);
+      }
+      .opt-th-sort-ind {
+        color: var(--cyan-accent);
+        font-size: 0.75rem;
+        margin-left: auto;
+      }
+      .opt-th-sort-ind + .opt-th-filter-btn {
+        margin-left: 6px;
+      }
       /* Tabela Análise por KA (Histórico) */
+      .opt-ka-rodape {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding-top: 10px;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+      }
+      .opt-ka-limite {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+      }
+      .opt-ka-limite select {
+        width: auto;
+        background-color: var(--bg-inset);
+        color: var(--text-strong);
+        border-color: var(--border-color);
+      }
       .opt-ka-tabela td {
         vertical-align: middle;
       }
@@ -2748,6 +2804,19 @@
               <tbody id="hist-kaTbody"></tbody>
             </table>
           </div>
+          <div class="opt-ka-rodape">
+            <span id="hist-kaContagem"></span>
+            <label class="opt-ka-limite">
+              Mostrar
+              <select id="hist-kaLimite" class="form-select form-select-sm">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="0">Todos</option>
+              </select>
+              registos
+            </label>
+          </div>
         </div>
       </div>
     </div>
@@ -4928,7 +4997,18 @@
               })
               .join('')
           );
+          $('#hist-kaTabela').data('optLimite', limiteTabelaKA());
           attachSharePointFilters('#hist-kaTabela');
+        }
+
+        // Nº de linhas da tabela por KA: 10 por defeito, lembrado no browser
+        function limiteTabelaKA() {
+          let v = null;
+          try {
+            v = localStorage.getItem('opt_ka_limite');
+          } catch (e) {}
+          const n = v === null ? 10 : parseInt(v, 10);
+          return isNaN(n) ? 10 : n;
         }
 
         /* Grava um campo de um KA na lista «Análise KA»: atualiza o item se
@@ -5012,6 +5092,24 @@
         }
 
         function bindTabelaKA() {
+          $('#hist-kaLimite')
+            .val(String(limiteTabelaKA()))
+            .off('change.ka')
+            .on('change.ka', function () {
+              const n = parseInt($(this).val(), 10) || 0;
+              try {
+                localStorage.setItem('opt_ka_limite', String(n));
+              } catch (e) {}
+              $('#hist-kaTabela').data('optLimite', n);
+              attachSharePointFilters('#hist-kaTabela');
+            });
+          $('#hist-kaTabela')
+            .off('optFiltrada.ka')
+            .on('optFiltrada.ka', function (e, mostradas, total) {
+              $('#hist-kaContagem').text(
+                total ? `A mostrar ${mostradas} de ${total} KA${total === 1 ? '' : 's'}` : ''
+              );
+            });
           $('#hist-kaTbody')
             .off('change.ka')
             .on('change.ka', '.opt-ka-input', function () {
@@ -6808,6 +6906,8 @@
           const $tbody = $table.find('tbody');
           const columnFilters = $table.data('optColFilters') || {};
           $table.data('optColFilters', columnFilters);
+          // Ordenação escolhida no filtro: { col, dir: 1 | -1 }
+          const ordem = $table.data('optColSort') || null;
 
           $thead.find('th').each(function (colIndex) {
             const $th = $(this);
@@ -6819,9 +6919,15 @@
             $th.append(
               `<div class="opt-th-filter-wrap"><span class="opt-th-filter-label">${escapeHtml(
                 originalText
-              )}</span><i class="fa-solid fa-filter opt-th-filter-btn${
+              )}</span>${
+                ordem && ordem.col === colIndex
+                  ? `<i class="fa-solid ${
+                      ordem.dir > 0 ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short'
+                    } opt-th-sort-ind" title="${ordem.dir > 0 ? 'Crescente' : 'Decrescente'}"></i>`
+                  : ''
+              }<i class="fa-solid fa-filter opt-th-filter-btn${
                 columnFilters[colIndex] ? ' active' : ''
-              }" data-col="${colIndex}" title="Filtrar"></i></div>`
+              }" data-col="${colIndex}" title="Filtrar e ordenar"></i></div>`
             );
           });
 
@@ -6852,7 +6958,48 @@
             );
           }
 
+          // Valor para ordenar: número, data (dd-mm-aaaa) ou texto
+          function chaveOrdem(texto) {
+            const t = String(texto || '').trim();
+            if (!t || t === '—' || t === '(vazio)') return null;
+            const d = /^(\d{2})-(\d{2})-(\d{4})$/.exec(t);
+            if (d) return +new Date(+d[3], +d[2] - 1, +d[1]);
+            const n = t.replace(/[\s\u00a0%+]/g, '').replace(',', '.');
+            if (/^-?\d+(\.\d+)?$/.test(n)) return parseFloat(n);
+            return t;
+          }
+
+          function ordenarLinhas() {
+            const o = $table.data('optColSort');
+            const linhas = linhasDeDados().get();
+            // Ordem original, para voltar a ela quando se tira a ordenação
+            linhas.forEach((tr, i) => {
+              if ($(tr).data('ordemOrig') === undefined) $(tr).data('ordemOrig', i);
+            });
+            if (!o) {
+              linhas.sort((x, y) => $(x).data('ordemOrig') - $(y).data('ordemOrig'));
+              $tbody.prepend(linhas);
+              return;
+            }
+            linhas.sort((x, y) => {
+              const a = chaveOrdem(valorCelulaFiltro($(x).find('td')[o.col]));
+              const b = chaveOrdem(valorCelulaFiltro($(y).find('td')[o.col]));
+              // Vazios ficam sempre no fim
+              if (a === null && b === null) return 0;
+              if (a === null) return 1;
+              if (b === null) return -1;
+              if (typeof a === 'number' && typeof b === 'number') return (a - b) * o.dir;
+              return String(a).localeCompare(String(b), 'pt', { numeric: true }) * o.dir;
+            });
+            $tbody.prepend(linhas);
+          }
+
           function applyColumnFilters() {
+            ordenarLinhas();
+            // Nº máximo de linhas a mostrar (0 = todas), se a tabela o tiver
+            const limite = parseInt($table.data('optLimite'), 10) || 0;
+            let passam = 0;
+            let mostradas = 0;
             linhasDeDados().each(function () {
               const $cells = $(this).find('td');
               let visible = true;
@@ -6867,8 +7014,12 @@
                     : '(vazio)';
                 if (!allowed.has(cellText)) visible = false;
               });
+              if (visible) passam++;
+              if (visible && limite && mostradas >= limite) visible = false;
+              if (visible) mostradas++;
               $(this).toggle(visible);
             });
+            $table.trigger('optFiltrada', [mostradas, passam]);
           }
 
           applyColumnFilters();
@@ -6893,6 +7044,10 @@
 
               const $panel = $(`
                 <div class="opt-col-filter-panel" data-col="${colIndex}">
+                  <div class="opt-col-filter-sort">
+                    <button type="button" class="opt-col-filter-sortbtn" data-dir="1"><i class="fa-solid fa-arrow-up-short-wide"></i>Crescente</button>
+                    <button type="button" class="opt-col-filter-sortbtn" data-dir="-1"><i class="fa-solid fa-arrow-down-wide-short"></i>Decrescente</button>
+                  </div>
                   <input type="text" class="form-control form-control-sm opt-col-filter-search" placeholder="Pesquisar..." />
                   <div class="opt-col-filter-selectall">
                     <label class="opt-col-filter-item fw-bold">
@@ -6976,6 +7131,24 @@
 
               $panel.find('.opt-col-filter-cancel').on('click', function () {
                 closeColFilterPanel();
+              });
+
+              // Ordenar pela coluna; carregar outra vez no mesmo sentido tira
+              // a ordenação
+              const ordemAtual = $table.data('optColSort');
+              $panel.find('.opt-col-filter-sortbtn').each(function () {
+                const dir = parseInt($(this).data('dir'), 10);
+                if (ordemAtual && ordemAtual.col === colIndex && ordemAtual.dir === dir) {
+                  $(this).addClass('active');
+                }
+              });
+              $panel.find('.opt-col-filter-sortbtn').on('click', function () {
+                const dir = parseInt($(this).data('dir'), 10);
+                const atual = $table.data('optColSort');
+                const tirar = atual && atual.col === colIndex && atual.dir === dir;
+                $table.data('optColSort', tirar ? null : { col: colIndex, dir: dir });
+                closeColFilterPanel();
+                attachSharePointFilters($table);
               });
 
               setTimeout(function () {
