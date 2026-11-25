@@ -481,6 +481,88 @@
         font-weight: 500;
         font-size: 0.75rem;
       }
+      /* Tabela Análise por KA (Histórico) */
+      .opt-ka-tabela td {
+        vertical-align: middle;
+      }
+      .opt-ka-tabela td:nth-child(2),
+      .opt-ka-tabela td:nth-child(3) {
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+      .opt-ka-tabela td:nth-child(4) {
+        min-width: 240px;
+      }
+      .opt-ka-tabela td:nth-child(5),
+      .opt-ka-tabela td:nth-child(6) {
+        width: 1%;
+        white-space: nowrap;
+      }
+      .opt-ka-input {
+        background: var(--bg-inset);
+        color: var(--text-strong);
+        border: 1px solid var(--border-color);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      .opt-ka-input:focus {
+        background: var(--bg-inset);
+        color: var(--text-strong);
+        border-color: var(--cyan-accent);
+        box-shadow: none;
+      }
+      .opt-ka-input::placeholder {
+        color: var(--text-muted);
+        font-style: italic;
+        opacity: 0.8;
+      }
+      textarea.opt-ka-causa {
+        resize: none;
+        overflow: hidden;
+        min-height: 31px;
+      }
+      .opt-ka-ok {
+        min-width: 86px;
+        font-weight: 700;
+      }
+      .opt-ka-tabela .opt-ka-ok.opt-ka-ok-OK {
+        color: #10b981 !important;
+        border-color: rgba(16, 185, 129, 0.7) !important;
+        background-color: rgba(16, 185, 129, 0.12) !important;
+      }
+      .opt-ka-tabela .opt-ka-ok.opt-ka-ok-NOK {
+        color: #ef4444 !important;
+        border-color: rgba(239, 68, 68, 0.7) !important;
+        background-color: rgba(239, 68, 68, 0.12) !important;
+      }
+      .opt-ka-tabela .opt-ka-ok.opt-ka-ok-vazio {
+        color: var(--text-muted) !important;
+        border-color: var(--border-color) !important;
+      }
+      .opt-ka-a-gravar {
+        border-color: #fbbf24 !important;
+      }
+      .opt-ka-gravado {
+        border-color: #34d399 !important;
+        box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25) !important;
+      }
+      .opt-ka-erro {
+        border-color: #f87171 !important;
+        box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.25) !important;
+      }
+      .opt-ka-data-plano {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-variant-numeric: tabular-nums;
+        cursor: help;
+      }
+      .opt-ka-status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex: none;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+      }
       .opt-chart-card {
         background: var(--bg-card);
         border-radius: 10px;
@@ -2645,6 +2727,28 @@
             </div>
           </div>
         </div>
+
+        <div class="opt-hist-section-title">
+          <i class="fa-solid fa-table-list"></i>Análise por KA
+          <small id="hist-kaEstado"></small>
+        </div>
+        <div class="opt-chart-card mb-3">
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped table-opt w-100 opt-ka-tabela" id="hist-kaTabela">
+              <thead>
+                <tr>
+                  <th>KA</th>
+                  <th>Nº Produções</th>
+                  <th>Média Bobines Abastecidas por Produção</th>
+                  <th>Causa Raiz de Desvio</th>
+                  <th>Data Próxima Produção</th>
+                  <th>Próxima Produção OK/NOK</th>
+                </tr>
+              </thead>
+              <tbody id="hist-kaTbody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2659,6 +2763,9 @@
         // Hydra SQL: produção por C.C. + KA + dia + turno, escrita pelo job do
         // Hydra a cada 15 minutos (uma linha por turno e uma linha Total)
         const LIST_HYDRA_GUID = '{6A0C988B-557F-4812-A21D-A486C6B3770A}';
+        // Análise KA: causa raiz, data da próxima produção e OK/NOK por KA,
+        // editados na tabela do Histórico e partilhados por todos
+        const LIST_ANALISE_KA_GUID = '{D3165451-6B58-4A82-923C-43866C0EEF87}';
         const CAMPOS_HYDRA = {
           cc: ['Workplace'],
           // A coluna Article é o Title da lista
@@ -2781,6 +2888,10 @@
         let rawHydraItems = [];
         let hydraDisponivel = false;
         let hydraAte = null;
+        let analiseKA = new Map();
+        let analiseKAMeta = null;
+        let analiseKADisponivel = false;
+        let tabelaKAPendente = false;
         let rawModItems = [];
         let rawTrabalhoExtraItems = [];
         /* Datas (dd-mm-aaaa) com produção ou ensaios planeados. Serve para
@@ -4275,8 +4386,21 @@
               reqHydra.resolve(semDados('Hydra SQL'));
             });
 
-          $.when(reqOpt, reqMod, reqAbertura, reqEnsaios, reqTE, reqHydra)
-            .done(function (resOpt, resMod, resAbertura, resEnsaios, resTE, resHydra) {
+          // Análise KA: a lista e os nomes das colunas. Se falhar, a tabela
+          // do Histórico fica só para leitura.
+          const reqAnaliseKA = $.Deferred();
+          $.when(lerListaCompleta(urlLista(LIST_ANALISE_KA_GUID), 'Análise KA'), lerMetaAnaliseKA())
+            .done(function (res, meta) {
+              reqAnaliseKA.resolve({ ok: true, itens: res.itens, meta: meta });
+            })
+            .fail(function (err) {
+              console.error('Erro ao carregar a lista Análise KA:', err);
+              reqAnaliseKA.resolve({ ok: false, itens: [], meta: null });
+            });
+
+          $.when(reqOpt, reqMod, reqAbertura, reqEnsaios, reqTE, reqHydra, reqAnaliseKA)
+            .done(function (resOpt, resMod, resAbertura, resEnsaios, resTE, resHydra, resAnaliseKA) {
+              aplicarAnaliseKA(resAnaliseKA);
               const listas = [resOpt, resMod, resAbertura, resEnsaios, resTE, resHydra];
               mostrarAvisoDados(listas.filter((l) => l && l.truncado));
               console.info(
@@ -4298,6 +4422,10 @@
                 resTE.itens,
                 resHydra.itens
               );
+              // Alterações de outros utilizadores na Análise KA
+              if ($('#opt-historicoContent').is(':visible')) {
+                renderHistTabelaKA(getHistFilteredItems());
+              }
             })
             .fail(function (err) {
               console.error('Erro ao carregar dados do SharePoint:', err);
@@ -4626,6 +4754,286 @@
             item.QtdHydraRef > 0 &&
             Math.abs(item.QtdProduzida - item.QtdHydraRef) / item.QtdHydraRef > HYDRA_TOLERANCIA
           );
+        }
+
+        // =====================================================================
+        // Análise por KA (Histórico): Nº produções e bobines vêm do plano;
+        // causa raiz, data da próxima produção e OK/NOK ficam na lista
+        // «Análise KA», partilhada por todos os utilizadores.
+        // =====================================================================
+        function chaveKA(ka) {
+          return String(ka || '').trim().toUpperCase();
+        }
+
+        function baseListaAnaliseKA() {
+          return `${getWebUrl()}/_api/web/lists(guid'${LIST_ANALISE_KA_GUID.replace(/[{}]/g, '')}')`;
+        }
+
+        /* Nomes internos das colunas da lista, encontrados pelo nome visível
+           (sem acentos nem espaços), e o tipo dos itens para gravar. */
+        function lerMetaAnaliseKA() {
+          const accept = { Accept: 'application/json;odata=verbose' };
+          const tipo = $.ajax({ url: `${baseListaAnaliseKA()}?$select=ListItemEntityTypeFullName`, headers: accept });
+          const campos = $.ajax({
+            url: `${baseListaAnaliseKA()}/fields?$select=Title,InternalName,EntityPropertyName&$filter=Hidden eq false`,
+            headers: accept,
+          });
+          return $.when(tipo, campos).then(function (rTipo, rCampos) {
+            const norm = (t) =>
+              String(t || '')
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')
+                .replace(/[^a-z0-9]/gi, '')
+                .toLowerCase();
+            const lista = (rCampos[0].d && rCampos[0].d.results) || [];
+            const achar = (re) => {
+              const f = lista.find((c) => re.test(norm(c.Title)));
+              return f ? f.EntityPropertyName || f.InternalName : null;
+            };
+            return {
+              tipo: rTipo[0].d.ListItemEntityTypeFullName,
+              causa: achar(/causa/),
+              data: achar(/^dataproxima/),
+              ok: achar(/^proximaok|^proximaproducaook/),
+              dataRef: achar(/referencia/),
+            };
+          });
+        }
+
+        // Data só (aaaa-mm-dd) de um valor da lista ou de uma data
+        function diaISO(v) {
+          const d = v instanceof Date ? v : parseItemDate(v);
+          if (!d || isNaN(d.getTime())) return '';
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function aplicarAnaliseKA(res) {
+          analiseKADisponivel = !!(res && res.ok);
+          analiseKAMeta = res && res.meta ? res.meta : null;
+          analiseKA = new Map();
+          if (!analiseKADisponivel || !analiseKAMeta) return;
+          const m = analiseKAMeta;
+          (res.itens || []).forEach((it) => {
+            const ka = chaveKA(it.Title);
+            if (!ka) return;
+            analiseKA.set(ka, {
+              id: it.Id || it.ID,
+              causa: m.causa ? String(it[m.causa] || '') : '',
+              data: m.data ? diaISO(it[m.data]) : '',
+              ok: m.ok ? String(extractValue(it[m.ok]) || '') : '',
+              dataRef: m.dataRef ? diaISO(it[m.dataRef]) : '',
+            });
+          });
+        }
+
+        /* Próxima produção do KA no plano: a linha por produzir (Status
+           diferente de Produzido) com a data mais antiga, mesmo que já em
+           atraso, porque é a primeira que vai ser feita. */
+        function proximaDoPlano(ka) {
+          const k = chaveKA(ka);
+          let melhor = null;
+          rawListItems.forEach((i) => {
+            if (chaveKA(i.KA) !== k || !i.RawDateObj) return;
+            if (!i.Status || i.Status === 'Produzido') return;
+            if (!melhor || i.RawDateObj < melhor.RawDateObj) melhor = i;
+          });
+          return melhor;
+        }
+
+        // Última causa raiz escrita nas linhas do plano do KA, como sugestão
+        function causaSugerida(ka) {
+          const k = chaveKA(ka);
+          let melhor = null;
+          rawListItems.forEach((i) => {
+            if (chaveKA(i.KA) !== k || !String(i.CausaRaizDesvio || '').trim()) return;
+            if (!melhor || (i.RawDateObj || 0) > (melhor.RawDateObj || 0)) melhor = i;
+          });
+          return melhor ? String(melhor.CausaRaizDesvio).trim() : '';
+        }
+
+        function renderHistTabelaKA(items) {
+          const $tbody = $('#hist-kaTbody');
+          if (!$tbody.length) return;
+          // Não se redesenha enquanto alguém está a escrever na tabela
+          if ($tbody.find(':focus').length) {
+            tabelaKAPendente = true;
+            return;
+          }
+          tabelaKAPendente = false;
+
+          const grupos = new Map();
+          (items || []).forEach((i) => {
+            const k = chaveKA(i.KA);
+            if (!k) return;
+            if (!grupos.has(k)) grupos.set(k, { ka: String(i.KA).trim(), producoes: 0, bobines: 0, comBobines: 0 });
+            const g = grupos.get(k);
+            if (i.Status !== 'Produzido') return;
+            g.producoes++;
+            if ((i.QtdBobines || 0) > 0) {
+              g.comBobines++;
+              g.bobines += i.QtdBobines;
+            }
+          });
+
+          const linhas = [...grupos.values()].sort(
+            (a, b) => b.producoes - a.producoes || a.ka.localeCompare(b.ka, 'pt', { numeric: true })
+          );
+          const podeEditar = analiseKADisponivel && !!analiseKAMeta;
+          $('#hist-kaEstado').text(
+            podeEditar ? '' : 'lista «Análise KA» indisponível: colunas D a F só para leitura'
+          );
+
+          if (!linhas.length) {
+            $tbody.html('<tr><td colspan="6" class="text-muted">Sem KAs para os filtros selecionados.</td></tr>');
+            return;
+          }
+
+          $tbody.html(
+            linhas
+              .map((g) => {
+                const k = chaveKA(g.ka);
+                const reg = analiseKA.get(k) || {};
+                const plano = proximaDoPlano(g.ka);
+                const dataAtual = plano ? diaISO(plano.RawDateObj) : reg.data || '';
+                // O OK/NOK vale só para a próxima produção a que foi dado
+                const ok = reg.ok && (reg.dataRef || '') === dataAtual ? reg.ok : '';
+                const media = g.comBobines > 0 ? formatMedia(g.bobines / g.comBobines) : '—';
+                const dis = podeEditar ? '' : ' disabled';
+                let celulaData;
+                if (plano) {
+                  const cor = (CORES_STATUS[String(plano.Status).toUpperCase()] || {}).fundo || '#94a3b8';
+                  celulaData = `<span class="opt-ka-data-plano" title="${escapeHtml(
+                    `Do plano · Status: ${plano.Status}`
+                  )}"><span class="opt-ka-status-dot" style="background:${cor}"></span>${plano.DataFormatted}</span>`;
+                } else {
+                  celulaData = `<input type="date" class="form-control form-control-sm opt-ka-input" data-campo="data" value="${escapeHtml(
+                    reg.data || ''
+                  )}"${dis}>`;
+                }
+                return `
+          <tr data-ka="${escapeHtml(g.ka)}" data-data-atual="${escapeHtml(dataAtual)}">
+            <td class="fw-bold">${escapeHtml(g.ka)}</td>
+            <td>${g.producoes}</td>
+            <td>${media}</td>
+            <td><textarea rows="1" class="form-control form-control-sm opt-ka-input opt-ka-causa" data-campo="causa" placeholder="${escapeHtml(
+              causaSugerida(g.ka)
+            )}"${dis}>${escapeHtml(reg.causa || '')}</textarea></td>
+            <td>${celulaData}</td>
+            <td><select class="form-select form-select-sm opt-ka-input opt-ka-ok opt-ka-ok-${ok || 'vazio'}" data-campo="ok"${dis}>
+              <option value=""${ok ? '' : ' selected'}>—</option>
+              <option value="OK"${ok === 'OK' ? ' selected' : ''}>OK</option>
+              <option value="NOK"${ok === 'NOK' ? ' selected' : ''}>NOK</option>
+            </select></td>
+          </tr>`;
+              })
+              .join('')
+          );
+        }
+
+        /* Grava um campo de um KA na lista «Análise KA»: atualiza o item se
+           já existir, senão cria-o. */
+        function gravarAnaliseKA(ka, campo, valor, $el) {
+          const meta = analiseKAMeta;
+          if (!meta || !meta[campo]) return;
+          const k = chaveKA(ka);
+          const reg = analiseKA.get(k) || {};
+          const corpo = { __metadata: { type: meta.tipo } };
+          const paraData = (v) => (v ? `${v}T12:00:00Z` : null);
+          if (campo === 'data') corpo[meta.data] = paraData(valor);
+          if (campo === 'causa') corpo[meta.causa] = valor;
+          if (campo === 'ok') {
+            corpo[meta.ok] = valor || null;
+            // A que próxima produção se refere este OK/NOK
+            const dataAtual = $el.closest('tr').data('data-atual') || '';
+            if (meta.dataRef) corpo[meta.dataRef] = paraData(valor ? dataAtual : '');
+          }
+          $el.removeClass('opt-ka-erro').addClass('opt-ka-a-gravar');
+          getRequestDigest()
+            .then(function (digest) {
+              const headers = {
+                Accept: 'application/json;odata=verbose',
+                'X-RequestDigest': digest,
+              };
+              if (reg.id) {
+                return $.ajax({
+                  url: `${baseListaAnaliseKA()}/items(${reg.id})`,
+                  type: 'POST',
+                  contentType: 'application/json;odata=verbose',
+                  data: JSON.stringify(corpo),
+                  headers: Object.assign({ 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }, headers),
+                }).then(() => reg.id);
+              }
+              corpo.Title = String(ka).trim();
+              return $.ajax({
+                url: `${baseListaAnaliseKA()}/items`,
+                type: 'POST',
+                contentType: 'application/json;odata=verbose',
+                data: JSON.stringify(corpo),
+                headers: headers,
+              }).then((r) => r && r.d && r.d.Id);
+            })
+            .then(function (id) {
+              const novo = Object.assign({}, reg, { id: id || reg.id });
+              if (campo === 'data') novo.data = valor || '';
+              if (campo === 'causa') novo.causa = valor;
+              if (campo === 'ok') {
+                novo.ok = valor || '';
+                novo.dataRef = valor ? $el.closest('tr').data('data-atual') || '' : '';
+              }
+              analiseKA.set(k, novo);
+              $el.removeClass('opt-ka-a-gravar').addClass('opt-ka-gravado');
+              setTimeout(() => $el.removeClass('opt-ka-gravado'), 1200);
+              // A data mudou: o OK/NOK da linha passa a valer para a nova data
+              if (campo === 'data') {
+                const $tr = $el.closest('tr');
+                $tr.data('data-atual', valor || '').attr('data-data-atual', valor || '');
+                const okAtual = novo.ok && (novo.dataRef || '') === (valor || '') ? novo.ok : '';
+                $tr.find('.opt-ka-ok').val(okAtual);
+                pintarOkKA($tr.find('.opt-ka-ok'));
+              }
+            })
+            .fail(function (err) {
+              console.error('Erro ao gravar na lista Análise KA:', err);
+              $el.removeClass('opt-ka-a-gravar').addClass('opt-ka-erro');
+              $el.attr(
+                'title',
+                err && err.status === 403
+                  ? 'Sem permissão para gravar na lista Análise KA'
+                  : 'Não foi possível gravar. Tente outra vez.'
+              );
+            });
+        }
+
+        function pintarOkKA($sel) {
+          $sel
+            .removeClass('opt-ka-ok-OK opt-ka-ok-NOK opt-ka-ok-vazio')
+            .addClass('opt-ka-ok-' + ($sel.val() || 'vazio'));
+        }
+
+        function bindTabelaKA() {
+          $('#hist-kaTbody')
+            .off('change.ka')
+            .on('change.ka', '.opt-ka-input', function () {
+              const $el = $(this);
+              const campo = $el.data('campo');
+              const valor = String($el.val() || '').trim();
+              if (campo === 'ok') pintarOkKA($el);
+              gravarAnaliseKA($el.closest('tr').data('ka'), campo, valor, $el);
+            })
+            .off('focusout.ka')
+            .on('focusout.ka', function () {
+              // Redesenha o que ficou adiado enquanto se escrevia
+              setTimeout(function () {
+                if (tabelaKAPendente && !$('#hist-kaTbody').find(':focus').length) {
+                  renderHistTabelaKA(histFilteredItems);
+                }
+              }, 300);
+            })
+            .off('input.ka')
+            .on('input.ka', '.opt-ka-causa', function () {
+              this.style.height = 'auto';
+              this.style.height = this.scrollHeight + 'px';
+            });
         }
 
         function processItems(
@@ -8596,6 +9004,7 @@
         }
 
         function initHistorico() {
+          bindTabelaKA();
           const today = getTodayZero();
           // Range inicial: desde HIST_MIN_DATE (10/08/2026) até hoje
           $('#hist-startDate').val(formatDateForInput(HIST_MIN_DATE));
@@ -9077,6 +9486,7 @@
             `${filtered.length} registo${filtered.length === 1 ? '' : 's'}`
           );
           renderHistKPIs(filtered);
+          renderHistTabelaKA(filtered);
           // Delay chart rendering to ensure container is fully visible with proper dimensions
           setTimeout(function () {
             renderHistCharts(filtered);
@@ -9933,6 +10343,8 @@
           const porKA = histProducoesModo === 'ka';
           const map = {};
           items.forEach((i) => {
+            // Uma produção é uma linha com Status = Produzido
+            if (i.Status !== 'Produzido') return;
             const chave = (porKA ? i.KA : i.CC) || 'N/D';
             map[chave] = (map[chave] || 0) + 1;
           });
