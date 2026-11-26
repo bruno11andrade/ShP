@@ -2557,7 +2557,7 @@
                 >
                   0
                 </div>
-                <div class="opt-kpi-sub" id="hist-kpiSemQtdSub"></div>
+
               </div>
             </div>
             <div class="col">
@@ -2856,8 +2856,6 @@
         const HYDRA_MAX_MINUTOS = 30;
         // Uma ordem em curso soma no máximo os últimos 10 dias do Hydra
         const HYDRA_DIAS_ORDEM = 10;
-        // Diferença a partir da qual a Qtd Produzida e o Hydra não batem
-        const HYDRA_TOLERANCIA = 0.05;
         const LIST_MOD_GUID = '{39FBB04C-5B24-43ED-A31C-4F3FA104C2CE}';
         const LIST_ABERTURA_GUID = '{9AF896EE-B16A-42E4-AC6D-7DA935B5A26A}';
         // Checklist Ensaio Ferramentas — ensaios planeados que ocupam o CC
@@ -4598,21 +4596,21 @@
           limiteDaily.setDate(limiteDaily.getDate() - 8);
 
           rawListItems.forEach((i) => {
+            // Qtd Produzida tal como vem da lista (antes de a trocar pela do Hydra)
+            if (i.QtdProduzidaLista === undefined) i.QtdProduzidaLista = i.QtdProduzida || 0;
             i.QtdHydra = null;
             i.HydraAte = null;
             i.FracHydra = 0;
-            i.QtdAoVivo = i.QtdProduzida || 0;
-            i.QtdProvisoria = false;
-            i.FonteAoVivo = 'Lista';
             const emCurso = estaEmCurso(i);
             let fimProducao = null;
-            if (i.Status === 'Produzido' && !(i.QtdProduzida > 0) && i.RawDataProducaoObj) {
+            if (i.Status === 'Produzido' && !(i.QtdProduzidaLista > 0) && i.RawDataProducaoObj) {
               fimProducao = new Date(i.RawDataProducaoObj);
               fimProducao.setHours(0, 0, 0, 0);
               if (fimProducao < limiteDaily) fimProducao = null;
             }
 
-            if (fimProducao && i.QtdHydraLista > 0) {
+            if (i.Status === 'Produzido' && i.QtdHydraLista > 0) {
+              // Fechada: vale a Qtd Hydra que a lista guardou (soma de todos os dias)
               i.QtdHydra = i.QtdHydraLista;
             } else if ((emCurso || fimProducao) && hydraDisponivel) {
               const fim = fimProducao || hoje;
@@ -4662,18 +4660,23 @@
               i.QtdHydra = i.QtdHydraLista;
             }
 
-            // Referência para comparar com a Qtd Produzida (Caixa de erros)
-            i.QtdHydraRef = i.QtdHydraLista !== null ? i.QtdHydraLista : i.QtdHydra;
-
-            if (!(i.QtdProduzida > 0) && (emCurso || fimProducao)) {
-              const corrigida = i.QtdCorrigida !== null && i.QtdCorrigida !== undefined;
-              const v = corrigida ? i.QtdCorrigida : i.QtdHydra;
-              if (v !== null && v > 0) {
-                i.QtdAoVivo = v;
-                i.QtdProvisoria = true;
-                i.FonteAoVivo = corrigida ? 'Corrigida' : 'Hydra';
-              }
+            /* A quantidade do Hydra é a mais real (regista todos os dias em que a ordem
+               produziu; a Qtd Produzida da lista só tinha o último), por isso passa a ser a
+               Qtd Produzida em todo o lado sempre que existe. A Qtd corrigida, se houver,
+               manda sobre as duas. */
+            const corrigida = i.QtdCorrigida !== null && i.QtdCorrigida !== undefined;
+            if (corrigida) {
+              i.QtdProduzida = i.QtdCorrigida;
+              i.FonteAoVivo = 'Corrigida';
+            } else if (i.QtdHydra !== null && i.QtdHydra > 0) {
+              i.QtdProduzida = i.QtdHydra;
+              i.FonteAoVivo = 'Hydra';
+            } else {
+              i.QtdProduzida = i.QtdProduzidaLista;
+              i.FonteAoVivo = 'Lista';
             }
+            i.QtdAoVivo = i.QtdProduzida;
+            i.QtdProvisoria = i.FonteAoVivo !== 'Lista';
             if (emCurso && i.QtdPlaneada > 0) {
               i.FracHydra = Math.min(1, Math.max(0, i.QtdAoVivo / i.QtdPlaneada));
             }
@@ -4812,17 +4815,9 @@
         function celulaQtdAoVivo(item) {
           if (!item.QtdProvisoria) return formatQtd(item.QtdProduzida);
           const etiqueta = item.FonteAoVivo === 'Corrigida' ? 'corrigida' : 'Hydra';
-          return `${formatQtd(item.QtdAoVivo)} <span class="opt-tag-hydra" title="Provisório: a Qtd Produzida só chega com a ação diária">${etiqueta}</span>`;
-        }
-
-        // Produzida com Qtd Produzida e Qtd Hydra que diferem mais de 5%
-        function difereDoHydra(item) {
-          return (
-            item.Status === 'Produzido' &&
-            item.QtdProduzida > 0 &&
-            item.QtdHydraRef > 0 &&
-            Math.abs(item.QtdProduzida - item.QtdHydraRef) / item.QtdHydraRef > HYDRA_TOLERANCIA
-          );
+          return `${formatQtd(item.QtdAoVivo)} <span class="opt-tag-hydra" title="${
+            item.FonteAoVivo === 'Corrigida' ? 'Qtd corrigida à mão' : 'Quantidade do Hydra'
+          }">${etiqueta}</span>`;
         }
 
         // =====================================================================
@@ -6810,23 +6805,14 @@
             (acc, i) => acc + (i.QtdAoVivo || 0),
             0
           );
-          const totalQtdProvisoria = qtyItemsUntilToday.reduce(
-            (acc, i) => acc + (i.QtdProvisoria ? i.QtdAoVivo : 0),
+          const totalQtdHydra = qtyItemsUntilToday.reduce(
+            (acc, i) => acc + (i.FonteAoVivo === 'Hydra' ? i.QtdAoVivo : 0),
             0
           );
           const hyQtd = textoHydraAte();
           $('#opt-kpiQtdSub')
-            .text(
-              totalQtdProvisoria > 0
-                ? `até hoje · inclui ${formatQtd(totalQtdProvisoria)} do Hydra`
-                : 'até hoje'
-            )
-            .attr(
-              'title',
-              totalQtdProvisoria > 0
-                ? `${formatQtd(totalQtdProvisoria)} peças provisórias de ordens em curso ou fechadas sem Qtd Produzida (${hyQtd.texto})`
-                : ''
-            );
+            .text(totalQtdHydra > 0 ? 'até hoje · quantidades do Hydra' : 'até hoje')
+            .attr('title', totalQtdHydra > 0 ? `${hyQtd.texto}` : '');
 
           let ratioQtdPct = 0;
           if (totalQtdPlaneada > 0) {
@@ -7752,12 +7738,11 @@
               <th>Data de Produção</th>
               <th>Status</th>
               <th>Qtd. Produzida</th>
-              <th title="Quantidade do Hydra para esta ordem: pode ser copiada para a Qtd. Produzida">Qtd. Hydra</th>
             </tr>
           </thead>
           <tbody>`;
             if (semQtd.length === 0) {
-              html += `<tr><td colspan="7" class="text-muted">Sem registos nestas condições para os filtros selecionados.</td></tr>`;
+              html += `<tr><td colspan="6" class="text-muted">Sem registos nestas condições para os filtros selecionados.</td></tr>`;
             } else {
               semQtd.forEach((item) => {
                 html += `
@@ -7768,48 +7753,11 @@
             <td>${item.DataProducaoFormatted || '—'}</td>
             <td>${badgeStatus(item.Status)}</td>
             <td>${formatQtd(item.QtdProduzida)}</td>
-            <td>${item.QtdHydraRef > 0 ? `<span class="opt-hydra-num">${formatQtd(item.QtdHydraRef)}</span>` : '—'}</td>
           </tr>`;
               });
             }
             html += `</tbody></table></div>`;
 
-            // Qtd Produzida (ação diária) e Hydra que não batem
-            const diferentes = items.filter(difereDoHydra);
-            html += `
-      <h6 class="mt-4 mb-2 fw-bold">Qtd. Produzida diferente do Hydra (mais de 5%)</h6>
-      <div class="table-responsive">
-        <table class="table table-bordered table-striped table-opt w-100">
-          <thead>
-            <tr>
-              <th>CC</th>
-              <th>KA / Material</th>
-              <th>Data de Produção</th>
-              <th>Qtd. Produzida</th>
-              <th>Qtd. Hydra</th>
-              <th>Diferença</th>
-            </tr>
-          </thead>
-          <tbody>`;
-            if (diferentes.length === 0) {
-              html += `<tr><td colspan="6" class="text-muted">Sem diferenças acima de 5% para os filtros selecionados.</td></tr>`;
-            } else {
-              diferentes.forEach((item) => {
-                const dif = item.QtdProduzida - item.QtdHydraRef;
-                html += `
-          <tr>
-            <td class="fw-bold">${escapeHtml(item.CC)}</td>
-            <td>${escapeHtml(item.KA)}</td>
-            <td>${item.DataProducaoFormatted || '—'}</td>
-            <td>${formatQtd(item.QtdProduzida)}</td>
-            <td><span class="opt-hydra-num">${formatQtd(item.QtdHydraRef)}</span></td>
-            <td style="color: #f87171; font-weight: 700">${dif > 0 ? '+' : ''}${formatQtd(dif)} (${
-                  dif > 0 ? '+' : ''
-                }${Math.round((dif / item.QtdHydraRef) * 100)}%)</td>
-          </tr>`;
-              });
-            }
-            html += `</tbody></table></div>`;
           } else if (type === 'disp') {
             title =
               '<i class="fa-solid fa-boxes-stacked me-2"></i>Detalhes: Disponibilidade MP / FRT';
@@ -9744,22 +9692,6 @@
               !isToday(i.RawDataProducaoObj)
           ).length;
 
-          const semQtdComHydra = items.filter(
-            (i) =>
-              i.Status === 'Produzido' &&
-              !(i.QtdProduzida > 0) &&
-              !isToday(i.RawDataProducaoObj) &&
-              i.QtdHydraRef > 0
-          ).length;
-          const diferencasHydra = items.filter(difereDoHydra).length;
-          $('#hist-kpiSemQtdSub').text(
-            [
-              semQtdComHydra ? `${semQtdComHydra} com qtd no Hydra` : '',
-              diferencasHydra ? `${diferencasHydra} ≠ Hydra > 5%` : '',
-            ]
-              .filter(Boolean)
-              .join(' · ')
-          );
           $('#hist-kpiProduzidoSemQtd')
             .text(produzidoSemQtd)
             .css('color', produzidoSemQtd === 0 ? '#34d399' : '#fb923c');
