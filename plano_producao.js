@@ -681,6 +681,7 @@ $(document).ready(function () {
             var r = turnoReal(evt.hydraDesde);
             var aoVivo = qtdHydraDe(evt.cc, evt.title, r.dia, r.turno);
             evt.turnoHydra = r;
+            evt.qtdHydraTurnoAoVivo = aoVivo;
             if (aoVivo !== null) {
                 evt.qtdHydra = (evt.qtdHydraFechados || 0) + aoVivo;
                 evt.hydraFonte = 'aovivo';
@@ -801,12 +802,32 @@ $(document).ready(function () {
         return d;
     }
 
-    // Ao fechar (Produzido), a Qtd Produzida vem do Hydra se ainda estiver vazia
+    /* Ao fechar (Produzido), a Qtd Produzida fica com a quantidade do Hydra acabada de ler,
+       para o turno seguinte saber logo quanto foi produzido. A quantidade do turno também vai
+       para a lista (Qtd Hydra turno), para a ação B4 não a substituir por um valor mais antigo. */
     function juntarQtdAoFechar(evt, dados) {
-        if (dados.Status === 'Produzido' && numOuNulo(evt.qtdProduzida) === null && evt.qtdHydra > 0) {
-            dados.Qtd_x0020_Produzida = evt.qtdHydra;
+        if (dados.Status !== 'Produzido') return dados;
+        if (evt.qtdHydra > 0) dados.Qtd_x0020_Produzida = evt.qtdHydra;
+        if (evt.temColunasHydra && evt.qtdHydraTurnoAoVivo !== null && evt.qtdHydraTurnoAoVivo !== undefined) {
+            dados.Qtd_x0020_Hydra_x0020_turno = evt.qtdHydraTurnoAoVivo;
         }
         return dados;
+    }
+
+    // Volta a ler o Hydra SQL antes de fechar um registo (resolve sempre)
+    function refrescarHydra() {
+        var d = $.Deferred();
+        obterHydra().done(function (itens) {
+            if (hydraDisponivel) indexarHydra(itens);
+            allEvents.forEach(function (e) { if (e.tipoLista === 'OHF') aplicarHydraOHF(e); });
+            d.resolve();
+        });
+        return d.promise();
+    }
+
+    // Se o registo vai passar a Produzido, lê primeiro o Hydra; senão segue logo
+    function antesDeFechar(dados) {
+        return dados.Status === 'Produzido' ? refrescarHydra() : $.Deferred().resolve().promise();
     }
 
     function gravarOHF(id, dados) {
@@ -834,6 +855,9 @@ $(document).ready(function () {
         if (dados.hasOwnProperty('Ninterrupcao')) evt.interrupcoes = dados.Ninterrupcao;
         if (dados.hasOwnProperty('Coment_x00e1_rios')) evt.comentarios = dados.Coment_x00e1_rios || '';
         if (dados.hasOwnProperty('Qtd_x0020_Produzida')) evt.qtdProduzida = dados.Qtd_x0020_Produzida;
+        if (dados.hasOwnProperty('Qtd_x0020_Hydra_x0020_turno')) {
+            evt.qtdHydraLista = (evt.qtdHydraFechados || 0) + dados.Qtd_x0020_Hydra_x0020_turno;
+        }
         // Em curso agora: começa a contar o Hydra já (a ação B1 grava o mesmo na lista)
         if (dados.Status === 'Em curso' && !evt.hydraDesde) {
             evt.hydraDesde = moment().format();
@@ -858,11 +882,16 @@ $(document).ready(function () {
     $(document).on('click', '#btnGuardarOHF', function () {
         var evt = eventoEmEdicao;
         if (!evt) return;
-        var dados = juntarQtdAoFechar(evt, dadosEditadosOHF(evt));
+        var dados = dadosEditadosOHF(evt);
         if (!Object.keys(dados).length) { mensagemEdicao('Sem alterações para gravar.'); return; }
         var $b = $(this).prop('disabled', true);
-        mensagemEdicao('A gravar…');
-        gravarOHF(evt.id, dados)
+        mensagemEdicao(dados.Status === 'Produzido' ? 'A ler a quantidade no Hydra…' : 'A gravar…');
+        antesDeFechar(dados)
+            .then(function () {
+                juntarQtdAoFechar(evt, dados);
+                mensagemEdicao('A gravar…');
+                return gravarOHF(evt.id, dados);
+            })
             .done(function () {
                 aplicarGravado(evt, dados);
                 redesenharDepoisDeGravar(evt);
@@ -881,10 +910,14 @@ $(document).ready(function () {
         // O que estiver alterado no formulário vai junto, mas o Status passa a Produzido
         var dados = dadosEditadosOHF(evt);
         dados.Status = 'Produzido';
-        juntarQtdAoFechar(evt, dados);
         var $b = $(this).prop('disabled', true);
-        mensagemEdicao('A passar para o turno seguinte…');
-        gravarOHF(evt.id, dados)
+        mensagemEdicao('A ler a quantidade no Hydra…');
+        antesDeFechar(dados)
+            .then(function () {
+                juntarQtdAoFechar(evt, dados);
+                mensagemEdicao('A passar para o turno seguinte…');
+                return gravarOHF(evt.id, dados);
+            })
             .then(function () {
                 aplicarGravado(evt, dados);
                 return gravarOHF(prox.id, { Status: 'Em curso' });
@@ -1316,6 +1349,7 @@ $(document).ready(function () {
                     horasPlan: (value.Horas_x0020_Produ_x00e7__x00e3_o !== undefined && value.Horas_x0020_Produ_x00e7__x00e3_o !== null) ? value.Horas_x0020_Produ_x00e7__x00e3_o : '',
                     prioridade: (value.Prioridade !== undefined && value.Prioridade !== null && value.Prioridade !== '' && !isNaN(parseInt(value.Prioridade))) ? parseInt(value.Prioridade) : 999,
                     // Hydra (ações Infowise B1/B2/B3) e campos editados no popup
+                    temColunasHydra: extra.hasOwnProperty('Qtd_x0020_Hydra_x0020_turno'),
                     hydraDesde: extra.Hydra_x0020_desde || '',
                     qtdHydraLista: numOuNulo(extra.Qtd_x0020_Hydra),
                     qtdHydraFechados: numOuNulo(extra.Qtd_x0020_Hydra_x0020_fechados) || 0,
