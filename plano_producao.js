@@ -450,7 +450,7 @@
                                 <div class="col-7 modal-metadata-label seq-ohf" style="display:none;">Falta Produzir:</div>
                                 <div class="col-5 modal-metadata-value seq-ohf" id="lblTotalFaltaOHF" style="display:none;">-</div>
 
-                                <div class="col-12 ohf-ajuda">A <b>Qtd Produzida</b> vem do Hydra e fica gravada quando o registo passa a <b>Produzido</b>. Basta mudar o <b>Status</b> em baixo.</div>
+                                <div class="col-12 ohf-ajuda">A <b>Qtd Produzida</b> vem do Hydra e fica gravada quando o registo passa a <b>Produzido</b>. Basta mudar o <b>Status</b> em baixo e carregar em <b>Guardar</b>.</div>
                             </div>
                         </div>
                     </div>
@@ -468,7 +468,6 @@
                     </div>
                     <div class="ed-acoes">
                         <span id="edMensagem"></span>
-                        <button type="button" id="btnPassarTurno" class="btn btn-sm btn-outline-primary" style="display:none;"><i class="fa fa-step-forward"></i> Passar para o turno seguinte</button>
                         <button type="button" id="btnGuardarOHF" class="btn btn-sm btn-success"><i class="fa fa-check"></i> Guardar</button>
                     </div>
                 </div>
@@ -738,30 +737,6 @@ $(document).ready(function () {
         return h;
     }
 
-    // Registos da mesma sequência (mesmo KA em turnos seguidos), por ordem cronológica
-    function registosDaSequencia(evt) {
-        if (!evt.cadeiaId) return [evt];
-        var ordem = {};
-        TURNOS.forEach(function (t, i) { ordem[t.chave] = i; });
-        return allEvents.filter(function (e) { return e.tipoLista === 'OHF' && e.cadeiaId === evt.cadeiaId; })
-            .sort(function (a, b) {
-                var da = a.diaTurno || a.start, db = b.diaTurno || b.start;
-                if (da !== db) return da < db ? -1 : 1;
-                return (ordem[a.turno] || 0) - (ordem[b.turno] || 0);
-            });
-    }
-
-    // Registo seguinte da sequência, se ainda não estiver produzido nem a correr
-    function seguinteDaSequencia(evt) {
-        var seq = registosDaSequencia(evt);
-        var i = -1;
-        seq.forEach(function (e, k) { if (String(e.id) === String(evt.id)) i = k; });
-        var prox = i >= 0 ? seq[i + 1] : null;
-        if (!prox) return null;
-        var st = textoValidacao(prox.status).toLowerCase();
-        return (st === 'produzido' || st === 'em curso') ? null : prox;
-    }
-
     function preencherEdicaoOHF(evt) {
         eventoEmEdicao = evt;
         var vals = validacoesOHF(evt.area);
@@ -774,13 +749,6 @@ $(document).ready(function () {
         $('.ed-abast').toggle(vals.indexOf('abast') !== -1);
         $('#edInterrupcoes').val(evt.interrupcoes === null || evt.interrupcoes === undefined ? '' : evt.interrupcoes);
         $('#edComentarios').val(evt.comentarios || '');
-        var prox = textoValidacao(evt.status).toLowerCase() === 'em curso' ? seguinteDaSequencia(evt) : null;
-        $('#btnPassarTurno').toggle(!!prox).data('prox', prox ? prox.id : '');
-        if (prox) {
-            var t = obterTurno(prox.turno);
-            $('#btnPassarTurno').attr('title', 'Fecha este turno (Produzido) e põe ' + prox.title + ' · ' +
-                moment(prox.diaTurno || prox.start, 'YYYY-MM-DD').locale('pt').format('ddd DD/MM') + ' · ' + t.nome + ' em curso');
-        }
         $('#edMensagem').text('').removeClass('erro ok');
         $('#ohfEdicao').show();
     }
@@ -894,43 +862,10 @@ $(document).ready(function () {
             })
             .done(function () {
                 aplicarGravado(evt, dados);
-                redesenharDepoisDeGravar(evt);
-                mensagemEdicao('Gravado.', 'ok');
+                redesenharDepoisDeGravar(null);
+                $('#modalDetalhes').modal('hide');
             })
             .fail(function (x) { mensagemEdicao(erroGravacao(x), 'erro'); })
-            .always(function () { $b.prop('disabled', false); });
-    });
-
-    $(document).on('click', '#btnPassarTurno', function () {
-        var evt = eventoEmEdicao;
-        if (!evt) return;
-        var proxId = String($(this).data('prox') || '');
-        var prox = allEvents.filter(function (e) { return e.tipoLista === 'OHF' && String(e.id) === proxId; })[0];
-        if (!prox) return;
-        // O que estiver alterado no formulário vai junto, mas o Status passa a Produzido
-        var dados = dadosEditadosOHF(evt);
-        dados.Status = 'Produzido';
-        var $b = $(this).prop('disabled', true);
-        mensagemEdicao('A ler a quantidade no Hydra…');
-        antesDeFechar(dados)
-            .then(function () {
-                juntarQtdAoFechar(evt, dados);
-                mensagemEdicao('A passar para o turno seguinte…');
-                return gravarOHF(evt.id, dados);
-            })
-            .then(function () {
-                aplicarGravado(evt, dados);
-                return gravarOHF(prox.id, { Status: 'Em curso' });
-            })
-            .done(function () {
-                aplicarGravado(prox, { Status: 'Em curso' });
-                redesenharDepoisDeGravar(prox);
-                mensagemEdicao('Turno passado: ' + prox.title + ' está em curso.', 'ok');
-            })
-            .fail(function (x) {
-                redesenharDepoisDeGravar(null);
-                mensagemEdicao(erroGravacao(x), 'erro');
-            })
             .always(function () { $b.prop('disabled', false); });
     });
 
