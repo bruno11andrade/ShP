@@ -2852,6 +2852,9 @@
         const CAMPOS_HYDRA_FECHADOS = ['Qtd_x0020_Hydra_x0020_dias_x0020_fechados', 'QtdHydraDiasFechados'];
         const CAMPOS_HYDRA_ULTIMO_DIA = ['_x00da_ltimo_x0020_dia_x0020_acumulado', 'UltimoDiaAcumulado', '_x00da_ltimodiaacumulado'];
         const CAMPOS_QTD_HYDRA_LISTA = ['Qtd_x0020_Hydra', 'QtdHydra'];
+        // Dia e quantidade do último dia lido pela ação B2 (para a data de produção)
+        const CAMPOS_DIA_HYDRA_HOJE = ['Dia_x0020_Hydra_x0020_hoje', 'DiaHydraHoje'];
+        const CAMPOS_QTD_HYDRA_HOJE = ['Qtd_x0020_Hydra_x0020_hoje', 'QtdHydraHoje'];
         // Dados do Hydra com mais de 30 min contam como atrasados
         const HYDRA_MAX_MINUTOS = 30;
         // Uma ordem em curso soma no máximo os últimos 10 dias do Hydra
@@ -4598,6 +4601,8 @@
           rawListItems.forEach((i) => {
             // Qtd Produzida tal como vem da lista (antes de a trocar pela do Hydra)
             if (i.QtdProduzidaLista === undefined) i.QtdProduzidaLista = i.QtdProduzida || 0;
+            if (i.DataProducaoLista !== undefined) i.RawDataProducaoObj = i.DataProducaoLista;
+            i.UltimoDiaProducaoHydra = null;
             i.QtdHydra = null;
             i.HydraAte = null;
             i.FracHydra = 0;
@@ -4643,13 +4648,16 @@
                 });
               }
               let ate = null;
+              let ultimoDia = null;
               for (const d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
                 const e = indice.get(chaveHydra(i.CC, i.KA, d));
                 if (!e) continue;
                 tem = true;
                 soma += e.qtd;
+                if (e.qtd > 0) ultimoDia = new Date(d);
                 if (e.ate && (!ate || e.ate > ate)) ate = e.ate;
               }
+              i.UltimoDiaProducaoHydra = ultimoDia;
               if (tem) {
                 i.QtdHydra = soma;
                 i.HydraAte = ate;
@@ -4677,6 +4685,28 @@
             }
             i.QtdAoVivo = i.QtdProduzida;
             i.QtdProvisoria = i.FonteAoVivo !== 'Lista';
+
+            /* Data de produção das ordens fechadas: o último dia em que o Hydra registou
+               produção (mais real do que a Data Produção escrita no formulário, que pode
+               deixar de ser preenchida). Sem Hydra, fica a Data Produção da lista. */
+            if (i.DataProducaoLista === undefined) i.DataProducaoLista = i.RawDataProducaoObj || null;
+            let diaProdHydra = null;
+            if (i.Status === 'Produzido' && i.FonteAoVivo === 'Hydra') {
+              if (i.UltimoDiaProducaoHydra) diaProdHydra = i.UltimoDiaProducaoHydra;
+              else if (i.QtdHydraHoje > 0 && i.DiaHydraHoje) diaProdHydra = i.DiaHydraHoje;
+              else diaProdHydra = i.UltimoDiaHydra || i.DiaHydraHoje || null;
+            }
+            if (diaProdHydra) {
+              const d = new Date(diaProdHydra);
+              d.setHours(0, 0, 0, 0);
+              i.RawDataProducaoObj = d;
+              i.DataProducaoFormatted = formatDateShort(d);
+              i.FonteDataProducao = 'Hydra';
+            } else {
+              i.RawDataProducaoObj = i.DataProducaoLista;
+              i.DataProducaoFormatted = i.DataProducaoLista ? formatDateShort(i.DataProducaoLista) : 'N/D';
+              i.FonteDataProducao = 'Lista';
+            }
             if (emCurso && i.QtdPlaneada > 0) {
               i.FracHydra = Math.min(1, Math.max(0, i.QtdAoVivo / i.QtdPlaneada));
             }
@@ -5195,6 +5225,8 @@
               QtdHydraFechados: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_FECHADOS)),
               UltimoDiaHydra: parseItemDate(valorCampo(item, CAMPOS_HYDRA_ULTIMO_DIA)),
               QtdHydraLista: numeroOuNulo(valorCampo(item, CAMPOS_QTD_HYDRA_LISTA)),
+              DiaHydraHoje: parseItemDate(valorCampo(item, CAMPOS_DIA_HYDRA_HOJE)),
+              QtdHydraHoje: numeroOuNulo(valorCampo(item, CAMPOS_QTD_HYDRA_HOJE)),
             };
           });
 

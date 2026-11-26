@@ -450,7 +450,7 @@
                     <div class="modal-section-title">Registo do turno</div>
                     <div class="row">
                         <div class="col-6 ed-campo"><label for="edStatus">Status</label><select id="edStatus" class="form-control form-control-sm"></select></div>
-                        <div class="col-6 ed-campo"><label for="edInterrupcoes">Nº interrupções</label><input id="edInterrupcoes" type="number" min="0" step="1" class="form-control form-control-sm" /></div>
+                        <div class="col-6"></div>
                         <div class="col-4 ed-campo ed-ferramenta"><label for="edFerramenta">Ferramenta</label><select id="edFerramenta" class="form-control form-control-sm"></select></div>
                         <div class="col-4 ed-campo ed-mp"><label for="edMP">Matéria-Prima</label><select id="edMP" class="form-control form-control-sm"></select></div>
                         <div class="col-4 ed-campo ed-abast"><label for="edAbast">Abastecimento</label><select id="edAbast" class="form-control form-control-sm"></select></div>
@@ -584,7 +584,7 @@ $(document).ready(function () {
     // quantidade do turno a cada 15 minutos (a lista OHF só é atualizada de hora a hora).
     var listGuidHydra = "6A0C988B-557F-4812-A21D-A486C6B3770A";
     var urlHydra = site + "/_api/web/lists(guid'" + listGuidHydra + "')/items?$select=Title,Workplace,TShift,DataUntil,Total_x0020_good_x0020_quantity,Modified&$top=5000";
-    var urlOHFHydra = site + "/_api/web/lists(guid'" + listGuidOHF + "')/items?$select=ID,Data,Hydra_x0020_desde,Qtd_x0020_Hydra,Qtd_x0020_Hydra_x0020_turno,Qtd_x0020_Hydra_x0020_fechados,Ninterrupcao,Coment_x00e1_rios";
+    var urlOHFHydra = site + "/_api/web/lists(guid'" + listGuidOHF + "')/items?$select=ID,Data,Hydra_x0020_desde,Qtd_x0020_Hydra,Qtd_x0020_Hydra_x0020_turno,Qtd_x0020_Hydra_x0020_fechados,Coment_x00e1_rios";
     var indiceHydra = {};       // 'cc|ka|aaaa-mm-dd|Turno' -> quantidade (Turno: Noite, Manha, Tarde, Total)
     var hydraAte = null;        // hora da última atualização do Hydra (moment)
     var hydraDisponivel = false;
@@ -619,7 +619,7 @@ $(document).ready(function () {
             .fail(function (xhr) {
                 // Sem as colunas Hydra (ainda não criadas): lê só os campos do popup
                 console.warn('Colunas Hydra da lista OHF ainda não disponíveis:', xhr && xhr.status);
-                lerTodasAsPaginas(site + "/_api/web/lists(guid'" + listGuidOHF + "')/items?$select=ID,Ninterrupcao,Coment_x00e1_rios&$top=5000")
+                lerTodasAsPaginas(site + "/_api/web/lists(guid'" + listGuidOHF + "')/items?$select=ID,Coment_x00e1_rios&$top=5000")
                     .done(function (r) { d.resolve(r); })
                     .fail(function () { d.resolve([]); });
             });
@@ -711,7 +711,6 @@ $(document).ready(function () {
         dispFerramenta: 'DisponibilidadeFerramenta',
         dispMP: 'DisponibilidadeMP',
         mpAbastecida: 'MPAbastecida',
-        interrupcoes: 'Ninterrupcao',
         comentarios: 'Coment_x00e1_rios'
     };
     var eventoEmEdicao = null;
@@ -735,7 +734,6 @@ $(document).ready(function () {
         $('.ed-ferramenta').toggle(vals.indexOf('ferramenta') !== -1);
         $('.ed-mp').toggle(vals.indexOf('mp') !== -1);
         $('.ed-abast').toggle(vals.indexOf('abast') !== -1);
-        $('#edInterrupcoes').val(evt.interrupcoes === null || evt.interrupcoes === undefined ? '' : evt.interrupcoes);
         $('#edComentarios').val(evt.comentarios || '');
         $('#edMensagem').text('').removeClass('erro ok');
         $('#ohfEdicao').show();
@@ -752,8 +750,6 @@ $(document).ready(function () {
         if (vals.indexOf('ferramenta') !== -1) muda('dispFerramenta', $('#edFerramenta').val() || null, textoValidacao(evt.dispFerramenta));
         if (vals.indexOf('mp') !== -1) muda('dispMP', $('#edMP').val() || null, textoValidacao(evt.dispMP));
         if (vals.indexOf('abast') !== -1) muda('mpAbastecida', $('#edAbast').val() || null, textoValidacao(evt.mpAbastecida));
-        var nInt = $('#edInterrupcoes').val();
-        muda('interrupcoes', nInt === '' ? null : parseInt(nInt, 10), evt.interrupcoes);
         muda('comentarios', $('#edComentarios').val() || null, evt.comentarios || '');
         return d;
     }
@@ -814,7 +810,6 @@ $(document).ready(function () {
                 if (evt.valOrig) evt.valOrig[prop] = dados[nome] || '';
             }
         });
-        if (dados.hasOwnProperty('Ninterrupcao')) evt.interrupcoes = dados.Ninterrupcao;
         if (dados.hasOwnProperty('Coment_x00e1_rios')) evt.comentarios = dados.Coment_x00e1_rios || '';
         if (dados.hasOwnProperty('Qtd_x0020_Produzida')) evt.qtdProduzida = dados.Qtd_x0020_Produzida;
         if (dados.hasOwnProperty('DataProducao')) evt.dataProducao = dados.DataProducao;
@@ -1284,7 +1279,6 @@ $(document).ready(function () {
                     hydraDesde: extra.Hydra_x0020_desde || '',
                     qtdHydraLista: numOuNulo(extra.Qtd_x0020_Hydra),
                     qtdHydraFechados: numOuNulo(extra.Qtd_x0020_Hydra_x0020_fechados) || 0,
-                    interrupcoes: numOuNulo(extra.Ninterrupcao),
                     comentarios: String(extra.Coment_x00e1_rios || '').replace(/<[^>]*>/g, '').trim(),
                     allDay: true
                 });
