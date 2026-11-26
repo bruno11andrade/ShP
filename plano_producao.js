@@ -630,7 +630,12 @@ $(document).ready(function () {
         var d = $.Deferred();
         lerTodasAsPaginas(urlProdHydra + '&$top=5000')
             .done(function (r) { d.resolve(r); })
-            .fail(function (xhr) { console.warn('Colunas Hydra da lista OPA/OPT não disponíveis:', xhr && xhr.status); d.resolve([]); });
+            .fail(function () {
+                // Filtro por Data recusado (coluna não indexada numa lista grande): lê tudo
+                lerTodasAsPaginas(site + "/_api/web/lists(guid'" + listGuidProd + "')/items?$top=5000")
+                    .done(function (r) { d.resolve(r); })
+                    .fail(function (xhr) { console.warn('Colunas Hydra da lista OPA/OPT não disponíveis:', xhr && xhr.status); d.resolve([]); });
+            });
         return d.promise();
     }
 
