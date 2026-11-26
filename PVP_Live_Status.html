@@ -3751,6 +3751,9 @@
         // (escrita pela ação A3 quando essa ordem fecha)
         // Qtd Hydra calculada na lista (fica parada quando a ordem fecha)
         const CAMPOS_QTD_HYDRA_LISTA = ['Qtd_x0020_Hydra', 'QtdHydra'];
+        // OHF por turno: início da contagem e turnos já fechados (ações B1/B3 da lista OHF)
+        const CAMPOS_HYDRA_DESDE = ['Hydra_x0020_desde', 'HydraDesde'];
+        const CAMPOS_HYDRA_FECHADOS_TURNOS = ['Qtd_x0020_Hydra_x0020_fechados', 'QtdHydraFechados'];
         const CAMPOS_HYDRA_BASE = ['Qtd_x0020_Hydra_x0020_base', 'QtdHydraBase'];
         const CAMPOS_HYDRA_DIA_BASE = ['Dia_x0020_Hydra_x0020_base', 'DiaHydraBase'];
         // Dados do Hydra mais antigos do que isto aparecem com aviso
@@ -11055,6 +11058,13 @@
             UltimoDiaHydra: parseItemDate(valorCampo(item, CAMPOS_HYDRA_ULTIMO_DIA)),
             QtdHydraBase: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_BASE)),
             DiaHydraBase: parseItemDate(valorCampo(item, CAMPOS_HYDRA_DIA_BASE)),
+            QtdHydraLista: numeroOuNulo(valorCampo(item, CAMPOS_QTD_HYDRA_LISTA)),
+            HydraDesde: (() => {
+              const v = valorCampo(item, CAMPOS_HYDRA_DESDE);
+              const d = v ? new Date(v) : null;
+              return d && !isNaN(d.getTime()) ? d : null;
+            })(),
+            QtdHydraFechadosTurnos: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_FECHADOS_TURNOS)) || 0,
             Turno: turnoNormalizado(extractValue(valor(CAMPOS_OV9.turno))),
           };
         }
@@ -11116,6 +11126,16 @@
           };
         }
 
+        /* Dia e turno reais de uma data/hora: Noite 23:00–06:00 (a partir das 23:00 conta
+           para o dia seguinte), Manhã 06:00–14:30, Tarde 14:30–23:00. */
+        function turnoRealHydra(data) {
+          const min = data.getHours() * 60 + data.getMinutes();
+          const dia = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+          if (min >= 1380) dia.setDate(dia.getDate() + 1);
+          const turno = min >= 1380 || min < 360 ? 'Noite' : min < 870 ? 'Manhã' : 'Tarde';
+          return { dia: dia, turno: turno };
+        }
+
         function chaveHydra(cc, ka, dia, turno) {
           return `${normalizeCC(cc)}|${String(ka || '').trim().toUpperCase()}|${dia ? formatDateShort(dia) : ''}|${turno}`;
         }
@@ -11141,6 +11161,8 @@
           const mesmoKA = (a, b) => String(a || '').trim().toUpperCase() === String(b || '').trim().toUpperCase();
 
           rawListItems.forEach((i) => {
+            // Qtd Produzida tal como vem da lista (antes de a trocar pela do Hydra)
+            if (i.QtdProduzidaLista === undefined) i.QtdProduzidaLista = i.QtdProduzida || 0;
             i.QtdHydra = null;
             i.HydraAte = null;
             i.FracHydra = 0;
@@ -11150,14 +11172,28 @@
                só a preenche no dia seguinte, a partir do Daily Production.
                Até lá mostra-se a quantidade do Hydra. */
             let fimProducao = null;
-            if (i.Status === 'Produzido' && !(i.QtdProduzida > 0) && i.RawDataProducaoObj) {
+            if (i.Status === 'Produzido' && !(i.QtdProduzidaLista > 0) && i.RawDataProducaoObj) {
               fimProducao = new Date(i.RawDataProducaoObj);
               fimProducao.setHours(0, 0, 0, 0);
               const limiteDaily = new Date(hoje);
               limiteDaily.setDate(limiteDaily.getDate() - 8);
               if (fimProducao < limiteDaily) fimProducao = null;
             }
-            if (fimProducao && i.QtdHydraLista > 0) {
+            if (i.Turno && (i.HydraDesde || i.QtdHydraLista !== null)) {
+              /* OHF: cada linha conta o seu turno real (o da hora em que começou, ou da
+                 última passagem de turno), mais os turnos já fechados guardados na lista. */
+              if (i.HydraDesde) {
+                const t = turnoRealHydra(i.HydraDesde);
+                const e = hydraDisponivel ? indice.get(chaveHydra(i.CC, i.KA, t.dia, t.turno)) : null;
+                if (e) {
+                  i.QtdHydra = i.QtdHydraFechadosTurnos + e.qtd;
+                  i.HydraAte = e.ate;
+                } else if (i.QtdHydraLista !== null) {
+                  i.QtdHydra = i.QtdHydraLista;
+                }
+              }
+            } else if (i.Status === 'Produzido' && i.QtdHydraLista > 0) {
+              // Fechada: vale a Qtd Hydra que a lista guardou (soma de todos os dias)
               i.QtdHydra = i.QtdHydraLista;
             } else if (hydraDisponivel) {
               if (emCurso || fimProducao) {
@@ -11227,13 +11263,15 @@
                 }
               }
             }
+            // O Hydra é o mais real: passa a ser a Qtd Produzida sempre que existe
             if (i.QtdCorrigida !== null && i.QtdCorrigida !== undefined) {
               i.QtdProduzida = i.QtdCorrigida;
               i.FonteQtd = 'Corrigida';
-            } else if (i.QtdHydra !== null) {
+            } else if (i.QtdHydra !== null && i.QtdHydra > 0) {
               i.QtdProduzida = i.QtdHydra;
               i.FonteQtd = 'Hydra';
             } else {
+              i.QtdProduzida = i.QtdProduzidaLista;
               i.FonteQtd = 'Lista';
             }
             if (i.Status === 'Em curso' && i.QtdPlaneada > 0) {
