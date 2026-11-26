@@ -217,6 +217,15 @@
     .ed-campo { margin-bottom: 8px; }
     .ed-campo label { display: block; font-size: 11px; font-weight: 700; color: #555; margin-bottom: 2px; }
     .ed-campo .form-control { font-size: 12px; }
+    .ed-oculto { display: none !important; }
+    .ed-opcoes { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ed-op { cursor: pointer; opacity: 0.45; transition: opacity 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+    .ed-op:hover { opacity: 0.8; }
+    .ed-op.ativo { opacity: 1; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #0056b3 !important; }
+    .ed-op:focus { outline: none; }
+    .ed-op:focus-visible { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #0056b3 !important; }
+    .ed-opcoes-status .ed-op { margin: 0; padding: 4px 8px; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
+    .ed-opcoes .pp-chip.ed-op { margin: 0; font-size: 11px; padding: 4px 8px; border: none; }
     .ed-acoes { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
     .ed-acoes .btn { font-weight: 700; font-size: 12px; }
     #edMensagem { margin-right: auto; font-size: 12px; color: #6f6e69; }
@@ -449,11 +458,10 @@
                 <div id="ohfEdicao" class="ohf-edicao" style="display:none;">
                     <div class="modal-section-title">Registo do turno</div>
                     <div class="row">
-                        <div class="col-6 ed-campo"><label for="edStatus">Status</label><select id="edStatus" class="form-control form-control-sm"></select></div>
-                        <div class="col-6"></div>
-                        <div class="col-4 ed-campo ed-ferramenta"><label for="edFerramenta">Ferramenta</label><select id="edFerramenta" class="form-control form-control-sm"></select></div>
-                        <div class="col-4 ed-campo ed-mp"><label for="edMP">Matéria-Prima</label><select id="edMP" class="form-control form-control-sm"></select></div>
-                        <div class="col-4 ed-campo ed-abast"><label for="edAbast">Abastecimento</label><select id="edAbast" class="form-control form-control-sm"></select></div>
+                        <div class="col-12 ed-campo"><label>Status</label><select id="edStatus" class="ed-oculto"></select><div class="ed-opcoes ed-opcoes-status" data-para="edStatus"></div></div>
+                        <div class="col-4 ed-campo ed-ferramenta"><label>Ferramenta</label><select id="edFerramenta" class="ed-oculto"></select><div class="ed-opcoes" data-para="edFerramenta"></div></div>
+                        <div class="col-4 ed-campo ed-mp"><label>Matéria-Prima</label><select id="edMP" class="ed-oculto"></select><div class="ed-opcoes" data-para="edMP"></div></div>
+                        <div class="col-4 ed-campo ed-abast"><label>Abastecimento</label><select id="edAbast" class="ed-oculto"></select><div class="ed-opcoes" data-para="edAbast"></div></div>
                         <div class="col-12 ed-campo"><label for="edComentarios">Comentários</label><textarea id="edComentarios" rows="2" class="form-control form-control-sm"></textarea></div>
                     </div>
                     <div class="ed-acoes">
@@ -724,6 +732,38 @@ $(document).ready(function () {
         return h;
     }
 
+    /* Botões com as cores da legenda em vez da lista de opções: o Status como os cartões
+       da legenda e as validações como os chips OK / NOK / Pendente. A escolha fica no
+       <select> escondido, que é o que se grava. */
+    function desenharOpcoes(idSelect) {
+        var $sel = $('#' + idSelect);
+        var status = idSelect === 'edStatus';
+        var atual = String($sel.val() || '');
+        var h = '';
+        $sel.find('option').each(function () {
+            var v = String($(this).val() || '');
+            if (!v) return;
+            var ativo = v === atual ? ' ativo' : '';
+            if (status) {
+                h += '<button type="button" class="ed-op legend-card ' + classeStatus(v) + ativo + '" data-valor="' + escHtml(v) + '">' +
+                     '<span class="pp-status"><i></i>' + escHtml(v) + '</span></button>';
+            } else {
+                var e = estadoValidacao(v);
+                h += '<button type="button" class="ed-op pp-chip ' + e + ativo + '" data-valor="' + escHtml(v) + '">' +
+                     '<i class="fa ' + ICONE_VALIDACAO[e] + '"></i>' + escHtml(v) + '</button>';
+            }
+        });
+        $('.ed-opcoes[data-para="' + idSelect + '"]').html(h);
+    }
+
+    $(document).on('click', '.ed-opcoes .ed-op', function () {
+        var $op = $(this);
+        var idSelect = $op.closest('.ed-opcoes').attr('data-para');
+        $('#' + idSelect).val($op.attr('data-valor'));
+        $op.siblings().removeClass('ativo');
+        $op.addClass('ativo');
+    });
+
     function preencherEdicaoOHF(evt) {
         eventoEmEdicao = evt;
         var vals = validacoesOHF(evt.area);
@@ -735,6 +775,7 @@ $(document).ready(function () {
         $('.ed-mp').toggle(vals.indexOf('mp') !== -1);
         $('.ed-abast').toggle(vals.indexOf('abast') !== -1);
         $('#edComentarios').val(evt.comentarios || '');
+        ['edStatus', 'edFerramenta', 'edMP', 'edAbast'].forEach(desenharOpcoes);
         $('#edMensagem').text('').removeClass('erro ok');
         $('#ohfEdicao').show();
     }
