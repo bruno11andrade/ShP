@@ -430,16 +430,6 @@
                                 <div class="col-7 modal-metadata-label">Falta Produzir:</div>
                                 <div class="col-5 modal-metadata-value" id="lblFaltaOHF">-</div>
 
-                                <div class="col-12 mt-2" style="padding:0 15px;"><div class="modal-section-title" id="lblDiaTitle">Dia · KA</div></div>
-                                <div class="col-7 modal-metadata-label" title="Soma da Qtd Planeada de todos os turnos deste KA no dia">Planeado no dia:</div>
-                                <div class="col-5 modal-metadata-value" id="lblDiaPlanOHF">-</div>
-
-                                <div class="col-7 modal-metadata-label" title="Valor real do dia, carregado automaticamente pelo Hydra (campo Qtd Total Dia). É este o valor usado no gráfico e na tabela.">Qtd Total Dia (real):</div>
-                                <div class="col-5 modal-metadata-value" id="lblDiaProdOHF">-</div>
-
-                                <div class="col-7 modal-metadata-label">Desvio do dia:</div>
-                                <div class="col-5 modal-metadata-value" id="lblDiaDesvioOHF">-</div>
-
                                 <div class="col-12 mt-2" style="padding:0 15px;"><div class="modal-section-title" id="lblSeqTitle" style="display:none;">Sequência</div></div>
                                 <div class="col-7 modal-metadata-label seq-ohf" style="display:none;" title="Soma da Qtd Planeada dos turnos seguidos com o mesmo KA">Qtd Total:</div>
                                 <div class="col-5 modal-metadata-value seq-ohf" id="lblQtdTotalOHF" style="display:none;">-</div>
@@ -2406,34 +2396,11 @@ $(document).ready(function () {
                 : '<span class="ohf-porpreencher">aguarda Hydra</span>');
             $('#lblFaltaOHF').html(ef ? faltaHtml(event.qtdPlan, ef.v) : '-');
 
-            // Dia · KA: plano de todos os turnos do KA nesse dia vs. Qtd Total Dia (valor real)
-            var diaEv = event.diaTurno || (moment.isMoment(event.start) ? event.start.format('YYYY-MM-DD') : String(event.start).substring(0, 10));
-            var ag = agregarDiaKA(registosDiaKA(event.area, event.cc, event.title, diaEv));
-            $('#lblDiaTitle').text('Dia · KA · ' + moment(diaEv, 'YYYY-MM-DD').locale('pt').format('ddd DD/MM'));
-            $('#lblDiaPlanOHF').text(formatNumeric(ag.plan, 'pçs'));
-            var diaHtml;
-            if (ag.temTotal) {
-                diaHtml = escHtml(formatNumeric(ag.prod, 'pçs')) +
-                          (ag.hydra ? etiquetaHydraHtml('Total do dia no Hydra (' + textoHydraAte() + '). A Qtd Total Dia chega com a ação diária.') : '') +
-                          (ag.conflito ? ' <span class="ohf-porpreencher" title="Valores diferentes entre turnos: ' + escHtml(ag.valores.join(' / ')) + '. Usado o maior.">⚠ diferente entre turnos</span>' : '');
-            } else {
-                diaHtml = '<span class="ohf-porpreencher">aguarda Hydra</span>' +
-                          (ag.somaTurnos > 0 ? '<br><small style="color:#6f6e69">≈ ' + escHtml(formatNumeric(ag.somaTurnos, 'pçs')) + ' (soma dos turnos)</small>' : '');
-            }
-            $('#lblDiaProdOHF').html(diaHtml);
-            if (ag.temTotal || ag.somaTurnos > 0) {
-                var ed = gkEstado(ag.prod, ag.plan);
-                $('#lblDiaDesvioOHF').html((ag.temTotal ? '' : '≈ ') + gkDesvioTxt(ag.prod - ag.plan) + ' pçs' +
-                    (ed && ed.pct !== null ? ' <span class="gk-pct" style="background:' + GK_CORES[ed.cls] + ';min-width:0" title="' + ed.txt + '">' + ed.pct + '%</span>' : ''));
-            } else {
-                $('#lblDiaDesvioOHF').text('-');
-            }
-
             // Sequência do mesmo KA em turnos seguidos (incluindo o 1.º): totais
-            var emSequencia = event.cadeiaN > 1 && event.cadeiaDias > 1;   // só sequências que passam de um dia
+            var emSequencia = event.cadeiaN > 1;   // 2 ou mais turnos seguidos do mesmo KA
             $('#lblSeqTitle, .seq-ohf').toggle(emSequencia);
             if (emSequencia) {
-                $('#lblSeqTitle').text('Sequência · ' + event.cadeiaN + ' turnos · ' + event.cadeiaDias + ' dias');
+                $('#lblSeqTitle').text('Sequência · ' + event.cadeiaN + ' turnos · ' + event.cadeiaDias + (event.cadeiaDias === 1 ? ' dia' : ' dias'));
                 $('#lblQtdTotalOHF').text(formatNumeric(event.cadeiaTotal, 'pçs'));
                 $('#lblTotalProdOHF').html((event.cadeiaProv ? '<span class="gk-prov" title="Algum dia ainda sem Qtd Total Dia do Hydra: usada a soma dos turnos">≈</span>' : '') + escHtml(formatNumeric(event.cadeiaProduzida, 'pçs')));
                 $('#lblTotalFaltaOHF').html(faltaHtml(event.cadeiaTotal, event.cadeiaProduzida));
