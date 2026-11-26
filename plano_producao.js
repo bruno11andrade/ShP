@@ -764,6 +764,12 @@ $(document).ready(function () {
     function juntarQtdAoFechar(evt, dados) {
         if (dados.Status !== 'Produzido') return dados;
         if (evt.qtdHydra > 0) dados.Qtd_x0020_Produzida = evt.qtdHydra;
+        // Data Produção = dia produtivo do turno em que produziu (a Noite conta para o dia
+        // seguinte). Só se ainda estiver vazia.
+        if (!evt.dataProducao) {
+            var diaProd = evt.hydraDesde ? turnoReal(evt.hydraDesde).dia : turnoReal(moment()).dia;
+            dados.DataProducao = diaProd + 'T12:00:00Z';
+        }
         if (evt.temColunasHydra && evt.qtdHydraTurnoAoVivo !== null && evt.qtdHydraTurnoAoVivo !== undefined) {
             dados.Qtd_x0020_Hydra_x0020_turno = evt.qtdHydraTurnoAoVivo;
         }
@@ -811,6 +817,7 @@ $(document).ready(function () {
         if (dados.hasOwnProperty('Ninterrupcao')) evt.interrupcoes = dados.Ninterrupcao;
         if (dados.hasOwnProperty('Coment_x00e1_rios')) evt.comentarios = dados.Coment_x00e1_rios || '';
         if (dados.hasOwnProperty('Qtd_x0020_Produzida')) evt.qtdProduzida = dados.Qtd_x0020_Produzida;
+        if (dados.hasOwnProperty('DataProducao')) evt.dataProducao = dados.DataProducao;
         if (dados.hasOwnProperty('Qtd_x0020_Hydra_x0020_turno')) {
             evt.qtdHydraLista = (evt.qtdHydraFechados || 0) + dados.Qtd_x0020_Hydra_x0020_turno;
         }
@@ -1981,26 +1988,27 @@ $(document).ready(function () {
     }
 
     /* Produção real de um KA num dia (pela data em que foi produzido, não pela planeada):
-       1. Qtd Total Dia dos registos desse dia (valor oficial, da ação diária);
-       2. senão, o Total do dia no Hydra;
+       1. o Total do dia no Hydra (dias recentes; inclui produção sem registo em curso);
+       2. senão, a Qtd Total Dia dos registos produzidos nesse dia (a ação diária procura-a
+          pela Data Produção; serve para os dias que já saíram do Hydra);
        3. senão, a soma da Qtd Produzida dos registos produzidos nesse dia. */
     function produzidoDiaKA(regsKA, dia) {
         var r = { prod: 0, prov: false, conflito: false };
+        var hy = regsKA.length ? qtdHydraDe(regsKA[0].cc, regsKA[0].title, dia, 'Total') : null;
+        if (hy !== null) {
+            r.prod = hy;
+            return r;
+        }
         var valores = [];
         regsKA.forEach(function (e) {
-            if ((e.diaTurno || e.start) !== dia) return;
+            var diaTotal = e.dataProducao ? moment(e.dataProducao).format('YYYY-MM-DD') : (e.diaTurno || e.start);
+            if (diaTotal !== dia) return;
             var t = parseFloat(e.qtdTotalDia);
             if (!isNaN(t) && valores.indexOf(t) === -1) valores.push(t);
         });
         if (valores.length) {
             r.prod = Math.max.apply(null, valores);
             r.conflito = valores.length > 1;
-            return r;
-        }
-        var hy = regsKA.length ? qtdHydraDe(regsKA[0].cc, regsKA[0].title, dia, 'Total') : null;
-        if (hy !== null) {
-            r.prod = hy;
-            r.prov = true;
             return r;
         }
         regsKA.forEach(function (e) {
@@ -2240,7 +2248,7 @@ $(document).ready(function () {
                 var desvio = o.ra[i] - o.pa[i];
                 t += '<br>Produzido acumulado: <b>' + gkNum(o.ra[i]) + '</b> pçs' +
                      '<br>No dia: ' + (o.prov[i] ? '≈ ' : '') + gkNum(o.prod[i]) + ' de ' + gkNum(o.plan[i]) + ' planeadas' +
-                     (o.prov[i] ? '<br><span style="color:#b26b00">≈ Provisório: ainda sem Qtd Total Dia (usado o Hydra)</span>' : '') +
+                     (o.prov[i] ? '<br><span style="color:#b26b00">≈ Sem Hydra nem Qtd Total Dia: soma da Qtd Produzida dos turnos</span>' : '') +
                      (o.conflito[i] ? '<br><span style="color:#b26b00">⚠ Qtd Total Dia diferente entre turnos (usado o maior)</span>' : '') +
                      '<br><b style="color:' + (desvio < 0 ? '#e02424' : '#1fa84a') + '">Desvio: ' + gkDesvioTxt(desvio) + ' pçs</b>';
             } else {
@@ -2326,8 +2334,8 @@ $(document).ready(function () {
 
         // Nota e cores por baixo da tabela
         h += '<div class="gk-rodape"><span>' + (D.temProd
-            ? 'Em cada dia: <b>desvio acumulado</b> (produzido − planeado) e, por baixo, produzido / planeado acumulado (pçs). Produzido = <b>' + (modoTurnos() ? 'Qtd Total Dia' : 'Qtd Produzida') + '</b>' + (modoTurnos() ? ', no dia em que foi mesmo produzido' : '') + '; dias seguintes a cinzento.' +
-              (linhas.some(function (o) { return o.provAc[D.hoje < 0 ? 0 : D.hoje]; }) ? ' <span class="gk-prov">≈</span> Provisório: ainda sem Qtd Total Dia, usado o Hydra.' : '')
+            ? 'Em cada dia: <b>desvio acumulado</b> (produzido − planeado) e, por baixo, produzido / planeado acumulado (pçs). Produzido = <b>' + (modoTurnos() ? 'Hydra / Qtd Total Dia' : 'Qtd Produzida') + '</b>' + (modoTurnos() ? ', no dia em que foi mesmo produzido' : '') + '; dias seguintes a cinzento.' +
+              (linhas.some(function (o) { return o.provAc[D.hoje < 0 ? 0 : D.hoje]; }) ? ' <span class="gk-prov">≈</span> Sem Hydra nem Qtd Total Dia: usada a soma da Qtd Produzida dos turnos.' : '')
             : 'Em cada dia: planeado acumulado (pçs).') + '</span>';
         if (D.temProd) {
             h += '<span class="gk-cores">% produzido / planeado: ' +
