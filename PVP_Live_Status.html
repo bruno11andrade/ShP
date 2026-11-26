@@ -3745,8 +3745,10 @@
         // Correção manual da quantidade nas listas do plano (opcional)
         const CAMPOS_QTD_CORRIGIDA = ['QtdCorrigida', 'Qtd_x0020_corrigida', 'Qtd_x0020_Corrigida'];
         // Acumulado das ordens em curso, escrito pela ação Infowise A2
-        const CAMPOS_HYDRA_FECHADOS = ['Qtd_x0020_Hydra_x0020_dias_x0020_fechados', 'QtdHydraDiasFechados'];
-        const CAMPOS_HYDRA_ULTIMO_DIA = ['_x00da_ltimo_x0020_dia_x0020_acumulado', 'UltimoDiaAcumulado', '_x00da_ltimodiaacumulado'];
+        // O SharePoint corta os nomes internos a 32 caracteres: «Qtd Hydra dias fechados»
+        // fica Qtd_x0020_Hydra_x0020_dias_x0020 e «Último dia acumulado» _x00da_ltimo_x0020_dia_x0020_acu
+        const CAMPOS_HYDRA_FECHADOS = ['Qtd_x0020_Hydra_x0020_dias_x0020', 'Qtd_x0020_Hydra_x0020_dias_x0020_fechados', 'QtdHydraDiasFechados'];
+        const CAMPOS_HYDRA_ULTIMO_DIA = ['_x00da_ltimo_x0020_dia_x0020_acu', '_x00da_ltimo_x0020_dia_x0020_acumulado', 'UltimoDiaAcumulado'];
         // Quantidade do dia que já era da ordem anterior do mesmo C.C. + KA
         // (escrita pela ação A3 quando essa ordem fecha)
         // Qtd Hydra calculada na lista (fica parada quando a ordem fecha)
