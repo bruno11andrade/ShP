@@ -3753,6 +3753,9 @@
         // (escrita pela ação A3 quando essa ordem fecha)
         // Qtd Hydra calculada na lista (fica parada quando a ordem fecha)
         const CAMPOS_QTD_HYDRA_LISTA = ['Qtd_x0020_Hydra', 'QtdHydra'];
+        // Dia e quantidade do último dia lido pela ação B2 (para a data de produção)
+        const CAMPOS_DIA_HYDRA_HOJE = ['Dia_x0020_Hydra_x0020_hoje', 'DiaHydraHoje'];
+        const CAMPOS_QTD_HYDRA_HOJE = ['Qtd_x0020_Hydra_x0020_hoje', 'QtdHydraHoje'];
         // OHF por turno: início da contagem e turnos já fechados (ações B1/B3 da lista OHF)
         const CAMPOS_HYDRA_DESDE = ['Hydra_x0020_desde', 'HydraDesde'];
         const CAMPOS_HYDRA_FECHADOS_TURNOS = ['Qtd_x0020_Hydra_x0020_fechados', 'QtdHydraFechados'];
@@ -5632,6 +5635,8 @@
               QtdHydraBase: numeroOuNulo(valorCampo(item, CAMPOS_HYDRA_BASE)),
               DiaHydraBase: parseItemDate(valorCampo(item, CAMPOS_HYDRA_DIA_BASE)),
               QtdHydraLista: numeroOuNulo(valorCampo(item, CAMPOS_QTD_HYDRA_LISTA)),
+              DiaHydraHoje: parseItemDate(valorCampo(item, CAMPOS_DIA_HYDRA_HOJE)),
+              QtdHydraHoje: numeroOuNulo(valorCampo(item, CAMPOS_QTD_HYDRA_HOJE)),
               Turno: '',
             };
           });
@@ -11163,8 +11168,11 @@
           const mesmoKA = (a, b) => String(a || '').trim().toUpperCase() === String(b || '').trim().toUpperCase();
 
           rawListItems.forEach((i) => {
-            // Qtd Produzida tal como vem da lista (antes de a trocar pela do Hydra)
+            // Qtd Produzida e Data Produção tal como vêm da lista (antes do Hydra)
             if (i.QtdProduzidaLista === undefined) i.QtdProduzidaLista = i.QtdProduzida || 0;
+            if (i.DataProducaoLista === undefined) i.DataProducaoLista = i.RawDataProducaoObj || null;
+            i.RawDataProducaoObj = i.DataProducaoLista;
+            i.UltimoDiaProducaoHydra = null;
             i.QtdHydra = null;
             i.HydraAte = null;
             i.FracHydra = 0;
@@ -11241,11 +11249,13 @@
                 }
                 const d = new Date(inicio);
                 let ate = null;
+                let ultimoDia = null;
                 for (; d <= fim; d.setDate(d.getDate() + 1)) {
                   const e = indice.get(chaveHydra(i.CC, i.KA, d, 'Total'));
                   if (!e) continue;
                   tem = true;
                   soma += e.qtd;
+                  if (e.qtd > 0) ultimoDia = new Date(d);
                   if (formatDateShort(d) === diaBase) soma -= i.QtdHydraBase || 0;
                   if (e.ate && (!ate || e.ate > ate)) ate = e.ate;
                 }
@@ -11262,6 +11272,7 @@
                 if (tem) {
                   i.QtdHydra = soma;
                   i.HydraAte = ate;
+                  i.UltimoDiaProducaoHydra = ultimoDia;
                 }
               }
             }
@@ -11279,6 +11290,21 @@
             if (i.Status === 'Em curso' && i.QtdPlaneada > 0) {
               i.FracHydra = Math.min(1, Math.max(0, (i.QtdProduzida || 0) / i.QtdPlaneada));
             }
+          });
+
+          /* Data de produção das ordens OPA/OPT fechadas com quantidade do Hydra: o último dia
+             em que o Hydra registou produção (a Data Produção do formulário deixa de ser
+             obrigatória). Fica para o fim para não mexer nas contas acima. */
+          rawListItems.forEach((i) => {
+            if (i.Turno || i.Status !== 'Produzido' || i.FonteQtd !== 'Hydra') return;
+            let dia = i.UltimoDiaProducaoHydra;
+            if (!dia && i.QtdHydraHoje > 0 && i.DiaHydraHoje) dia = i.DiaHydraHoje;
+            if (!dia) dia = i.UltimoDiaHydra || i.DiaHydraHoje || null;
+            if (!dia) return;
+            const d = new Date(dia);
+            d.setHours(0, 0, 0, 0);
+            i.RawDataProducaoObj = d;
+            i.DataProducaoFormatted = formatDateShort(d);
           });
 
           // Produção de hoje (linhas Total) sem linha correspondente no plano,
