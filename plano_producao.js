@@ -434,7 +434,7 @@
                                 <div class="col-7 modal-metadata-label seq-ohf" style="display:none;" title="Soma da Qtd Planeada dos turnos seguidos com o mesmo KA">Qtd Total:</div>
                                 <div class="col-5 modal-metadata-value seq-ohf" id="lblQtdTotalOHF" style="display:none;">-</div>
 
-                                <div class="col-7 modal-metadata-label seq-ohf" style="display:none;" title="Soma da Qtd Total Dia (Hydra) dos dias da sequência">Total Produzido (diário):</div>
+                                <div class="col-7 modal-metadata-label seq-ohf" style="display:none;" title="Soma da Qtd Produzida dos turnos da sequência">Total Produzido:</div>
                                 <div class="col-5 modal-metadata-value seq-ohf" id="lblTotalProdOHF" style="display:none;">-</div>
 
                                 <div class="col-7 modal-metadata-label seq-ohf" style="display:none;">Falta Produzir:</div>
@@ -494,7 +494,7 @@ $(document).ready(function () {
     // ---------- Lista: OHF | Plano Produção (vista por turnos) ----------
     // Nota: o campo interno "_x00c1_rea" é devolvido pela REST API como "OData__x00c1_rea"
     var listGuidOHF = "95EC5EF9-D77B-4C96-B0B0-7409E4365325";
-    var urlOHF = site + "/_api/web/lists(guid'" + listGuidOHF + "')/items?$select=ID,OData__x00c1_rea,CC,Data,KA,Turno,Status,Qtd_x0020_Planeada,Horas_x0020_Produ_x00e7__x00e3_o,Prioridade,DisponibilidadeFerramenta,DisponibilidadeMP,MPAbastecida,Qtd_x0020_Produzida,QtdTotalDia,Modified,Created";
+    var urlOHF = site + "/_api/web/lists(guid'" + listGuidOHF + "')/items?$select=ID,OData__x00c1_rea,CC,Data,DataProducao,KA,Turno,Status,Qtd_x0020_Planeada,Horas_x0020_Produ_x00e7__x00e3_o,Prioridade,DisponibilidadeFerramenta,DisponibilidadeMP,MPAbastecida,Qtd_x0020_Produzida,QtdTotalDia,Modified,Created";
 
     // Definição dos turnos (ordem = ordem das faixas no calendário: Noite → Manhã → Tarde)
     var TURNOS = [
@@ -681,10 +681,8 @@ $(document).ready(function () {
                 evt.qtdHydra = evt.qtdHydraFechados;
                 evt.hydraFonte = 'lista';
             }
-        } else if (evt.qtdHydraLista !== null) {
-            evt.qtdHydra = evt.qtdHydraLista;
-            evt.hydraFonte = 'lista';
         }
+        // Sem «Hydra desde» o registo ainda não começou: o 0 da lista não é produção
     }
 
     function numOuNulo(v) {
@@ -1274,6 +1272,7 @@ $(document).ready(function () {
                     horasPlan: (value.Horas_x0020_Produ_x00e7__x00e3_o !== undefined && value.Horas_x0020_Produ_x00e7__x00e3_o !== null) ? value.Horas_x0020_Produ_x00e7__x00e3_o : '',
                     prioridade: (value.Prioridade !== undefined && value.Prioridade !== null && value.Prioridade !== '' && !isNaN(parseInt(value.Prioridade))) ? parseInt(value.Prioridade) : 999,
                     // Hydra (ações Infowise B1/B2/B3) e campos editados no popup
+                    dataProducao: value.DataProducao || '',
                     temColunasHydra: extra.hasOwnProperty('Qtd_x0020_Hydra_x0020_turno'),
                     hydraDesde: extra.Hydra_x0020_desde || '',
                     qtdHydraLista: numOuNulo(extra.Qtd_x0020_Hydra),
@@ -1678,13 +1677,15 @@ $(document).ready(function () {
                 var n = parseFloat(e.qtdPlan);
                 return acc + (isNaN(n) ? 0 : n);
             }, 0);
-            // Produzido da sequência = soma dos valores DIÁRIOS (Qtd Total Dia, do Hydra) dos dias que a sequência ocupa
+            // Produzido da sequência = soma da Qtd Produzida dos turnos (ou do Hydra, enquanto provisória)
             var diasSeq = [];
             lista.forEach(function (e) { var d = e.diaTurno || e.start; if (diasSeq.indexOf(d) === -1) diasSeq.push(d); });
             var totalProd = 0, provSeq = false;
-            diasSeq.forEach(function (d) {
-                var a = agregarDiaKA(registosDiaKA(lista[0].area, lista[0].cc, lista[0].title, d));
-                totalProd += a.prod; provSeq = provSeq || a.prov;
+            lista.forEach(function (e) {
+                var ef = qtdProduzidaEfetiva(e);
+                if (!ef) return;
+                totalProd += ef.v;
+                provSeq = provSeq || ef.hydra;
             });
             lista.forEach(function (e) {
                 e.cadeiaN = lista.length; e.cadeiaDias = diasSeq.length; e.cadeiaTotal = total;
@@ -1971,6 +1972,47 @@ $(document).ready(function () {
         return r;
     }
 
+    // Dia em que um registo OHF foi (ou está a ser) produzido: o do Hydra, senão a Data Produção,
+    // senão o dia planeado
+    function diaRealOHF(e) {
+        if (e.hydraDesde) return turnoReal(e.hydraDesde).dia;
+        if (e.dataProducao) return moment(e.dataProducao).format('YYYY-MM-DD');
+        return e.diaTurno || e.start;
+    }
+
+    /* Produção real de um KA num dia (pela data em que foi produzido, não pela planeada):
+       1. Qtd Total Dia dos registos desse dia (valor oficial, da ação diária);
+       2. senão, o Total do dia no Hydra;
+       3. senão, a soma da Qtd Produzida dos registos produzidos nesse dia. */
+    function produzidoDiaKA(regsKA, dia) {
+        var r = { prod: 0, prov: false, conflito: false };
+        var valores = [];
+        regsKA.forEach(function (e) {
+            if ((e.diaTurno || e.start) !== dia) return;
+            var t = parseFloat(e.qtdTotalDia);
+            if (!isNaN(t) && valores.indexOf(t) === -1) valores.push(t);
+        });
+        if (valores.length) {
+            r.prod = Math.max.apply(null, valores);
+            r.conflito = valores.length > 1;
+            return r;
+        }
+        var hy = regsKA.length ? qtdHydraDe(regsKA[0].cc, regsKA[0].title, dia, 'Total') : null;
+        if (hy !== null) {
+            r.prod = hy;
+            r.prov = true;
+            return r;
+        }
+        regsKA.forEach(function (e) {
+            if (diaRealOHF(e) !== dia) return;
+            var ef = qtdProduzidaEfetiva(e);
+            if (!ef) return;
+            r.prod += ef.v;
+            r.prov = true;
+        });
+        return r;
+    }
+
     function registosDiaKA(area, cc, ka, dia) {
         return allEvents.filter(function (e) {
             return e.tipoLista === 'OHF' && String(e.area) === String(area) && String(e.cc) === String(cc) &&
@@ -2005,7 +2047,32 @@ $(document).ready(function () {
             var g = grupos[k] = grupos[k] || dias.map(function () { return []; });
             g[idx].push(e);
         });
-        var lista = Object.keys(grupos).sort().map(function (k) {
+        // OHF: o produzido vai para o dia em que foi mesmo produzido. Entram também os KAs
+        // planeados noutra semana mas produzidos nesta.
+        if (turnos) {
+            var regsArea = allEvents.filter(function (e) {
+                return e.tipoLista === 'OHF' && String(e.cc) === String(currentCC) && String(e.area) === String(currentArea);
+            });
+            var porKA = {};
+            regsArea.forEach(function (e) {
+                var k = String(e.title || '').trim();
+                (porKA[k] = porKA[k] || []).push(e);
+                var dr = diaRealOHF(e);
+                if (!grupos[k] && dr >= iniStr && dr <= fimStr && qtdProduzidaEfetiva(e)) grupos[k] = dias.map(function () { return []; });
+            });
+            var listaOHF = Object.keys(grupos).sort().map(function (k) {
+                var o = { ka: k, plan: zeros(0), prod: zeros(0), prov: zeros(false), conflito: zeros(false) };
+                grupos[k].forEach(function (regs, i) {
+                    regs.forEach(function (e) { var p = parseFloat(e.qtdPlan); if (!isNaN(p)) o.plan[i] += p; });
+                });
+                dias.forEach(function (d, i) {
+                    var a = produzidoDiaKA(porKA[k] || [], d.format('YYYY-MM-DD'));
+                    o.prod[i] = a.prod; o.prov[i] = a.prov; o.conflito[i] = a.conflito;
+                });
+                return o;
+            });
+        }
+        var lista = turnos ? listaOHF : Object.keys(grupos).sort().map(function (k) {
             var o = { ka: k, plan: zeros(0), prod: zeros(0), prov: zeros(false), conflito: zeros(false) };
             grupos[k].forEach(function (regs, i) {
                 if (!regs.length) return;
@@ -2173,7 +2240,7 @@ $(document).ready(function () {
                 var desvio = o.ra[i] - o.pa[i];
                 t += '<br>Produzido acumulado: <b>' + gkNum(o.ra[i]) + '</b> pçs' +
                      '<br>No dia: ' + (o.prov[i] ? '≈ ' : '') + gkNum(o.prod[i]) + ' de ' + gkNum(o.plan[i]) + ' planeadas' +
-                     (o.prov[i] ? '<br><span style="color:#b26b00">≈ Ainda sem Qtd Total Dia do Hydra (soma dos turnos)</span>' : '') +
+                     (o.prov[i] ? '<br><span style="color:#b26b00">≈ Provisório: ainda sem Qtd Total Dia (usado o Hydra)</span>' : '') +
                      (o.conflito[i] ? '<br><span style="color:#b26b00">⚠ Qtd Total Dia diferente entre turnos (usado o maior)</span>' : '') +
                      '<br><b style="color:' + (desvio < 0 ? '#e02424' : '#1fa84a') + '">Desvio: ' + gkDesvioTxt(desvio) + ' pçs</b>';
             } else {
@@ -2259,8 +2326,8 @@ $(document).ready(function () {
 
         // Nota e cores por baixo da tabela
         h += '<div class="gk-rodape"><span>' + (D.temProd
-            ? 'Em cada dia: <b>desvio acumulado</b> (produzido − planeado) e, por baixo, produzido / planeado acumulado (pçs). Produzido = <b>' + (modoTurnos() ? 'Qtd Total Dia' : 'Qtd Produzida') + '</b>; dias seguintes a cinzento.' +
-              (linhas.some(function (o) { return o.provAc[D.hoje < 0 ? 0 : D.hoje]; }) ? ' <span class="gk-prov">≈</span> Ainda sem Qtd Total Dia do Hydra: usada a soma da Qtd Produzida dos turnos.' : '')
+            ? 'Em cada dia: <b>desvio acumulado</b> (produzido − planeado) e, por baixo, produzido / planeado acumulado (pçs). Produzido = <b>' + (modoTurnos() ? 'Qtd Total Dia' : 'Qtd Produzida') + '</b>' + (modoTurnos() ? ', no dia em que foi mesmo produzido' : '') + '; dias seguintes a cinzento.' +
+              (linhas.some(function (o) { return o.provAc[D.hoje < 0 ? 0 : D.hoje]; }) ? ' <span class="gk-prov">≈</span> Provisório: ainda sem Qtd Total Dia, usado o Hydra.' : '')
             : 'Em cada dia: planeado acumulado (pçs).') + '</span>';
         if (D.temProd) {
             h += '<span class="gk-cores">% produzido / planeado: ' +
@@ -2402,7 +2469,7 @@ $(document).ready(function () {
             if (emSequencia) {
                 $('#lblSeqTitle').text('Sequência · ' + event.cadeiaN + ' turnos · ' + event.cadeiaDias + (event.cadeiaDias === 1 ? ' dia' : ' dias'));
                 $('#lblQtdTotalOHF').text(formatNumeric(event.cadeiaTotal, 'pçs'));
-                $('#lblTotalProdOHF').html((event.cadeiaProv ? '<span class="gk-prov" title="Algum dia ainda sem Qtd Total Dia do Hydra: usada a soma dos turnos">≈</span>' : '') + escHtml(formatNumeric(event.cadeiaProduzida, 'pçs')));
+                $('#lblTotalProdOHF').html((event.cadeiaProv ? '<span class="gk-prov" title="Inclui quantidades provisórias do Hydra">≈</span>' : '') + escHtml(formatNumeric(event.cadeiaProduzida, 'pçs')));
                 $('#lblTotalFaltaOHF').html(faltaHtml(event.cadeiaTotal, event.cadeiaProduzida));
             }
 
