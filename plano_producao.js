@@ -621,13 +621,43 @@ $(document).ready(function () {
 
     // Colunas Hydra da lista OPA/OPT (ações B1/B2/B3): resolve sempre. Os nomes internos
     // longos ficam cortados a 32 caracteres pelo SharePoint.
-    var urlProdHydra = site + "/_api/web/lists(guid'" + listGuidProd + "')/items?$select=ID,Data,Qtd_x0020_Hydra,Qtd_x0020_Hydra_x0020_hoje,Dia_x0020_Hydra_x0020_hoje,Qtd_x0020_Hydra_x0020_dias_x0020,_x00da_ltimo_x0020_dia_x0020_acu";
+    // Sem $select: os nomes internos variam (cortados a 32 caracteres, ou com um «0» no fim
+    // quando a coluna foi recriada) e um nome errado no $select fazia falhar o pedido todo.
+    // Os campos encontram-se depois pelo nome (ver campoLista).
+    var urlProdHydra = site + "/_api/web/lists(guid'" + listGuidProd + "')/items?$filter=" +
+        encodeURIComponent("Data ge datetime'" + moment().subtract(60, 'days').format('YYYY-MM-DD') + "T00:00:00Z'");
     function obterProdHydra() {
         var d = $.Deferred();
         lerTodasAsPaginas(urlProdHydra + '&$top=5000')
             .done(function (r) { d.resolve(r); })
             .fail(function (xhr) { console.warn('Colunas Hydra da lista OPA/OPT não disponíveis:', xhr && xhr.status); d.resolve([]); });
         return d.promise();
+    }
+
+    /* Valor de uma coluna pelo nome interno: tal e qual, com o prefixo OData_, ou comparando
+       sem os espaços codificados e sem um algarismo no fim (colunas recriadas). Cada nome em
+       «nomes» também apanha as versões cortadas a 32 caracteres. */
+    function campoLista(item, nomes) {
+        var norm = function (c) {
+            return String(c).replace(/^OData_/, '').replace(/_x0020_?/g, '').replace(/\d+$/, '').toLowerCase();
+        };
+        for (var i = 0; i < nomes.length; i++) {
+            if (item[nomes[i]] !== undefined && item[nomes[i]] !== null) return item[nomes[i]];
+            if (item['OData_' + nomes[i]] !== undefined && item['OData_' + nomes[i]] !== null) return item['OData_' + nomes[i]];
+        }
+        var chaves = Object.keys(item);
+        for (var j = 0; j < nomes.length; j++) {
+            var alvo = norm(nomes[j]);
+            for (var k = 0; k < chaves.length; k++) {
+                var c = norm(chaves[k]);
+                // Igual, ou nome cortado: o alvo completo começa pelo nome que a lista tem
+                if (c && (c === alvo || (chaves[k].replace(/^OData_/, '').length >= 30 && alvo.indexOf(c) === 0))) {
+                    var v = item[chaves[k]];
+                    if (v !== undefined && v !== null) return v;
+                }
+            }
+        }
+        return undefined;
     }
 
     // Data só (aaaa-mm-dd) de um valor de data da lista, ou ''
@@ -648,6 +678,18 @@ $(document).ready(function () {
         }
         if (st !== 'em curso' && st.indexOf('interrompid') !== 0) return;
         var inicio = evt.hydraUltimoDia ? moment(evt.hydraUltimoDia, 'YYYY-MM-DD').add(1, 'day') : (evt.hydraDiaHoje ? moment(evt.hydraDiaHoje, 'YYYY-MM-DD') : null);
+        if (!inicio) {
+            // Sem as colunas da lista: os últimos 10 dias, a partir do dia a seguir ao último
+            // fecho de outra ordem do mesmo C.C. + KA (a mesma regra do statusOPT)
+            inicio = moment().startOf('day').subtract(10, 'days');
+            allEvents.forEach(function (o) {
+                if (o === evt || o.tipoLista !== 'Producao' || !o.dataProducao) return;
+                if (String(o.cc) !== String(evt.cc) || chaveKA(o.title) !== chaveKA(evt.title)) return;
+                if (textoValidacao(o.status).toLowerCase() !== 'produzido') return;
+                var seguinte = moment(o.dataProducao).startOf('day').add(1, 'day');
+                if (seguinte.isAfter(inicio)) inicio = seguinte;
+            });
+        }
         if (hydraDisponivel && inicio) {
             var soma = evt.qtdHydraFechados || 0, tem = soma > 0;
             var hoje = moment().format('YYYY-MM-DD');
@@ -1291,12 +1333,12 @@ $(document).ready(function () {
                     };
                     // Hydra (ações B1/B2/B3 da lista OPA/OPT)
                     var xp = extraProd[String(value.ID)] || {};
-                    event.qtdHydraLista = numOuNulo(xp.Qtd_x0020_Hydra);
-                    event.qtdHydraHoje = numOuNulo(xp.Qtd_x0020_Hydra_x0020_hoje);
-                    event.hydraDiaHoje = diaLista(xp.Dia_x0020_Hydra_x0020_hoje);
-                    event.qtdHydraFechados = numOuNulo(xp.Qtd_x0020_Hydra_x0020_dias_x0020) || 0;
-                    event.hydraUltimoDia = diaLista(xp.OData__x00da_ltimo_x0020_dia_x0020_acu || xp._x00da_ltimo_x0020_dia_x0020_acu);
-                    aplicarHydraProd(event);
+                    event.qtdHydraLista = numOuNulo(campoLista(xp, ['Qtd_x0020_Hydra']));
+                    event.qtdHydraHoje = numOuNulo(campoLista(xp, ['Qtd_x0020_Hydra_x0020_hoje']));
+                    event.hydraDiaHoje = diaLista(campoLista(xp, ['Dia_x0020_Hydra_x0020_hoje']));
+                    event.qtdHydraFechados = numOuNulo(campoLista(xp, ['Qtd_x0020_Hydra_x0020_dias_x0020_fechados'])) || 0;
+                    event.hydraUltimoDia = diaLista(campoLista(xp, ['_x00da_ltimo_x0020_dia_x0020_acumulado']));
+                    event.dataProducao = campoLista(xp, ['Data_x0020_Produ_x00e7__x00e3_o', 'DataProducao']) || '';
                     if (areaBruta && campoCC) registarAreaCC(areaBruta, campoCC, false);
                     allEvents.push(event);
                 }
@@ -1385,6 +1427,9 @@ $(document).ready(function () {
                     areasTurnos.add(areaBruta);
                 }
             });
+
+            // Quantidades do Hydra das ordens OPA/OPT (depois de todas carregadas)
+            allEvents.forEach(function (evt) { if (evt.tipoLista === 'Producao') aplicarHydraProd(evt); });
 
             // Ensaios cuja Área é uma área OHF: entram na vista por turnos dessa área
             allEvents.forEach(function (evt) {
