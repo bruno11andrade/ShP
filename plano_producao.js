@@ -2271,7 +2271,7 @@ $(document).ready(function () {
         // Colunas do resumo (à direita)
         var res = [];
         if (!kaEsq) res.push({ id: 'ka', t: 'KA', p: D.temProd ? 0.36 : 0.55 });
-        if (D.temProd) res.push({ id: 'sem', t: 'Semana', p: 0.34 }, { id: 'dv', t: 'Desvio', p: 0.2 }, { id: 'pct', t: '%', p: 0.18 });
+        if (D.temProd) res.push({ id: 'sem', t: 'Semana', p: 0.34, dica: 'Produzido até agora / planeado da semana inteira' }, { id: 'dv', t: 'Desvio', p: 0.2, dica: 'Produzido até agora − planeado da semana inteira' }, { id: 'pct', t: '%', p: 0.18, dica: 'Produzido até agora / planeado da semana inteira' });
         else res.push({ id: 'sem', t: 'Semana (plan.)', p: 0.45 });
         var soma = res.reduce(function (a, c) { return a + c.p; }, 0);
         res.forEach(function (c) { c.w = Math.floor(dirW * c.p / soma); });
@@ -2286,7 +2286,7 @@ $(document).ready(function () {
             h += '<th class="' + (i === D.marcaHoje ? 'gk-hoje' : '') + '">' + escHtml(d.clone().locale('pt').format('ddd DD/MM')) + '</th>';
         });
         h += '<th class="gk-gap"></th>';
-        res.forEach(function (c, k) { h += '<th class="gk-res' + (k === 0 ? ' gk-res-1' : '') + '">' + c.t + '</th>'; });
+        res.forEach(function (c, k) { h += '<th class="gk-res' + (k === 0 ? ' gk-res-1' : '') + '"' + (c.dica ? ' title="' + escHtml(c.dica) + '"' : '') + '>' + c.t + '</th>'; });
         h += '</tr>';
 
         linhas.forEach(function (o) {
@@ -2311,7 +2311,9 @@ $(document).ready(function () {
             });
             h += '<td class="gk-gap"></td>';
             var planTot = o.pa[n - 1];
-            var prodAte = D.hoje >= 0 ? o.ra[D.hoje] : 0, devia = D.hoje >= 0 ? o.pa[D.hoje] : 0;
+            // Resumo da semana: o produzido até agora face ao planeado da SEMANA INTEIRA
+            // (o desvio até hoje já se vê na coluna do dia de hoje)
+            var prodAte = D.hoje >= 0 ? o.ra[D.hoje] : 0, devia = planTot;
             res.forEach(function (c, k) {
                 var cl = 'gk-res' + (k === 0 ? ' gk-res-1' : '');
                 if (c.id === 'ka') h += '<td class="' + cl + ' gk-kacel">' + nome + '</td>';
