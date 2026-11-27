@@ -174,6 +174,31 @@
     .gk-chip { border: 1px solid #c9ced6; border-radius: 14px; padding: 3px 11px; font-size: 12.5px; font-weight: 700; color: #52514e; background: #fff; cursor: pointer; }
     .gk-chip:hover { border-color: #6c757d; }
     .gk-chip.on { background: #6c757d; border-color: #6c757d; color: #fff; }
+    /* Seletor de KA quando há muitos KAs */
+    .gk-ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 4px; }
+    .gk-ctrl-lbl { font-size: 12px; color: #6f6e69; font-weight: 700; margin-right: 4px; }
+    .gk-dd { position: relative; display: inline-block; }
+    .gk-dd-btn { border: 1px solid #c9ced6; border-radius: 6px; background: #fff; padding: 4px 10px; font-size: 13px; font-weight: 700; color: #333; cursor: pointer; min-width: 220px; text-align: left; }
+    .gk-dd-btn .fa { float: right; margin-top: 3px; color: #8a8984; }
+    .gk-dd-btn.on { border-color: #6c757d; background: #6c757d; color: #fff; }
+    .gk-dd-btn.on .fa { color: #fff; }
+    .gk-dd-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 4px; width: 340px; background: #fff; border: 1px solid #d9d8d2; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.15); z-index: 20; padding: 8px; }
+    .gk-dd.aberto .gk-dd-menu { display: block; }
+    .gk-dd-pesq, .gk-filtro { width: 100%; border: 1px solid #c9ced6; border-radius: 6px; padding: 5px 9px; font-size: 13px; }
+    .gk-filtro { width: 220px; }
+    .gk-dd-lista { max-height: 300px; overflow-y: auto; margin-top: 6px; }
+    .gk-dd-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 5px; font-size: 13px; font-weight: 700; color: #333; cursor: pointer; }
+    .gk-dd-item:hover { background: #f1f3f5; }
+    .gk-dd-item.on { background: #e7f1ff; color: #0056b3; }
+    .gk-dd-item small { font-weight: 400; color: #8a8984; }
+    .gk-dd-item .gk-pct { min-width: 40px; text-align: center; font-size: 11px; }
+    .gk-dd-vazio { padding: 8px; font-size: 12.5px; color: #8a8984; font-style: italic; }
+    .gk-ordem .btn { font-size: 12px; font-weight: 700; padding: 2px 9px; }
+    .gk-tabela tr.gk-linha { cursor: pointer; }
+    .gk-tabela tr.gk-linha:hover td { background-color: rgba(0,123,255,.05); }
+    .gk-tabela tr.gk-sel td.gk-kacel { color: #0056b3; box-shadow: inset 3px 0 #007bff; }
+    .gk-mais { display: flex; align-items: center; gap: 12px; margin-top: 6px; font-size: 12.5px; color: #6f6e69; }
+    .gk-mais .btn { font-size: 12px; font-weight: 700; padding: 2px 10px; }
     .gk-graf { position: relative; }
     .gk-graf svg { display: block; overflow: visible; }
     .gk-dica { position: absolute; pointer-events: none; background: #fff; border: 1px solid #d9d8d2; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.12); padding: 7px 10px; font-size: 12px; line-height: 1.5; white-space: nowrap; display: none; z-index: 5; }
@@ -549,6 +574,29 @@ $(document).ready(function () {
     var areaInicial = lerParametro('area');
     var ccInicial = lerParametro('cc');
     var unidadeInicial = lerParametro('unidade');
+
+    // Última seleção do utilizador (guardada neste navegador). Usada ao abrir a página quando o
+    // endereço não traz a seleção (vindo do formulário, o endereço tem prioridade).
+    var CHAVE_PREFS = 'cronogramaPP.selecao';
+    function lerPreferencias() {
+        try { return JSON.parse(window.localStorage.getItem(CHAVE_PREFS) || '{}') || {}; } catch (e) { return {}; }
+    }
+    function guardarPreferencias() {
+        try {
+            window.localStorage.setItem(CHAVE_PREFS, JSON.stringify({
+                unidade: currentUnidade || '', area: currentArea || '', cc: currentCC || '',
+                seteDias: !!mostrarFimDeSemana, ordemKA: ordemKA
+            }));
+        } catch (e) { /* navegador sem armazenamento: ignora */ }
+    }
+    var prefsIniciais = lerPreferencias();
+    if (unidadeInicial === null && areaInicial === null && ccInicial === null) {
+        unidadeInicial = prefsIniciais.unidade || null;
+        areaInicial = prefsIniciais.area || null;
+        ccInicial = prefsIniciais.cc || null;
+    }
+    if (typeof prefsIniciais.seteDias === 'boolean') mostrarFimDeSemana = prefsIniciais.seteDias;
+    var ordemInicialKA = prefsIniciais.ordemKA;
     (function () {
         var sem = lerParametro('semana');
         if (sem && moment(sem, 'YYYY-MM-DD', true).isValid()) dataReferencia = moment(sem, 'YYYY-MM-DD').startOf('isoWeek');
@@ -1577,6 +1625,8 @@ $(document).ready(function () {
 
     // Desenha os filtros e mostra o calendário só se houver Centro de Custo escolhido
     function mostrarSelecao() {
+        guardarPreferencias();
+        filtroKA = ''; todosKA = false;
         renderUnidadeButtons();
         renderAreaButtons();
         renderCCButtons();
@@ -1853,6 +1903,7 @@ $(document).ready(function () {
 
     function definirDias(seteDias) {
         mostrarFimDeSemana = seteDias;
+        guardarPreferencias();
         if (!currentCC) {
             renderToolbarResumo();
             return;
@@ -2184,6 +2235,13 @@ $(document).ready(function () {
     // Usa a Área, o CC e a semana mostrados no calendário, com 5 ou 7 dias conforme o filtro.
     // Áreas OHF: Qtd Planeada e Qtd Produzida da lista OHF. OPA/OPT: só há Qtd Planeada.
     var kaGrafico = 'Todos';
+    // Muitos KAs: lista de escolha com pesquisa em vez de botões, e a tabela mostra só os
+    // primeiros (pela ordem escolhida), com pesquisa e "Mostrar todos"
+    var MAX_CHIPS_KA = 12, LIMITE_LINHAS_KA = 10;
+    var ordemKA = /^(atraso|plan|ka)$/.test(ordemInicialKA || '') ? ordemInicialKA : 'atraso';   // 'atraso' | 'plan' | 'ka'
+    var filtroKA = '', todosKA = false;
+    var ultimoGK = null;               // último desenho, para redesenhar só a tabela ao pesquisar
+    var ddAberto = false, ddTexto = '';   // a lista de KA continua aberta se o gráfico for redesenhado
     var GK = { plan: '#6f6e69', prod: '#2a78d6', grid: '#e6e5e0', txt: '#52514e', muted: '#8a8984' };
 
     function gkNum(n) { return Math.round(n).toLocaleString('pt-PT').replace(/ /g, ' '); }
@@ -2400,11 +2458,16 @@ $(document).ready(function () {
             $box.html(h + '</div></div><div class="gk-vazio">Sem registos de produção para esta seleção nesta semana.</div></div>');
             return;
         }
-        h += '<div class="gk-chips">';
-        ['Todos'].concat(D.lista.map(function (o) { return o.ka; })).forEach(function (k) {
-            h += '<span class="gk-chip' + (k === kaGrafico ? ' on' : '') + '" data-ka="' + escHtml(k) + '">' + escHtml(k) + '</span>';
-        });
-        h += '</div></div></div>';
+        if (D.lista.length <= MAX_CHIPS_KA) {
+            h += '<div class="gk-chips">';
+            ['Todos'].concat(D.lista.map(function (o) { return o.ka; })).forEach(function (k) {
+                h += '<span class="gk-chip' + (k === kaGrafico ? ' on' : '') + '" data-ka="' + escHtml(k) + '">' + escHtml(k) + '</span>';
+            });
+            h += '</div>';
+        } else {
+            h += controlosKA(D);
+        }
+        h += '</div></div>';
         var leg = '<div class="gk-legenda"><div class="gk-leg-sec">Gráfico</div><span><i class="gk-sw-dash"></i>Planeado acumulado</span>' +
              (D.temProd ? '<span><i class="gk-sw-line"></i>Produzido acumulado</span><span><i class="gk-sw-bar"></i>Produzido no dia</span>' : '') +
              (D.marcaHoje >= 0 ? '<span><i class="gk-sw-hoje"></i>Hoje</span>' : '') + '</div>';
@@ -2416,7 +2479,71 @@ $(document).ready(function () {
         var xFim = cols[n - 1].l + cols[n - 1].w;
         $box.find('.gk-legenda').css({ left: xFim + 20, width: Math.max(120, $graf.width() - xFim - 24) });
         desenharGraficoKA($graf, D, sel, cols);
+        ultimoGK = { D: D, sel: sel, cols: cols, W: $graf.width() };
+        if (ddAberto && $box.find('.gk-dd').length) {
+            var $dd = $box.find('.gk-dd').addClass('aberto');
+            $dd.find('.gk-dd-pesq').val(ddTexto);
+            filtrarListaKA($dd);
+            $dd.find('.gk-dd-pesq').focus();
+        }
         $box.find('.gk-tab').html(tabelaGraficoKA(D, sel, cols, $graf.width()));
+    }
+
+    // Produzido até agora, planeado da semana e desvio de uma linha (KA ou total)
+    function resumoSemanaKA(o, D) {
+        var n = D.dias.length, prod = D.hoje >= 0 ? o.ra[D.hoje] : 0, plan = o.pa[n - 1];
+        return { prod: prod, plan: plan, desvio: prod - plan };
+    }
+
+    function ordenarKAs(lista, D) {
+        return lista.slice().sort(function (a, b) {
+            var ra = resumoSemanaKA(a, D), rb = resumoSemanaKA(b, D);
+            if (ordemKA === 'atraso' && ra.desvio !== rb.desvio) return ra.desvio - rb.desvio;
+            if (ordemKA === 'plan' && ra.plan !== rb.plan) return rb.plan - ra.plan;
+            return a.ka < b.ka ? -1 : (a.ka > b.ka ? 1 : 0);
+        });
+    }
+
+    function badgePct(o, D) {
+        var r = resumoSemanaKA(o, D), e = gkEstado(r.prod, r.plan);
+        return e ? '<span class="gk-pct" style="background:' + GK_CORES[e.cls] + '">' + (e.pct !== null ? e.pct + '%' : '—') + '</span>' : '';
+    }
+
+    // Seletor do KA do gráfico (lista com pesquisa), ordem e pesquisa da tabela
+    function controlosKA(D) {
+        var h = '<div class="gk-ctrl">';
+        h += '<div><span class="gk-ctrl-lbl">Gráfico:</span><div class="gk-dd">';
+        h += '<button type="button" class="gk-dd-btn' + (kaGrafico !== 'Todos' ? ' on' : '') + '">' +
+             (kaGrafico === 'Todos' ? 'Todos os KA (' + D.lista.length + ')' : 'KA ' + escHtml(kaGrafico)) + '<i class="fa fa-caret-down"></i></button>';
+        h += '<div class="gk-dd-menu"><input type="text" class="gk-dd-pesq" placeholder="Pesquisar KA…" autocomplete="off"><div class="gk-dd-lista">';
+        h += '<div class="gk-dd-item' + (kaGrafico === 'Todos' ? ' on' : '') + '" data-ka="Todos" data-pesq="todos">Todos os KA <small>' + D.lista.length + ' KA</small></div>';
+        ordenarKAs(D.lista, D).forEach(function (o) {
+            h += '<div class="gk-dd-item' + (o.ka === kaGrafico ? ' on' : '') + '" data-ka="' + escHtml(o.ka) + '" data-pesq="' + escHtml(o.ka.toLowerCase()) + '">' +
+                 '<span>' + escHtml(o.ka) + '</span>' + badgePct(o, D) + '</div>';
+        });
+        h += '<div class="gk-dd-vazio" style="display:none">Nenhum KA encontrado.</div></div></div></div></div>';
+        h += '<div><span class="gk-ctrl-lbl">Ordenar:</span><div class="btn-group gk-ordem">';
+        [['atraso', 'Maior atraso'], ['plan', 'Maior planeado'], ['ka', 'KA']].forEach(function (b) {
+            h += '<button type="button" class="btn btn-sm ' + (ordemKA === b[0] ? 'btn-secondary' : 'btn-outline-secondary') + '" data-ordem="' + b[0] + '">' + b[1] + '</button>';
+        });
+        h += '</div></div>';
+        h += '<div><input type="text" class="gk-filtro" placeholder="Pesquisar KA na tabela…" value="' + escHtml(filtroKA) + '" autocomplete="off"></div>';
+        return h + '</div>';
+    }
+
+    // Linhas de KA da tabela: ordenadas, filtradas pela pesquisa e limitadas quando são muitas
+    function linhasTabelaKA(D) {
+        var lista = D.lista;
+        if (lista.length <= MAX_CHIPS_KA) return { linhas: lista, total: lista.length, escondidas: 0, filtradas: lista.length };
+        lista = ordenarKAs(lista, D);
+        var f = String(filtroKA || '').trim().toLowerCase();
+        if (f) lista = lista.filter(function (o) { return o.ka.toLowerCase().indexOf(f) !== -1; });
+        var vis = (todosKA || f) ? lista : lista.slice(0, LIMITE_LINHAS_KA);
+        if (kaGrafico !== 'Todos' && vis.every(function (o) { return o.ka !== kaGrafico; })) {
+            var s = D.lista.filter(function (o) { return o.ka === kaGrafico; })[0];
+            if (s) vis = vis.concat([s]);
+        }
+        return { linhas: vis, total: D.lista.length, filtradas: lista.length, escondidas: Math.max(0, lista.length - vis.length) };
     }
 
     function desenharGraficoKA($alvo, D, o, cols) {
@@ -2512,7 +2639,9 @@ $(document).ready(function () {
     // acumulado e a cor de fundo segue a % produzido / planeado acumulado até esse dia.
     function tabelaGraficoKA(D, sel, cols, W) {
         var n = D.dias.length;
-        var linhas = sel.ka === 'Todos' ? (D.lista.length > 1 ? D.lista.concat([D.total]) : D.lista) : [sel];
+        var poucos = D.lista.length <= MAX_CHIPS_KA;
+        var LT = linhasTabelaKA(D);
+        var linhas = (poucos && sel.ka !== 'Todos') ? [sel] : (D.lista.length > 1 ? LT.linhas.concat([D.total]) : LT.linhas);
         var esq = Math.max(0, Math.round(cols[0].l));
         var kaEsq = esq >= 100;                                   // vista por turnos: KA na coluna "Turno"
         var xFim = cols[n - 1].l + cols[n - 1].w, gap = 12;
@@ -2541,7 +2670,9 @@ $(document).ready(function () {
 
         linhas.forEach(function (o) {
             var tot = o.ka === 'Todos', nome = tot ? (currentCC ? 'Total do CC' : 'Total') : escHtml(o.ka);
-            h += '<tr' + (tot ? ' class="gk-total"' : '') + '><td class="gk-kacel">' + (kaEsq ? nome : '') + '</td>';
+            var clsTr = tot ? 'gk-total' : (poucos ? '' : 'gk-linha' + (o.ka === kaGrafico ? ' gk-sel' : ''));
+            h += '<tr' + (clsTr ? ' class="' + clsTr + '"' : '') + (tot || poucos ? '' : ' data-ka="' + escHtml(o.ka) + '" title="Clique para ver este KA no gráfico"') +
+                 '><td class="gk-kacel">' + (kaEsq ? nome : '') + '</td>';
             D.dias.forEach(function (d, i) {
                 var hj = i === D.marcaHoje ? ' gk-hoje' : '';
                 if (!D.temProd) { h += '<td class="' + hj + '">' + gkNum(o.pa[i]) + '</td>'; return; }
@@ -2577,6 +2708,14 @@ $(document).ready(function () {
             h += '</tr>';
         });
         h += '</table>';
+        if (!poucos) {
+            var f = String(filtroKA || '').trim();
+            h += '<div class="gk-mais">';
+            if (f) h += '<span>' + LT.filtradas + ' de ' + LT.total + ' KA com «' + escHtml(f) + '»</span><button type="button" class="btn btn-outline-secondary btn-sm" data-gk="limpar">Limpar pesquisa</button>';
+            else if (LT.escondidas > 0) h += '<span>A mostrar ' + (LT.total - LT.escondidas) + ' de ' + LT.total + ' KA</span><button type="button" class="btn btn-outline-secondary btn-sm" data-gk="todos">Mostrar todos (' + LT.total + ')</button>';
+            else if (todosKA) h += '<span>' + LT.total + ' KA</span><button type="button" class="btn btn-outline-secondary btn-sm" data-gk="menos">Mostrar só os primeiros ' + LIMITE_LINHAS_KA + '</button>';
+            h += '<span>· Clique numa linha para ver esse KA no gráfico. O total inclui todos os KA.</span></div>';
+        }
 
         // Nota e cores por baixo da tabela
         h += '<div class="gk-rodape"><span>' + (D.temProd
@@ -2597,6 +2736,74 @@ $(document).ready(function () {
         kaGrafico = $(this).attr('data-ka');
         renderGraficoKA();
     });
+
+    // Lista de escolha do KA do gráfico
+    function filtrarListaKA($dd) {
+        var f = $.trim(ddTexto).toLowerCase();
+        var $itens = $dd.find('.gk-dd-item'), vis = 0;
+        $itens.each(function () {
+            var ok = !f || String($(this).attr('data-pesq')).indexOf(f) !== -1;
+            $(this).toggle(ok);
+            if (ok) vis++;
+        });
+        $dd.find('.gk-dd-vazio').toggle(!vis);
+    }
+    function fecharListaKA() {
+        ddAberto = false;
+        $('#graficoKA .gk-dd').removeClass('aberto');
+    }
+    $('#graficoKA').on('click', '.gk-dd-btn', function (e) {
+        e.stopPropagation();
+        if (ddAberto) { fecharListaKA(); return; }
+        ddAberto = true; ddTexto = '';
+        var $dd = $(this).closest('.gk-dd').addClass('aberto');
+        $dd.find('.gk-dd-pesq').val('');
+        filtrarListaKA($dd);
+        $dd.find('.gk-dd-pesq').focus();
+    });
+    $('#graficoKA').on('input keyup', '.gk-dd-pesq', function (e) {
+        var $dd = $(this).closest('.gk-dd');
+        ddTexto = $(this).val();
+        filtrarListaKA($dd);
+        if (e.type === 'keyup' && e.which === 13) $dd.find('.gk-dd-item').filter(function () { return this.style.display !== 'none'; }).first().trigger('click');   // Enter: o primeiro
+        if (e.type === 'keyup' && e.which === 27) fecharListaKA();                                  // Esc: fecha
+    });
+    $('#graficoKA').on('click', '.gk-dd-item', function () {
+        kaGrafico = $(this).attr('data-ka');
+        fecharListaKA();
+        renderGraficoKA();
+    });
+    $(document).on('click', function (e) {
+        if (ddAberto && !$(e.target).closest('.gk-dd').length) fecharListaKA();
+    });
+
+    // Clique numa linha da tabela: esse KA no gráfico (clicar outra vez volta a Todos)
+    $('#graficoKA').on('click', 'tr.gk-linha', function () {
+        var k = $(this).attr('data-ka');
+        kaGrafico = kaGrafico === k ? 'Todos' : k;
+        renderGraficoKA();
+    });
+    $('#graficoKA').on('click', '[data-ordem]', function () {
+        ordemKA = $(this).attr('data-ordem');
+        guardarPreferencias();
+        renderGraficoKA();
+    });
+    $('#graficoKA').on('click', '[data-gk]', function () {
+        var a = $(this).attr('data-gk');
+        if (a === 'todos') todosKA = true;
+        else if (a === 'menos') todosKA = false;
+        else if (a === 'limpar') { filtroKA = ''; $('#graficoKA .gk-filtro').val(''); }
+        redesenharTabelaKA();
+    });
+    // Pesquisa na tabela: redesenha só a tabela (a caixa de pesquisa mantém o cursor)
+    $('#graficoKA').on('input', '.gk-filtro', function () {
+        filtroKA = $(this).val();
+        redesenharTabelaKA();
+    });
+    function redesenharTabelaKA() {
+        if (!ultimoGK) { renderGraficoKA(); return; }
+        $('#graficoKA .gk-tab').html(tabelaGraficoKA(ultimoGK.D, ultimoGK.sel, ultimoGK.cols, ultimoGK.W));
+    }
 
     // ================= KA numa só linha =================
     // Reduz o tamanho da letra do KA (13 px → mínimo 9 px) até caber na largura do cartão,
