@@ -147,6 +147,10 @@
     .modal-metadata-label { font-weight: bold; color: #444; font-size: 12px; margin-bottom: 4px; padding-right: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
     .modal-metadata-value { color: #000; font-size: 12px; margin-bottom: 8px; font-weight: 600; padding-left: 5px; }
     .cc-title { font-size: 1.1rem; font-weight: bold; color: #333; margin-right: 15px; white-space: nowrap; }
+    .unidade-button { margin-bottom: 5px; margin-right: 4px; min-width: 90px; font-weight: bold; }
+    .filtro-dica { font-size: 13px; color: #8a8984; font-style: italic; margin-bottom: 5px; }
+    .sem-selecao { margin: 30px 0; padding: 28px 20px; text-align: center; color: #6f6e69; font-size: 15px; border: 1px dashed #cfd4da; border-radius: 8px; background: #fafafa; }
+    .sem-selecao .fa { margin-right: 6px; color: #8a8984; }
 
 
     .area-button { margin-bottom: 5px; margin-right: 4px; min-width: 90px; font-weight: bold; }
@@ -286,6 +290,11 @@
         <h2 style="margin: 4px 0 16px 4px; font-size:25px; font-weight:700; color:#1a1a1a; letter-spacing:0.3px;">Production Plan &amp; Monitoring System</h2>
         <div class="row">
             <div class="col-md-10">
+                <div class="d-flex flex-wrap align-items-center mb-1" id="linhaUnidades">
+                    <span class="cc-title">Unidade:</span>
+                    <div id="unidadeButtonsContainer" class="d-flex flex-wrap align-items-center"></div>
+                </div>
+
                 <div class="d-flex flex-wrap align-items-center mb-1">
                     <span class="cc-title">Áreas:</span>
                     <div id="areaButtonsContainer" class="d-flex flex-wrap align-items-center"></div>
@@ -308,6 +317,8 @@
                 <div id="calendarsContainer"></div>
                 <!-- Vista semanal por turnos (áreas da lista OHF) -->
                 <div id="shiftCalendar" style="display:none;"></div>
+                <!-- Sem Centro de Custo escolhido: o calendário fica escondido -->
+                <div id="semSelecao" class="sem-selecao" style="display:none;"><i class="fa fa-hand-pointer-o"></i> Escolha um <b>Centro de Custo</b> para ver o calendário.</div>
             </div>
 
             <div class="col-md-2" style="border-left: 1px solid #e2e8f0; padding-left: 15px; margin-top: 0;">
@@ -514,8 +525,11 @@ $(document).ready(function () {
     // Alternância 5 / 7 dias (comum a todos os calendários). Começa em 5 dias (Seg–Sex).
     var mostrarFimDeSemana = false;
 
+    var currentUnidade = null;
     var currentArea = null;
     var currentCC = null;
+    // Unidade -> Área -> Centros de Custo (a Unidade vem da coluna Unidade das listas)
+    var unidadeAreaCC = {};
     var allEvents = [];
     var areaCCMap = {};
     var areasTurnos = new Set();          // Áreas vindas da lista OHF -> vista por turnos
@@ -534,6 +548,7 @@ $(document).ready(function () {
     }
     var areaInicial = lerParametro('area');
     var ccInicial = lerParametro('cc');
+    var unidadeInicial = lerParametro('unidade');
     (function () {
         var sem = lerParametro('semana');
         if (sem && moment(sem, 'YYYY-MM-DD', true).isValid()) dataReferencia = moment(sem, 'YYYY-MM-DD').startOf('isoWeek');
@@ -541,8 +556,9 @@ $(document).ready(function () {
 
     function urlRegresso() {
         var outros = window.location.search.replace(/^\?/, '').split('&').filter(function (p) {
-            return p && !/^(area|cc|semana)=/i.test(p);
+            return p && !/^(unidade|area|cc|semana)=/i.test(p);
         });
+        outros.push('unidade=' + encodeURIComponent(currentUnidade || ''));
         outros.push('area=' + encodeURIComponent(currentArea || ''));
         outros.push('cc=' + encodeURIComponent(currentCC || ''));
         outros.push('semana=' + dataReferencia.format('YYYY-MM-DD'));
@@ -964,7 +980,7 @@ $(document).ready(function () {
     }
 
     function redesenharDepoisDeGravar(evtAbrir) {
-        if (currentArea && modoTurnos()) renderShiftCalendar();
+        if (currentArea && currentCC && modoTurnos()) renderShiftCalendar();
         agendarGraficoKA();
         if (evtAbrir) abrirModalDetalhes(evtAbrir);
     }
@@ -1110,7 +1126,7 @@ $(document).ready(function () {
             });
 
             // Atualizar o que está no ecrã
-            if (currentArea && modoTurnos()) renderShiftCalendar();
+            if (currentArea && currentCC && modoTurnos()) renderShiftCalendar();
 
             // 5) Gravar na lista
             var lista = Object.keys(alteracoes).map(function (k) { return alteracoes[k]; });
@@ -1272,7 +1288,7 @@ $(document).ready(function () {
         return d.promise();
     }
 
-    function registarAreaCC(area, cc, ignorarFiltroAreas) {
+    function registarAreaCC(area, cc, ignorarFiltroAreas, unidade) {
         if (!area || !cc) return;
         var areaLimpa = String(area).trim();
         var ccLimpo = String(cc).trim();
@@ -1284,6 +1300,34 @@ $(document).ready(function () {
 
         if (!areaCCMap[areaLimpa]) areaCCMap[areaLimpa] = new Set();
         areaCCMap[areaLimpa].add(ccLimpo);
+
+        var un = String(unidade || '').trim();
+        unidadeAreaCC[un] = unidadeAreaCC[un] || {};
+        (unidadeAreaCC[un][areaLimpa] = unidadeAreaCC[un][areaLimpa] || new Set()).add(ccLimpo);
+    }
+
+    // Coluna Unidade (Escolha) de uma lista: ID -> Unidade. Resolve sempre.
+    function obterUnidades(listGuid) {
+        var d = $.Deferred();
+        var base = site + "/_api/web/lists(guid'" + listGuid + "')/items?";
+        var mapa = function (r) {
+            var m = {};
+            (r || []).forEach(function (x) {
+                var u = campoLista(x, ['Unidade']);
+                if (u && typeof u === 'object' && u.results) u = u.results[0];
+                if (u) m[String(x.ID)] = String(u).replace(/<[^>]*>/g, '').trim();
+            });
+            return m;
+        };
+        lerTodasAsPaginas(base + '$select=ID,Unidade&$top=5000')
+            .done(function (r) { d.resolve(mapa(r)); })
+            .fail(function () {
+                // Nome interno diferente: lê tudo e procura a coluna pelo nome
+                lerTodasAsPaginas(base + '$top=5000')
+                    .done(function (r) { d.resolve(mapa(r)); })
+                    .fail(function () { console.warn('Coluna Unidade não disponível na lista ' + listGuid); d.resolve({}); });
+            });
+        return d.promise();
     }
 
     // ================= Carregamento =================
@@ -1296,8 +1340,11 @@ $(document).ready(function () {
             obterOpcoesAreaOHF(),
             obterOHFHydra(),
             obterHydra(),
-            obterProdHydra()
-        ).done(function (resProd, resEnsaio, resOHF, opcoesAreaOHF, resOHFHydra, resHydra, resProdHydra) {
+            obterProdHydra(),
+            obterUnidades(listGuidProd),
+            obterUnidades(listGuidOHF)
+        ).done(function (resProd, resEnsaio, resOHF, opcoesAreaOHF, resOHFHydra, resHydra, resProdHydra, unidadesProd, unidadesOHF) {
+            unidadeAreaCC = {};
             var extraProd = {};
             (resProdHydra || []).forEach(function (x) { extraProd[String(x.ID)] = x; });
             // Hydra: quantidades por turno e colunas Hydra da lista OHF
@@ -1344,7 +1391,8 @@ $(document).ready(function () {
                     event.qtdHydraFechados = numOuNulo(campoLista(xp, ['Qtd_x0020_Hydra_x0020_dias_x0020_fechados'])) || 0;
                     event.hydraUltimoDia = diaLista(campoLista(xp, ['_x00da_ltimo_x0020_dia_x0020_acumulado']));
                     event.dataProducao = campoLista(xp, ['Data_x0020_Produ_x00e7__x00e3_o', 'DataProducao']) || '';
-                    if (areaBruta && campoCC) registarAreaCC(areaBruta, campoCC, false);
+                    event.unidade = unidadesProd[String(value.ID)] || '';
+                    if (areaBruta && campoCC) registarAreaCC(areaBruta, campoCC, false, event.unidade);
                     allEvents.push(event);
                 }
             });
@@ -1426,9 +1474,10 @@ $(document).ready(function () {
                     allDay: true
                 });
                 aplicarHydraOHF(allEvents[allEvents.length - 1]);
+                allEvents[allEvents.length - 1].unidade = unidadesOHF[String(value.ID)] || '';
 
                 if (areaBruta && campoCC) {
-                    registarAreaCC(areaBruta, campoCC, true);
+                    registarAreaCC(areaBruta, campoCC, true, unidadesOHF[String(value.ID)] || '');
                     areasTurnos.add(areaBruta);
                 }
             });
@@ -1450,62 +1499,121 @@ $(document).ready(function () {
             try { resolverValidacoesSequencias(); } catch (errSync) { console.warn('Erro nas validações das sequências OHF:', errSync); }
 
             requestAnimationFrame(function () {
-                // Reabrir na Área/CC de onde se saiu (vindo do formulário); senão, a primeira área
-                var primeiraArea = $('#areaButtonsContainer .area-button').filter(function () {
-                    return areaInicial && $(this).attr('data-area') === areaInicial;
-                }).first();
-                if (!primeiraArea.length) primeiraArea = $('#areaButtonsContainer .area-button').first();
-                if (primeiraArea.length) {
-                    primeiraArea.trigger('click');
-                    if (ccInicial && ccInicial !== currentCC) {
-                        $('.cc-button').filter(function () { return $(this).attr('data-cc') === ccInicial; }).first().trigger('click');
-                    }
-                    areaInicial = ccInicial = null;
-                } else {
-                    $('#ccButtonsContainer').empty();
-                    $('#calToolbar').empty(); $('#graficoKA').empty();
-                }
+                // Reabrir na seleção de onde se saiu (vindo do formulário); senão, sem seleção
+                currentUnidade = unidadeInicial || null;
+                currentArea = areaInicial || null;
+                currentCC = ccInicial || null;
+                unidadeInicial = areaInicial = ccInicial = null;
+                if (currentUnidade && !unidadeAreaCC[currentUnidade]) currentUnidade = null;
+                if (currentArea && areasDaUnidade().indexOf(currentArea) === -1) currentArea = null;
+                if (currentCC && ccsDaSelecao().indexOf(currentCC) === -1) currentCC = null;
+                mostrarSelecao();
             });
         });
     }
 
     // ================= Botões de Área e CC =================
 
-    function renderAreaButtons() {
-        var container = $('#areaButtonsContainer');
-        container.empty();
-
-        var fragment = $(document.createDocumentFragment());
-        Object.keys(areaCCMap).sort().forEach(function (area, index) {
-            var btn = $('<button/>', {
-                type: 'button',
-                text: area,
-                'class': 'btn calendar-button area-button ' + (index === 0 ? 'btn-success' : 'btn-secondary'),
-                'data-area': area
-            });
-            fragment.append(btn);
-        });
-        container.append(fragment);
-
-        container.off('click', '.area-button').on('click', '.area-button', function (e) {
-            e.preventDefault();
-            currentArea = String($(this).attr('data-area')).trim();
-
-            $('.area-button').addClass('btn-secondary').removeClass('btn-success');
-            $(this).addClass('btn-success').removeClass('btn-secondary');
-
-            var ccs = renderCCButtons();
-            if (ccs.length) {
-                currentCC = ccs[0];
-                atualizarCalendario();
-            } else {
-                currentCC = null;
-                $('#calToolbar').empty(); $('#graficoKA').empty();
-                $('#calendarsContainer > div').hide();
-                $('#shiftCalendar').hide();
-            }
-        });
+    // Unidades com registos (a vazia, de registos sem Unidade, não tem botão)
+    function unidadesDisponiveis() {
+        return Object.keys(unidadeAreaCC).filter(function (u) { return u; }).sort();
     }
+
+    // Áreas da Unidade escolhida; sem Unidade, todas
+    function areasDaUnidade() {
+        if (!currentUnidade) return Object.keys(areaCCMap).sort();
+        var areas = Object.keys(unidadeAreaCC[currentUnidade] || {});
+        return areas.filter(function (a) { return areaCCMap[a]; }).sort();
+    }
+
+    // Centros de Custo da Área escolhida (e da Unidade, se houver). Os registos sem Unidade
+    // (ex.: ensaios) entram sempre.
+    function ccsDaSelecao() {
+        if (!currentArea || !areaCCMap[currentArea]) return [];
+        var todos;
+        if (!currentUnidade) {
+            todos = Array.from(areaCCMap[currentArea]);
+        } else {
+            var set = new Set();
+            [currentUnidade, ''].forEach(function (u) {
+                var s2 = unidadeAreaCC[u] && unidadeAreaCC[u][currentArea];
+                if (s2) s2.forEach(function (cc) { set.add(cc); });
+            });
+            todos = Array.from(set);
+        }
+        todos.sort();
+        var ccs = todos.filter(function (cc) { return ccTemRegistos(currentArea, cc); });
+        return ccs.length ? ccs : todos;
+    }
+
+    function botaoFiltro(classe, texto, attr, valor, ativo) {
+        var b = $('<button/>', { type: 'button', text: texto, 'class': 'btn calendar-button ' + classe + ' ' + (ativo ? 'btn-success' : 'btn-secondary') });
+        b.attr(attr, valor);
+        return b;
+    }
+
+    function renderUnidadeButtons() {
+        var unidades = unidadesDisponiveis();
+        $('#linhaUnidades').toggle(unidades.length > 0);
+        var c = $('#unidadeButtonsContainer').empty();
+        unidades.forEach(function (u) { c.append(botaoFiltro('unidade-button', u, 'data-unidade', u, u === currentUnidade)); });
+    }
+
+    function renderAreaButtons() {
+        var c = $('#areaButtonsContainer').empty();
+        areasDaUnidade().forEach(function (a) { c.append(botaoFiltro('area-button', a, 'data-area', a, a === currentArea)); });
+    }
+
+    function renderCCButtons() {
+        var c = $('#ccButtonsContainer').empty();
+        if (!currentArea) {
+            c.append('<span class="filtro-dica">Escolha uma área</span>');
+            return [];
+        }
+        var ccs = ccsDaSelecao();
+        ccs.forEach(function (cc) { c.append(botaoFiltro('cc-button', cc, 'data-cc', cc, cc === currentCC)); });
+        return ccs;
+    }
+
+    // Desenha os filtros e mostra o calendário só se houver Centro de Custo escolhido
+    function mostrarSelecao() {
+        renderUnidadeButtons();
+        renderAreaButtons();
+        renderCCButtons();
+        if (currentArea && currentCC) {
+            $('#semSelecao').hide();
+            atualizarCalendario();
+        } else {
+            esconderCalendario();
+        }
+    }
+
+    function esconderCalendario() {
+        $('#calToolbar').empty();
+        $('#graficoKA').empty();
+        $('#calendarsContainer > div').hide();
+        $('#shiftCalendar').hide();
+        $('#semSelecao').show();
+    }
+
+    // Carregar num filtro escolhido tira a escolha; escolher um nível de cima limpa os de baixo
+    // que deixam de fazer sentido
+    $(document).on('click', '.unidade-button', function (e) {
+        e.preventDefault();
+        var u = String($(this).attr('data-unidade'));
+        currentUnidade = currentUnidade === u ? null : u;
+        if (currentArea && areasDaUnidade().indexOf(currentArea) === -1) { currentArea = null; currentCC = null; }
+        if (currentCC && ccsDaSelecao().indexOf(currentCC) === -1) currentCC = null;
+        mostrarSelecao();
+    });
+
+    $(document).on('click', '.area-button', function (e) {
+        e.preventDefault();
+        var a = String($(this).attr('data-area')).trim();
+        currentArea = currentArea === a ? null : a;
+        currentCC = null;
+        mostrarSelecao();
+    });
 
     // Um CC só tem botão se tiver registos desta Área entre SEMANAS_CC_ANTES semanas antes e
     // SEMANAS_CC_DEPOIS semanas depois da semana de HOJE (dia da consulta), inclusive.
@@ -1530,27 +1638,11 @@ $(document).ready(function () {
         });
     }
 
-    // Se nenhum CC da área tiver registos nessa janela, mostra todos os CCs da área.
-    function renderCCButtons() {
-        var container = $('#ccButtonsContainer').empty();
-        var todos = areaCCMap[currentArea] ? Array.from(areaCCMap[currentArea]).sort() : [];
-        var ccs = todos.filter(function (cc) { return ccTemRegistos(currentArea, cc); });
-        if (!ccs.length) ccs = todos;
-        ccs.forEach(function (cc) {
-            container.append($('<button/>', {
-                type: 'button',
-                text: cc,
-                'class': 'btn btn-secondary calendar-button cc-button',
-                'data-cc': cc
-            }));
-        });
-        return ccs;
-    }
-
     $(document).on('click', '.cc-button', function (event) {
         event.preventDefault();
-        currentCC = String($(this).attr('data-cc')).trim();
-        atualizarCalendario();
+        var cc = String($(this).attr('data-cc')).trim();
+        currentCC = currentCC === cc ? null : cc;
+        mostrarSelecao();
     });
 
     // ================= Mostrar o calendário certo =================
