@@ -149,7 +149,7 @@
     .cc-title { font-size: 1.1rem; font-weight: bold; color: #333; margin-right: 15px; white-space: nowrap; }
     .unidade-button { margin-bottom: 5px; margin-right: 4px; min-width: 90px; font-weight: bold; }
     .filtro-dica { font-size: 13px; color: #8a8984; font-style: italic; margin-bottom: 5px; }
-    .sem-selecao { margin: 30px 0; padding: 28px 20px; text-align: center; color: #6f6e69; font-size: 15px; border: 1px dashed #cfd4da; border-radius: 8px; background: #fafafa; }
+    .sem-selecao { margin: 6px 0 14px; padding: 12px 16px; text-align: center; color: #6f6e69; font-size: 15px; border: 1px dashed #cfd4da; border-radius: 8px; background: #fafafa; }
     .sem-selecao .fa { margin-right: 6px; color: #8a8984; }
 
 
@@ -318,7 +318,7 @@
                 <!-- Vista semanal por turnos (áreas da lista OHF) -->
                 <div id="shiftCalendar" style="display:none;"></div>
                 <!-- Sem Centro de Custo escolhido: o calendário fica escondido -->
-                <div id="semSelecao" class="sem-selecao" style="display:none;"><i class="fa fa-hand-pointer-o"></i> Escolha um <b>Centro de Custo</b> para ver o calendário.</div>
+                <div id="semSelecao" class="sem-selecao" style="display:none;"><i class="fa fa-hand-pointer-o"></i> Escolha um <b>Centro de Custo</b> para ver o calendário. Em baixo, o resumo da seleção.</div>
             </div>
 
             <div class="col-md-2" style="border-left: 1px solid #e2e8f0; padding-left: 15px; margin-top: 0;">
@@ -1588,12 +1588,29 @@ $(document).ready(function () {
         }
     }
 
+    // Sem Centro de Custo: esconde o calendário, mas mantém a barra da semana, o gráfico e a
+    // tabela, com os dados da seleção (Unidade / Área) ou de tudo
     function esconderCalendario() {
-        $('#calToolbar').empty();
-        $('#graficoKA').empty();
         $('#calendarsContainer > div').hide();
         $('#shiftCalendar').hide();
         $('#semSelecao').show();
+        renderToolbarResumo();
+    }
+
+    function renderToolbarResumo() {
+        var inicio = dataReferencia.clone().startOf('isoWeek');
+        var fim = inicio.clone().add(mostrarFimDeSemana ? 6 : 4, 'days');
+        var iS = inicio.format('YYYY-MM-DD'), fS = fim.format('YYYY-MM-DD');
+        var contagem = allEvents.filter(function (e) {
+            var d = e.diaTurno || e.start;
+            return registoNaSelecao(e) && d >= iS && d <= fS;
+        }).length;
+        renderToolbar({
+            titulo: tituloSemana(inicio, fim),
+            hojeDesativado: moment().startOf('isoWeek').isSame(inicio, 'day'),
+            contagem: contagem,
+            vistas: false
+        });
     }
 
     // Carregar num filtro escolhido tira a escolha; escolher um nível de cima limpa os de baixo
@@ -1781,11 +1798,11 @@ $(document).ready(function () {
     $('#calToolbar').on('click', '[data-nav]', function (e) {
         e.preventDefault();
         var nav = $(this).attr('data-nav');
-        if (modoTurnos()) {
+        if (!currentCC || modoTurnos()) {
             if (nav === 'prev') dataReferencia = dataReferencia.clone().subtract(1, 'week');
             else if (nav === 'next') dataReferencia = dataReferencia.clone().add(1, 'week');
             else dataReferencia = moment().startOf('isoWeek');
-            renderShiftCalendar();
+            if (currentCC) renderShiftCalendar(); else renderToolbarResumo();
         } else {
             var $cal = calendarioAtual();
             if ($cal) {
@@ -1836,6 +1853,10 @@ $(document).ready(function () {
 
     function definirDias(seteDias) {
         mostrarFimDeSemana = seteDias;
+        if (!currentCC) {
+            renderToolbarResumo();
+            return;
+        }
         if (modoTurnos()) {
             renderShiftCalendar();
         } else {
@@ -2233,19 +2254,42 @@ $(document).ready(function () {
         return r;
     }
 
+    /* Registo dentro da seleção de filtros (Unidade / Área / Centro de Custo, todos
+       opcionais). Áreas de turnos usam a lista OHF; as outras, a lista OPA/OPT. */
+    function registoNaSelecao(e) {
+        if (e.tipoLista !== 'OHF' && e.tipoLista !== 'Producao') return false;
+        var area = String(e.area || '').trim();
+        if (!area || !areaCCMap[area]) return false;
+        if ((e.tipoLista === 'OHF') !== areasTurnos.has(area)) return false;
+        if (currentArea && area !== String(currentArea)) return false;
+        if (currentUnidade) {
+            if (e.unidade && e.unidade !== currentUnidade) return false;
+            if (!e.unidade && areasDaUnidade().indexOf(area) === -1) return false;
+        }
+        if (currentCC && String(e.cc) !== String(currentCC)) return false;
+        return true;
+    }
+
+    // Texto da seleção para o título do gráfico
+    function descricaoSelecao() {
+        var p = [];
+        if (currentUnidade) p.push('Unidade <b>' + escHtml(currentUnidade) + '</b>');
+        p.push(currentArea ? 'Área <b>' + escHtml(currentArea) + '</b>' : (currentUnidade ? 'todas as áreas' : 'Todas as unidades e áreas'));
+        if (currentCC) p.push('CC <b>' + escHtml(currentCC) + '</b>');
+        else if (currentArea) p.push('todos os CC');
+        return p.join(' · ');
+    }
+
     function dadosGraficoKA() {
         var inicio = dataReferencia.clone().startOf('isoWeek');
         var n = mostrarFimDeSemana ? 7 : 5;
         var dias = [];
         for (var i = 0; i < n; i++) dias.push(inicio.clone().add(i, 'days'));
         var iniStr = dias[0].format('YYYY-MM-DD'), fimStr = dias[n - 1].format('YYYY-MM-DD');
-        var turnos = modoTurnos();
         var temProd = true;   // OHF: QtdTotalDia · OPA/OPT: Qtd Produzida
 
         var registos = allEvents.filter(function (e) {
-            if (String(e.cc) !== String(currentCC)) return false;
-            if (turnos) { if (e.tipoLista !== 'OHF' || String(e.area) !== String(currentArea)) return false; }
-            else { if (e.tipoLista !== 'Producao' || (e.area && String(e.area) !== String(currentArea))) return false; }
+            if (!registoNaSelecao(e)) return false;
             var d = e.diaTurno || e.start;
             return d >= iniStr && d <= fimStr;
         });
@@ -2262,15 +2306,15 @@ $(document).ready(function () {
         });
         // O produzido vai para o dia em que foi mesmo produzido (Hydra), não para o planeado.
         // Entram também os KAs planeados noutra semana mas produzidos nesta.
-        var regsArea = allEvents.filter(function (e) {
-            if (String(e.cc) !== String(currentCC)) return false;
-            if (turnos) return e.tipoLista === 'OHF' && String(e.area) === String(currentArea);
-            return e.tipoLista === 'Producao' && !(e.area && String(e.area) !== String(currentArea));
-        });
+        var regsArea = allEvents.filter(registoNaSelecao);
+        // Registos por KA e por C.C. (a produção do Hydra é por C.C. + KA); a linha do KA
+        // soma os C.C. da seleção
         var porKA = {};
         regsArea.forEach(function (e) {
             var k = String(e.title || '').trim();
-            (porKA[k] = porKA[k] || []).push(e);
+            var kc = String(e.cc) + '|' + k;
+            porKA[k] = porKA[k] || {};
+            (porKA[k][kc] = porKA[k][kc] || []).push(e);
             var dr = diaRealOHF(e);
             if (!grupos[k] && dr >= iniStr && dr <= fimStr && qtdProduzidaEfetiva(e)) grupos[k] = dias.map(function () { return []; });
         });
@@ -2280,8 +2324,13 @@ $(document).ready(function () {
                 regs.forEach(function (e) { var p = parseFloat(e.qtdPlan); if (!isNaN(p)) o.plan[i] += p; });
             });
             dias.forEach(function (d, i) {
-                var a = produzidoDiaKA(porKA[k] || [], d.format('YYYY-MM-DD'));
-                o.prod[i] = a.prod; o.prov[i] = a.prov; o.conflito[i] = a.conflito;
+                var porCC = porKA[k] || {};
+                Object.keys(porCC).forEach(function (kc) {
+                    var a = produzidoDiaKA(porCC[kc], d.format('YYYY-MM-DD'));
+                    o.prod[i] += a.prod;
+                    o.prov[i] = o.prov[i] || a.prov;
+                    o.conflito[i] = o.conflito[i] || a.conflito;
+                });
             });
             return o;
         });
@@ -2326,7 +2375,9 @@ $(document).ready(function () {
             cols.push({ l: r.left - base, w: r.width });
         });
         if (cols.length !== n || !cols[0].w) {                     // sem calendário visível: divisão igual
-            var W = $ref.width(), l0 = 70, w = (W - l0) / n;
+            // como a vista por turnos: coluna do KA à esquerda e espaço à direita para a
+            // legenda e o resumo da semana
+            var W = $ref.width(), l0 = 115, w = (W - l0 - 250) / n;
             cols = [];
             for (var i = 0; i < n; i++) cols.push({ l: l0 + i * w, w: w });
         }
@@ -2335,7 +2386,6 @@ $(document).ready(function () {
 
     function renderGraficoKA() {
         var $box = $('#graficoKA');
-        if (!currentArea || !currentCC) { $box.empty(); return; }
         var D = dadosGraficoKA();
         if (kaGrafico !== 'Todos' && !D.lista.some(function (o) { return o.ka === kaGrafico; })) kaGrafico = 'Todos';
         var sel = kaGrafico === 'Todos' ? D.total : D.lista.filter(function (o) { return o.ka === kaGrafico; })[0];
@@ -2344,11 +2394,10 @@ $(document).ready(function () {
 
         var h = '<div class="gk"><div class="gk-cab"><div>';
         h += '<div class="gk-titulo">Planeado vs Produzido acumulado</div>';
-        h += '<div class="gk-sub">Área <b>' + escHtml(currentArea) + '</b> · CC <b>' + escHtml(currentCC) + '</b> · ' + escHtml(semana) +
-             '</div>';
+        h += '<div class="gk-sub">' + descricaoSelecao() + ' · ' + escHtml(semana) + '</div>';
 
         if (!D.lista.length) {
-            $box.html(h + '</div></div><div class="gk-vazio">Sem registos de produção para este CC nesta semana.</div></div>');
+            $box.html(h + '</div></div><div class="gk-vazio">Sem registos de produção para esta seleção nesta semana.</div></div>');
             return;
         }
         h += '<div class="gk-chips">';
@@ -2491,7 +2540,7 @@ $(document).ready(function () {
         h += '</tr>';
 
         linhas.forEach(function (o) {
-            var tot = o.ka === 'Todos', nome = tot ? 'Total do CC' : escHtml(o.ka);
+            var tot = o.ka === 'Todos', nome = tot ? (currentCC ? 'Total do CC' : 'Total') : escHtml(o.ka);
             h += '<tr' + (tot ? ' class="gk-total"' : '') + '><td class="gk-kacel">' + (kaEsq ? nome : '') + '</td>';
             D.dias.forEach(function (d, i) {
                 var hj = i === D.marcaHoje ? ' gk-hoje' : '';
